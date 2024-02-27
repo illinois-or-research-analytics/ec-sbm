@@ -13,10 +13,10 @@ method = sys.argv[3]
 print(
     f'Statisctics for {network_id} at resolution {resolution} using {method}')
 
-_dir = f'data/networks/{network_id}_{method}_networks/{network_id}_leiden{resolution}_{method}'
+_dir = f'data/networks/{method}/{network_id}_{method}_networks/{network_id}_leiden{resolution}_{method}'
 
-edge = 'edge' if method in ['abcd', 'abcds'] else 'network'
-com = 'com' if method in ['abcd', 'abcds'] else 'community'
+edge = 'edge' if 'abcd' in method else 'network'
+com = 'com' if 'abcd' in method else 'community'
 os.system(
     f'python cluster-statistics/stats.py -i {_dir}/{edge}.dat -e {_dir}/{com}.dat -o {_dir}/stats.csv')
 
