@@ -150,22 +150,24 @@ if __name__ == "__main__":
     cluster_num, cluster_sizes, min_size, max_size, mean_size, median_size, singletons_num, non_singleton_num, \
         coverage = clustering_statistics(net, membership)
 
-    degree_dist = powerlaw.Fit(degrees, discrete=True)
+    degree_dist = powerlaw.Fit(degrees, discrete=True, verbose=False)
     tau1 = degree_dist.power_law.alpha
     xmin1 = degree_dist.power_law.xmin
 
-    degree_dist_fixed = powerlaw.Fit(degrees, discrete=True, xmin=min_degree)
+    degree_dist_fixed = powerlaw.Fit(
+        degrees, discrete=True, xmin=min_degree, verbose=False)
     tau1_fixed = degree_dist_fixed.power_law.alpha
     xmin1_fixed = degree_dist_fixed.power_law.xmin
 
     # powerlaw.plot_pdf(community_sizes, color='b')
 
-    community_size_dist = powerlaw.Fit(cluster_sizes, discrete=True)
+    community_size_dist = powerlaw.Fit(
+        cluster_sizes, discrete=True, verbose=False)
     tau2 = community_size_dist.power_law.alpha
     xmin2 = community_size_dist.power_law.xmin
 
     community_size_dist_fixed = powerlaw.Fit(
-        cluster_sizes, discrete=True, xmin=min_size)
+        cluster_sizes, discrete=True, xmin=min_size, verbose=False)
     tau2_fixed = community_size_dist_fixed.power_law.alpha
     xmin2_fixed = community_size_dist_fixed.power_law.xmin
 
