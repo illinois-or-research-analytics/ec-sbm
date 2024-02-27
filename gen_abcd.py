@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import json
 from collections import defaultdict
 
 import networkx as nx
@@ -34,44 +35,63 @@ resolution = sys.argv[2]
 
 method = 'abcd'
 output_dir = f'data/networks/{method}/{network_id}_{method}_networks/{network_id}_leiden{resolution}_{method}'
-if not os.path.exists(output_dir):
-    os.system(f'mkdir -p {output_dir}')
-
-# == Read network stats
-network_stats_json_path = f'data/network_params/{network_id}_leiden{resolution}.json'
-_, _, _, _, mu, _, _, _, _ = \
-    process_stats_to_params(network_stats_json_path, 0)
+os.makedirs(output_dir, exist_ok=True)
 
 # == Read generated LFR network
-lfr_dir = f'data/networks/lfr/{network_id}_lfr_networks/{network_id}_leiden{resolution}_lfr'
+if not os.path.exists(f'{output_dir}/deg.dat') \
+        or not os.path.exists(f'{output_dir}/cs.dat') \
+        or not os.path.exists(f'{output_dir}/params.json'):
 
-# Load network
-G = nx.read_edgelist([' '.join(x.strip().split('\t')) for x in open(
-    f'{lfr_dir}/network.dat').readlines()], nodetype=int)
+    lfr_dir = f'data/networks/lfr/{network_id}_lfr_networks/{network_id}_leiden{resolution}_lfr'
 
-# Generate degree sequence
-degree = []
-for u in G.nodes:
-    degree.append(len(G[u]))
-degree = sorted(degree, reverse=True)
+    # Load network
+    G = nx.read_edgelist([' '.join(x.strip().split('\t')) for x in open(
+        f'{lfr_dir}/network.dat').readlines()], nodetype=int)
 
-with open(f'{output_dir}/deg.dat', 'w') as f:
-    f.write('\n'.join(map(str, degree)))
+    if not os.path.exists(f'{output_dir}/deg.dat'):
+        # Generate degree sequence
+        degree = []
+        for u in G.nodes:
+            degree.append(len(G[u]))
+        degree = sorted(degree, reverse=True)
 
-# Generate community size sequence
-cs = {}
-for line in open(f'{lfr_dir}/community.dat').readlines():
-    node, comm = map(int, line.strip().split('\t'))
-    cs.setdefault(comm, 0)
-    cs[comm] += 1
-cs = sorted(cs.values(), reverse=True)
+        with open(f'{output_dir}/deg.dat', 'w') as f:
+            f.write('\n'.join(map(str, degree)))
 
-with open(f'{output_dir}/cs.dat', 'w') as f:
-    f.write('\n'.join(map(str, cs)))
+    if not os.path.exists(f'{output_dir}/cs.dat'):
+        # Generate community size sequence
+        cs = {}
+        for line in open(f'{lfr_dir}/community.dat').readlines():
+            node, comm = map(int, line.strip().split('\t'))
+            cs.setdefault(comm, 0)
+            cs[comm] += 1
+        cs = sorted(cs.values(), reverse=True)
 
-# Generate xi
-seed = 0
-xi = compute_xi(G, f'{lfr_dir}/community.dat')
+        with open(f'{output_dir}/cs.dat', 'w') as f:
+            f.write('\n'.join(map(str, cs)))
+
+    if not os.path.exists(f'{output_dir}/params.json'):
+        network_stats_json_path = f'data/network_params/{network_id}_leiden{resolution}.json'
+        _, _, _, _, mu, _, _, _, _ = \
+            process_stats_to_params(network_stats_json_path, 0)
+
+        seed = 0
+
+        # Generate xi
+        xi = compute_xi(G, f'{lfr_dir}/community.dat')
+
+        with open(f'{output_dir}/params.json', 'w') as f:
+            json.dump({
+                'seed': seed,
+                'xi': xi,
+                'mu': mu
+            }, f)
+
+with open(f'{output_dir}/params.json', 'r') as f:
+    params = json.load(f)
+    seed = params['seed']
+    xi = params['xi']
+    mu = params['mu']
 
 # == Generate ABCD network
 print(
