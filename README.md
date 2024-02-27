@@ -17,4 +17,9 @@ export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 julia ABCDGraphGenerator.jl/utils/install.jl
 ```
 
+To modify ABCD generator:
+```
+ln -s /home/vltanh/synnet/ABCDGraphGenerator.jl ~/.julia/packages/ABCDGraphGenerator/ZBC5x
+```
+
 To run cluster-statistics:
