@@ -1,0 +1,4 @@
+NetworkX
+numpy
+powerlaw
+networkit
