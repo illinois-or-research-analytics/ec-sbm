@@ -1,4 +1,4 @@
-function populate_clusters_tadev(params::ABCDParams)
+function populate_clusters_ta(params::ABCDParams)
     w, s = params.w, params.s
     if isnothing(params.ξ)
         mul = 1.0 - params.μ
@@ -54,38 +54,10 @@ function populate_clusters_tadev(params::ABCDParams)
         wts = Weights(view(slots, (j0+1):j))
         wts.sum == 0 && throw(ArgumentError("could not find an empty slot for vertex of weight $vw"))
         # loc = sample((j0+1):j, wts)
-
-        # Count the number of non-zero in slots[j0+1:j]
-        c = 0
-        t = j0
-        for k in (j0+1):j
-            if slots[k] > 0
-                c += 1
-            end
+        loc = j0 + 1
+        while loc ≤ j && slots[loc] == 0
+            loc += 1
         end
-        
-        ncandidates = c * 0.2
-
-        # Only sample from the first 50% of the slots[j0+1:j] if there are more than 1 non-zero slots
-        if ncandidates < 1
-            # Find the first non-zero slot
-            loc = j0 + 1
-            while slots[loc] == 0
-                loc += 1
-            end
-        else
-            c = 0
-            t = j0 + 1
-            while t ≤ j && c < ncandidates
-                if slots[t] > 0
-                    c += 1
-                end
-                t += 1
-            end
-            wts = Weights(view(slots, (j0+1):t))
-            loc = sample((j0+1):t, wts)
-        end
-        
         clusters[i] = loc
         slots[loc] -= 1
     end
@@ -95,16 +67,16 @@ function populate_clusters_tadev(params::ABCDParams)
 end
 
 """
-    gen_graph_tadev(params::ABCDParams)
+    gen_graph_ta(params::ABCDParams)
 
-Generate modified ABCD graph (dev) following parameters specified in `params`.
+Generate modified ABCD graph following parameters specified in `params`.
 
 Return a named tuple containing a set of edges of the graph and a list of cluster
 assignments of the vertices.
 The ordering of vertices and clusters is in descending order (as in `params`).
 """
-function gen_graph_tadev(params::ABCDParams)
-    clusters = populate_clusters_tadev(params)
+function gen_graph_ta(params::ABCDParams)
+    clusters = populate_clusters_ta(params)
     edges = params.isCL ? CL_model(clusters, params) : config_model(clusters, params)
     (edges=edges, clusters=clusters)
 end

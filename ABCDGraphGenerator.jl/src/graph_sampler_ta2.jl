@@ -1,4 +1,4 @@
-function populate_clusters_tadev(params::ABCDParams)
+function populate_clusters_ta2(params::ABCDParams)
     w, s = params.w, params.s
     if isnothing(params.ξ)
         mul = 1.0 - params.μ
@@ -64,7 +64,7 @@ function populate_clusters_tadev(params::ABCDParams)
             end
         end
         
-        ncandidates = c * 0.2
+        ncandidates = c * 0.1
 
         # Only sample from the first 50% of the slots[j0+1:j] if there are more than 1 non-zero slots
         if ncandidates < 1
@@ -103,8 +103,8 @@ Return a named tuple containing a set of edges of the graph and a list of cluste
 assignments of the vertices.
 The ordering of vertices and clusters is in descending order (as in `params`).
 """
-function gen_graph_tadev(params::ABCDParams)
-    clusters = populate_clusters_tadev(params)
+function gen_graph_ta2(params::ABCDParams)
+    clusters = populate_clusters_ta2(params)
     edges = params.isCL ? CL_model(clusters, params) : config_model(clusters, params)
     (edges=edges, clusters=clusters)
 end

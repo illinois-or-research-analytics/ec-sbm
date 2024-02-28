@@ -3,16 +3,16 @@ import os
 seed = 0
 
 # Number of nodes
-n = 10
+n = 50
 
 # Degree distribution
 t1 = 2
 d_min = 1
-d_max = 2
+d_max = 3
 
 # Community size distribution
 t2 = 3
-c_min = 3
+c_min = 5
 c_max = 10
 
 # Mixing parameter
