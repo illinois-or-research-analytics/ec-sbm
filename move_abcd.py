@@ -1,7 +1,8 @@
 import os
+import sys
 
-src = 'abcd'
-dst = 'abcdta2'
+src = sys.argv[1]
+dst = sys.argv[2]
 
 src_dir = f'data/networks/{src}/'
 dst_dir = src_dir.replace(src, dst)
@@ -16,4 +17,5 @@ for d in os.listdir(src_dir):
         src_subsubdir = f'{src_subdir}/{dd}'
         dst_subsubdir = src_subsubdir.replace(src, dst)
         # os.makedirs(abcdta_subsubdir, exist_ok=True)
-        os.system(f'cp -r {src_subsubdir} {dst_subsubdir}')
+        os.system(f'mkdir -p {dst_subsubdir}')
+        os.system(f'cp {src_subsubdir}/deg.dat {src_subsubdir}/cs.dat {src_subsubdir}/params.json {dst_subsubdir}/')
