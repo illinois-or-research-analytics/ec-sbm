@@ -25,7 +25,8 @@ c = Counter(stats['connectivity'].tolist())
 plt.bar(c.keys(), c.values())
 
 EPS = 1e-8
-bins = np.arange(0, max(stats['connectivity']) + EPS, 0.1) + EPS
+bins = np.arange(
+    0, max(stats['connectivity_normalized_log10(n)']) + EPS, 0.1) + EPS
 bins[0] -= EPS
 print(bins)
 
@@ -39,20 +40,21 @@ ax.axvline(1.0, color='red')
 fig.tight_layout()
 fig.savefig(f'{_dir}/norm_connectivity_hist.pdf')
 
-wellconnected = len(
-    [x for x in stats['connectivity_normalized_log10(n)'].tolist() if x > 1.0])
-print(
-    f'Well connected: {wellconnected} / {len(stats) - 1} = {wellconnected / (len(stats) - 1)}')
+with open(f'{_dir}/connectivity.log', 'w') as f:
+    wellconnected = len(
+        [x for x in stats['connectivity_normalized_log10(n)'].tolist() if x > 1.0])
+    f.write(
+        f'Well connected: {wellconnected} / {len(stats) - 1} = {wellconnected / (len(stats) - 1)}\n')
 
-disconnected = len(
-    [x for x in stats['connectivity_normalized_log10(n)'].tolist() if x < EPS])
-print(
-    f'Well connected: {disconnected} / {len(stats) - 1} = {disconnected / (len(stats) - 1)}')
+    disconnected = len(
+        [x for x in stats['connectivity_normalized_log10(n)'].tolist() if x < EPS])
+    f.write(
+        f'Disconnected: {disconnected} / {len(stats) - 1} = {disconnected / (len(stats) - 1)}\n')
 
 os.system(
     f'python cluster-statistics/summarize.py {_dir}/stats.csv {_dir}/{edge}.dat')
 
-lfr_summary = pd.read_csv(f'{_dir}/stats_summary.csv', header=None)
-for row in lfr_summary.iterrows():
-    k, v = row[1].values
-    print(f'{k} \t\t\t {v}')
+# lfr_summary = pd.read_csv(f'{_dir}/stats_summary.csv', header=None)
+# for row in lfr_summary.iterrows():
+#     k, v = row[1].values
+#     print(f'{k} \t\t\t {v}')

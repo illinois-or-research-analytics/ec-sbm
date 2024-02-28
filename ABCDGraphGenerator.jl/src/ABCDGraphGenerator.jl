@@ -6,5 +6,6 @@ using ArgParse
 
 include("pl_sampler.jl")
 include("graph_sampler.jl")
+include("graph_sampler_dev.jl")
 
 end # module
