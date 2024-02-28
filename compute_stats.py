@@ -44,12 +44,12 @@ with open(f'{_dir}/connectivity.log', 'w') as f:
     wellconnected = len(
         [x for x in stats['connectivity_normalized_log10(n)'].tolist() if x > 1.0])
     f.write(
-        f'Well connected: {wellconnected} / {len(stats) - 1} = {wellconnected / (len(stats) - 1)}\n')
+        f'Well connected: {wellconnected} / {len(stats)} = {wellconnected / (len(stats))}\n')
 
     disconnected = len(
         [x for x in stats['connectivity_normalized_log10(n)'].tolist() if x < EPS])
     f.write(
-        f'Disconnected: {disconnected} / {len(stats) - 1} = {disconnected / (len(stats) - 1)}\n')
+        f'Disconnected: {disconnected} / {len(stats)} = {disconnected / (len(stats))}\n')
 
 os.system(
     f'python cluster-statistics/summarize.py {_dir}/stats.csv {_dir}/{edge}.dat')
