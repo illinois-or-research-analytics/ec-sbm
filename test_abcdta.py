@@ -42,4 +42,4 @@ networkfile = "{outdir}/edge.dat"
 nout = "0"''')
 
 os.system(
-    f'julia ABCDGraphGenerator.jl/utils/abcdta_sampler.jl {outdir}/config.toml')
+    f'julia ABCDGraphGenerator.jl/utils/abcdtadev_sampler.jl {outdir}/config.toml')
