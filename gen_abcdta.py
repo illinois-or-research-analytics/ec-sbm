@@ -32,8 +32,8 @@ def compute_xi(G, comm_fn):
 
 network_id = sys.argv[1]
 resolution = sys.argv[2]
+method = sys.argv[3]
 
-method = 'abcdta'
 output_dir = f'data/networks/{method}/{network_id}_{method}_networks/{network_id}_leiden{resolution}_{method}'
 os.makedirs(output_dir, exist_ok=True)
 
@@ -99,7 +99,7 @@ print(
 print(f'Mixing parameter (mu) {mu}')
 print(f'Mixing parameter (xi) {xi}')
 
-cmd = f'julia ABCDGraphGenerator.jl/utils/graphta_sampler.jl \
+cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler_{method}.jl \
                 {output_dir}/edge.dat {output_dir}/com.dat \
                 {output_dir}/deg.dat {output_dir}/cs.dat \
                 xi {xi} false false {seed} 0'
