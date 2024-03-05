@@ -11,7 +11,8 @@ method = sys.argv[3]
 print(
     f'Statisctics for {network_id} at resolution {resolution} using {method}')
 
-_dir = f'data/networks/{method}/{network_id}_{method}_networks/{network_id}_leiden{resolution}_{method}'
+_dir = f'data/networks/{method}/{network_id}_{
+    method}_networks/{network_id}_leiden{resolution}_{method}'
 
 df = pd.read_csv(f'{_dir}/stats.csv')
 # df.drop(df.tail(1).index, inplace=True)
@@ -27,7 +28,6 @@ mincut_over_mindeg = [
 EPS = 1e-8
 bins = np.arange(0, 1.1, 0.1) + EPS
 bins[0] -= EPS
-print(bins)
 
 fig, ax = plt.subplots(1, 1, figsize=(8, 8), dpi=300)
 ax.hist(mincut_over_mindeg, bins=bins)
