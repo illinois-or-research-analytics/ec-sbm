@@ -3,20 +3,20 @@ import os
 seed = 0
 
 # Number of nodes
-n = 50
+n = 100
 
 # Degree distribution
 t1 = 2
-d_min = 1
+d_min = 2
 d_max = 3
 
 # Community size distribution
 t2 = 3
-c_min = 5
-c_max = 10
+c_min = 15
+c_max = 20
 
 # Mixing parameter
-xi = 0.5
+xi = 0.2
 
 outdir = 'output/test'
 os.makedirs(outdir, exist_ok=True)
