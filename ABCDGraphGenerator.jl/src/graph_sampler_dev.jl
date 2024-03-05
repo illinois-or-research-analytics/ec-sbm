@@ -164,32 +164,21 @@ function config_model_dev(clusters, params)
         local_edges = Set{Tuple{Int, Int}}()
         recycle = Tuple{Int,Int}[]
 
-        for i in cluster[sortperm(w_internal[cluster])]
-            if w_internal[i] == 0
+        pool = Int[]
+        for i in cluster[sortperm(w_internal[cluster], rev=true)]
+            if w_internal[i] <= 1 || isempty(pool)
+                push!(pool, i)
                 continue
             end
-            candidates = filter(e -> e ≠ i, cluster)
-            while true
-                wts = Weights(view(w_internal, candidates))
-                if wts.sum == 0
-                    break
-                end
 
-                loc = sample(candidates, wts)
-                e = minmax(i, loc)
-                if !(e in local_edges)
-                    # println("loc: ", loc)
-                    push!(local_edges, minmax(i, loc))
-                    w_internal[i] -= 1
-                    w_internal[loc] -= 1
-                    break
-                else
-                    candidates = filter(e -> e ≠ loc, candidates)
-                    if isempty(candidates)
-                        break
-                    end
-                end
+            loc = pool[argmax(view(w_internal, pool))]
+
+            if w_internal[loc] > 0
+                push!(local_edges, minmax(i, loc))
+                w_internal[i] -= 1
+                w_internal[loc] -= 1
             end
+            push!(pool, i)
         end
         
         println("local_edges: ", local_edges)
@@ -286,9 +275,8 @@ function config_model_dev(clusters, params)
         old_len = length(edges)
         union!(edges, local_edges)
 
-        println("Edges: ", edges)
+        println("Edges: ", local_edges)
         println("Recycle: ", recycle)
-        println("Stubs: ", stubs)
 
         @assert length(edges) == old_len + length(local_edges)
         @assert 2 * (length(local_edges) + length(recycle) - local_connected_edges_count) == length(stubs)

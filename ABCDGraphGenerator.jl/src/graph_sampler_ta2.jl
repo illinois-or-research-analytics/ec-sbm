@@ -64,7 +64,7 @@ function populate_clusters_ta2(params::ABCDParams)
             end
         end
         
-        ncandidates = c * 0.1
+        ncandidates = c * 0.01
 
         # Only sample from the first 50% of the slots[j0+1:j] if there are more than 1 non-zero slots
         if ncandidates < 1
@@ -155,28 +155,56 @@ function config_model_ta2(clusters, params)
         local_edges = Set{Tuple{Int, Int}}()
         recycle = Tuple{Int,Int}[]
 
-        for i in cluster[sortperm(w_internal[cluster])]
+        # pool = Int[]
+        # cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
+        # println("length(cluster_sorted): ", length(cluster_sorted))
+
+        # for i in cluster_sorted
+        #     if w_internal[i] == 0
+        #         continue
+        #     end
+
+        #     if isempty(pool)
+        #         push!(pool, i)
+        #         continue
+        #     end
+
+        #     best = filter(e -> w_internal[e] == maximum(w_internal[pool]), pool)
+        #     wts = Weights(view(w_internal, best))
+        #     if wts.sum == 0
+        #         continue
+        #     end
+        #     loc = sample(best, wts)
+        #     push!(local_edges, minmax(i, loc))
+        #     w_internal[i] -= 1
+        #     w_internal[loc] -= 1
+        #     push!(pool, i)
+        # end
+
+        pool = Int[]
+        cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
+        # println("length(cluster_sorted): ", length(cluster_sorted))
+
+        for i in cluster_sorted
             if w_internal[i] == 0
                 continue
             end
-            candidates = filter(e -> e ≠ i, cluster)
-            while true
-                wts = Weights(view(w_internal, candidates))
-                loc = sample(candidates, wts)
-                e = minmax(i, loc)
-                if (w_internal[loc] > 0) && !(e in local_edges)
-                    # println("loc: ", loc)
-                    push!(local_edges, minmax(i, loc))
-                    w_internal[i] -= 1
-                    w_internal[loc] -= 1
-                    break
-                else
-                    candidates = filter(e -> e ≠ loc, candidates)
-                    if isempty(candidates)
-                        break
-                    end
-                end
+
+            if isempty(pool)
+                push!(pool, i)
+                continue
             end
+
+            loc = pool[argmax(view(w_internal, pool))]
+
+            if w_internal[loc] == 0
+                continue
+            end
+
+            push!(local_edges, minmax(i, loc))
+            w_internal[i] -= 1
+            w_internal[loc] -= 1
+            push!(pool, i)
         end
 
         local_connected_edges_count = length(local_edges)
@@ -233,9 +261,9 @@ function config_model_ta2(clusters, params)
                     recycle[recycle_idx]
                 else
                     used_recycle = false
-                    if isempty(local_edges)
-                        continue
-                    end
+                    # if isempty(local_edges)
+                    #     continue
+                    # end
                     rand(local_edges)
                 end
                 if rand() < 0.5
