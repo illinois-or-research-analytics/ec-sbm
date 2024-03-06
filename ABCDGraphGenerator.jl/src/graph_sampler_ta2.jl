@@ -160,7 +160,7 @@ function config_model_ta2(clusters, params)
             while additional > 0
                 not_found = true
                 for i in cluster[sortperm(w_internal[cluster])]
-                    if w_internal[i] == w[i]
+                    if w_internal[i] >= 2 || w_internal[i] == w[i]
                         continue
                     end
                     not_found = false
@@ -173,6 +173,9 @@ function config_model_ta2(clusters, params)
 
                 if not_found
                     for i in cluster[sortperm(w_internal[cluster])]
+                        if w_internal[i] >= 2
+                            continue
+                        end
                         w_internal[i] += 1
                         w[i] += 1
                         additional -= 1
@@ -182,6 +185,14 @@ function config_model_ta2(clusters, params)
                     end
                 end
             end
+        end
+
+        wsum = sum(w_internal[cluster])
+        maxw_idx = argmax(view(w_internal, cluster))
+        w_internal[cluster[maxw_idx]] += isodd(wsum) ? 1 : 0
+        if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
+            @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
+            w[cluster[maxw_idx]] += 1
         end
 
         # ==============================================
@@ -235,6 +246,9 @@ function config_model_ta2(clusters, params)
             end
         end
         @assert sum(w_internal[cluster]) == length(stubs)
+        if !iseven(length(stubs))
+            println("w_internal: ", w_internal)
+        end
         @assert iseven(length(stubs))
         if params.hasoutliers && cluster === clusterlist[1]
             @assert isempty(stubs)

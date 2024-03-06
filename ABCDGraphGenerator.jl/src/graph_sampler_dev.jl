@@ -166,6 +166,7 @@ function config_model_dev(clusters, params)
                     if w_internal[i] == w[i]
                         continue
                     end
+                    println("i ", i, " additional: ", additional, " w_internal[i]: ", w_internal[i], " w[i]: ", w[i])
                     not_found = false
                     w_internal[i] += 1
                     # w[i] += 1
@@ -176,6 +177,7 @@ function config_model_dev(clusters, params)
                 end
 
                 if not_found
+                    println("Not found")
                     for i in cluster[sortperm(w_internal[cluster])]
                         w_internal[i] += 1
                         w[i] += 1
@@ -188,7 +190,15 @@ function config_model_dev(clusters, params)
                 end
             end
         end
-        println("Changes made: ", c)
+        println("Changes: ", c)
+        
+        # wsum = sum(w_internal[cluster])
+        # maxw_idx = argmax(view(w_internal, cluster))
+        # w_internal[cluster[maxw_idx]] += isodd(wsum) ? 1 : 0
+        # if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
+        #     @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
+        #     w[cluster[maxw_idx]] += 1
+        # end
 
         # println(w_internal_raw[cluster], w_internal[cluster])
 
@@ -258,6 +268,7 @@ function config_model_dev(clusters, params)
         end
 
         println("Connected edges: ", local_edges)
+        println("w_internal: ", w_internal[cluster])
 
         local_connected_edges_count = length(local_edges)
 
