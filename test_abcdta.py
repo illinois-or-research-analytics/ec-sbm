@@ -3,20 +3,20 @@ import os
 seed = 0
 
 # Number of nodes
-n = 100
+n = 50
 
 # Degree distribution
 t1 = 2
-d_min = 2
-d_max = 3
+d_min = 3
+d_max = 6
 
 # Community size distribution
 t2 = 3
-c_min = 15
-c_max = 20
+c_min = 6
+c_max = 10
 
 # Mixing parameter
-xi = 0.2
+xi = 0.8
 
 outdir = 'output/test'
 os.makedirs(outdir, exist_ok=True)
@@ -29,10 +29,10 @@ d_min = "{d_min}"
 d_max = "{d_max}"
 d_max_iter = "1000"
 t2 = "{t2}"
-c_min = "3"
-c_max = "4"
+c_min = "{c_min}"
+c_max = "{c_max}"
 c_max_iter = "1000"
-xi = "0.2"
+xi = "{xi}"
 islocal = "false"
 isCL = "false"
 degreefile = "{outdir}/deg.dat"
