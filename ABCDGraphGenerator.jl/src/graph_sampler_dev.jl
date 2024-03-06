@@ -134,13 +134,16 @@ function config_model_dev(clusters, params)
     unresolved_collisions = 0
     w_internal = zeros(Int, length(w_internal_raw))
     for cluster in clusterlist
+        println("==========================================")
+        println("Cluster: ", cluster)
+        
         maxw_idx = argmax(view(w_internal_raw, cluster))
         wsum = 0
         for i in axes(cluster, 1)
             if i != maxw_idx
                 neww = randround(w_internal_raw[cluster[i]])
                 w_internal[cluster[i]] = neww
-                wsum += neww
+                wsum += w_internal[cluster[i]]
             end
         end
         maxw = floor(Int, w_internal_raw[cluster[maxw_idx]])
@@ -149,42 +152,116 @@ function config_model_dev(clusters, params)
             @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
             w[cluster[maxw_idx]] += 1
         end
+        wsum += w_internal[cluster[maxw_idx]]
+        
+
+        println("w_internal (before): ", w_internal[cluster])
+        println("Missing: ", 2 * (length(cluster) - 1) - wsum)
+        c = 0
+        if wsum < 2 * (length(cluster) - 1)
+            additional = 2 * (length(cluster) - 1) - wsum
+            while additional > 0
+                not_found = true
+                for i in cluster[sortperm(w_internal[cluster])]
+                    if w_internal[i] == w[i]
+                        continue
+                    end
+                    not_found = false
+                    w_internal[i] += 1
+                    # w[i] += 1
+                    additional -= 1
+                    if additional == 0
+                        break
+                    end
+                end
+
+                if not_found
+                    for i in cluster[sortperm(w_internal[cluster])]
+                        w_internal[i] += 1
+                        w[i] += 1
+                        c += 1
+                        additional -= 1
+                        if additional == 0
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        println("Changes made: ", c)
+
+        # println(w_internal_raw[cluster], w_internal[cluster])
 
         if params.hasoutliers && cluster === clusterlist[1]
             @assert findall(clusters .== 1) == cluster
             @assert all(iszero, w_internal[cluster])
         end
 
+        # ===========================================
         # TODO: add edges here
 
-        println("=====================================")
-        println("Cluster: ", cluster)
         println("w_internal: ", w_internal[cluster])
 
         local_edges = Set{Tuple{Int, Int}}()
         recycle = Tuple{Int,Int}[]
 
+        # pool = Int[]
+        # cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
+        # println("length(cluster_sorted): ", length(cluster_sorted))
+
+        # for i in cluster_sorted
+        #     if w_internal[i] == 0
+        #         continue
+        #     end
+
+        #     if isempty(pool)
+        #         push!(pool, i)
+        #         continue
+        #     end
+
+        #     best = filter(e -> w_internal[e] == maximum(w_internal[pool]), pool)
+        #     wts = Weights(view(w_internal, best))
+        #     if wts.sum == 0
+        #         continue
+        #     end
+        #     loc = sample(best, wts)
+        #     push!(local_edges, minmax(i, loc))
+        #     w_internal[i] -= 1
+        #     w_internal[loc] -= 1
+        #     push!(pool, i)
+        # end
+
         pool = Int[]
-        for i in cluster[sortperm(w_internal[cluster], rev=true)]
-            if w_internal[i] <= 1 || isempty(pool)
+        cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
+        # println("length(cluster_sorted): ", length(cluster_sorted))
+
+        for i in cluster_sorted
+            if w_internal[i] == 0
+                continue
+            end
+
+            if isempty(pool)
                 push!(pool, i)
                 continue
             end
 
             loc = pool[argmax(view(w_internal, pool))]
 
-            if w_internal[loc] > 0
-                push!(local_edges, minmax(i, loc))
-                w_internal[i] -= 1
-                w_internal[loc] -= 1
+            if w_internal[loc] == 0
+                continue
             end
+
+            push!(local_edges, minmax(i, loc))
+            w_internal[i] -= 1
+            w_internal[loc] -= 1
             push!(pool, i)
         end
-        
-        println("local_edges: ", local_edges)
-        println("w_internal: ", w_internal[cluster])
+
+        println("Connected edges: ", local_edges)
 
         local_connected_edges_count = length(local_edges)
+
+        # ===========================================
 
         stubs = Int[]
         for i in cluster[sortperm(w_internal[cluster])]
