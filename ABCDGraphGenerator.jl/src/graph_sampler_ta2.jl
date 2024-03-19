@@ -55,6 +55,9 @@ function populate_clusters_ta2(params::ABCDParams)
         wts.sum == 0 && throw(ArgumentError("could not find an empty slot for vertex of weight $vw"))
         # loc = sample((j0+1):j, wts)
 
+        # ==============================================
+        # ABCD-TA-p
+
         # Count the number of non-zero in slots[j0+1:j]
         c = 0
         t = j0
@@ -85,6 +88,8 @@ function populate_clusters_ta2(params::ABCDParams)
             wts = Weights(view(slots, (j0+1):t))
             loc = sample((j0+1):t, wts)
         end
+
+        # ==============================================
         
         clusters[i] = loc
         slots[loc] -= 1
@@ -154,6 +159,7 @@ function config_model_ta2(clusters, params)
         end
 
         # ==============================================
+        # ABCD-TA-p-Con: Attempt 2
 
         if wsum < 2 * (length(cluster) - 1)
             additional = 2 * (length(cluster) - 1) - wsum
@@ -208,6 +214,7 @@ function config_model_ta2(clusters, params)
         recycle = Tuple{Int,Int}[]
 
         # ==============================================
+        # ABCD-TA-p-Con: Attempt 1
 
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
