@@ -163,7 +163,7 @@ function config_model_dev(clusters, params)
             while additional > 0
                 not_found = true
                 for i in cluster[sortperm(w_internal[cluster])]
-                    if w_internal[i] == w[i]
+                    if w_internal[i] >= 2 || w_internal[i] == w[i]
                         continue
                     end
                     println("i ", i, " additional: ", additional, " w_internal[i]: ", w_internal[i], " w[i]: ", w[i])
@@ -179,6 +179,9 @@ function config_model_dev(clusters, params)
                 if not_found
                     println("Not found")
                     for i in cluster[sortperm(w_internal[cluster])]
+                        if w_internal[i] >= 2
+                            continue
+                        end
                         w_internal[i] += 1
                         w[i] += 1
                         c += 1
@@ -215,59 +218,126 @@ function config_model_dev(clusters, params)
         local_edges = Set{Tuple{Int, Int}}()
         recycle = Tuple{Int,Int}[]
 
+        # ===========================================
+
         # pool = Int[]
         # cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
-        # println("length(cluster_sorted): ", length(cluster_sorted))
+        # # println("length(cluster_sorted): ", length(cluster_sorted))
+        # minw = 1 #minimum(w_internal[cluster])
+        # println("minw: ", minw)
 
         # for i in cluster_sorted
+        #     println("-- i: ", i, " w_internal[i]: ", w_internal[i])
+
         #     if w_internal[i] == 0
+        #         println("No internal degree")
         #         continue
         #     end
 
-        #     if isempty(pool)
+        #     if length(pool) < minw
+        #         for j in pool
+        #             if w_internal[j] == 0
+        #                 continue
+        #             end
+        #             push!(local_edges, minmax(i, j))
+        #             w_internal[i] -= 1
+        #             w_internal[j] -= 1
+        #             if w_internal[i] == 0
+        #                 break
+        #             end
+        #         end
         #         push!(pool, i)
+        #         println("Pool: ", pool)
+        #         println("Local edges: ", local_edges)
         #         continue
         #     end
 
-        #     best = filter(e -> w_internal[e] == maximum(w_internal[pool]), pool)
-        #     wts = Weights(view(w_internal, best))
-        #     if wts.sum == 0
-        #         continue
+        #     topk = partialsortperm(view(w_internal, pool), 1:minw, rev=true)
+        #     locs = pool[topk]
+        #     println("locs: ", locs)
+
+        #     # loc = pool[argmax(view(w_internal, pool))]
+        #     # println("loc: ", loc)
+
+        #     for loc in locs
+        #         if w_internal[loc] == 0
+        #             continue
+        #         end
+
+        #         push!(local_edges, minmax(i, loc))
+        #         w_internal[i] -= 1
+        #         w_internal[loc] -= 1
         #     end
-        #     loc = sample(best, wts)
-        #     push!(local_edges, minmax(i, loc))
-        #     w_internal[i] -= 1
-        #     w_internal[loc] -= 1
         #     push!(pool, i)
         # end
 
+        # println("Connected edges: ", local_edges)
+        # println("w_internal: ", w_internal[cluster])
+
+        # ===========================================
+
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
-        # println("length(cluster_sorted): ", length(cluster_sorted))
+        k = round(log10(length(cluster)) + 0.5) #minimum(w_internal[cluster])
 
         for i in cluster_sorted
             if w_internal[i] == 0
                 continue
             end
 
-            if isempty(pool)
+            if length(pool) < k
+                for j in pool
+                    if w_internal[j] == 0
+                        continue
+                    end
+                    push!(local_edges, minmax(i, j))
+                    w_internal[i] -= 1
+                    w_internal[j] -= 1
+                    if w_internal[i] == 0
+                        break
+                    end
+                end
                 push!(pool, i)
                 continue
             end
 
-            loc = pool[argmax(view(w_internal, pool))]
+            t = 0
+            for loc in pool[sortperm(view(w_internal, pool), rev=true)]
+                if w_internal[loc] == 0
+                    break
+                end
 
-            if w_internal[loc] == 0
-                continue
+                push!(local_edges, minmax(i, loc))
+                w_internal[i] -= 1
+                w_internal[loc] -= 1
+
+                t += 1
+                if t == k
+                    break
+                end
+
+                if w_internal[i] == 0
+                    break
+                end
             end
 
-            push!(local_edges, minmax(i, loc))
-            w_internal[i] -= 1
-            w_internal[loc] -= 1
+            # topk = partialsortperm(view(w_internal, pool), 1:k, rev=true)
+            # locs = pool[topk]
+
+            # for loc in locs
+            #     if w_internal[loc] == 0
+            #         continue
+            #     end
+
+            #     push!(local_edges, minmax(i, loc))
+            #     w_internal[i] -= 1
+            #     w_internal[loc] -= 1
+            # end
+
             push!(pool, i)
         end
 
-        println("Connected edges: ", local_edges)
+        println("Well-Connected edges: ", local_edges)
         println("w_internal: ", w_internal[cluster])
 
         local_connected_edges_count = length(local_edges)
