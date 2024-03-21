@@ -148,14 +148,14 @@ function config_model_ta2(clusters, params)
         for i in axes(cluster, 1)
             if i != maxw_idx
                 neww = randround(w_internal_raw[cluster[i]])
-                w_internal[cluster[i]] = neww
-                wsum += neww
-                # w_internal[cluster[i]] = max(neww, 2)
-                # wsum += w_internal[cluster[i]]
+                # w_internal[cluster[i]] = neww
+                # wsum += neww
+                w_internal[cluster[i]] = max(neww, 2)
+                wsum += w_internal[cluster[i]]
             end
         end
-        maxw = floor(Int, w_internal_raw[cluster[maxw_idx]])
-        # maxw = max(floor(Int, w_internal_raw[cluster[maxw_idx]]), 2)
+        # maxw = floor(Int, w_internal_raw[cluster[maxw_idx]])
+        maxw = max(floor(Int, w_internal_raw[cluster[maxw_idx]]), 2)
         w_internal[cluster[maxw_idx]] = maxw + (isodd(wsum) ? iseven(maxw) : isodd(maxw))
         if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
             @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
@@ -165,44 +165,44 @@ function config_model_ta2(clusters, params)
         # ==============================================
         # ABCD-TA-p-Con: Attempt 2
 
-        required = 2 * (length(cluster) - 1)
-        additional = required - wsum
-        while additional > 0
-            not_found = true
-            for i in cluster[sortperm(w_internal[cluster])]
-                if w_internal[i] >= 2 || w_internal[i] == w[i]
-                    continue
-                end
-                not_found = false
-                w_internal[i] += 1
-                additional -= 1
-                if additional == 0
-                    break
-                end
-            end
+        # required = 2 * (length(cluster) - 1)
+        # additional = required - wsum
+        # while additional > 0
+        #     not_found = true
+        #     for i in cluster[sortperm(w_internal[cluster])]
+        #         if w_internal[i] >= 2 || w_internal[i] == w[i]
+        #             continue
+        #         end
+        #         not_found = false
+        #         w_internal[i] += 1
+        #         additional -= 1
+        #         if additional == 0
+        #             break
+        #         end
+        #     end
 
-            if not_found
-                for i in cluster[sortperm(w_internal[cluster])]
-                    if w_internal[i] >= 2
-                        continue
-                    end
-                    w_internal[i] += 1
-                    w[i] += 1
-                    additional -= 1
-                    if additional == 0
-                        break
-                    end
-                end
-            end
-        end
+        #     if not_found
+        #         for i in cluster[sortperm(w_internal[cluster])]
+        #             if w_internal[i] >= 2
+        #                 continue
+        #             end
+        #             w_internal[i] += 1
+        #             w[i] += 1
+        #             additional -= 1
+        #             if additional == 0
+        #                 break
+        #             end
+        #         end
+        #     end
+        # end
 
-        wsum = sum(w_internal[cluster])
-        maxw_idx = argmax(view(w_internal, cluster))
-        w_internal[cluster[maxw_idx]] += isodd(wsum) ? 1 : 0
-        if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
-            @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
-            w[cluster[maxw_idx]] += 1
-        end
+        # wsum = sum(w_internal[cluster])
+        # maxw_idx = argmax(view(w_internal, cluster))
+        # w_internal[cluster[maxw_idx]] += isodd(wsum) ? 1 : 0
+        # if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
+        #     @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
+        #     w[cluster[maxw_idx]] += 1
+        # end
 
         # ==============================================
 
@@ -258,7 +258,7 @@ function config_model_ta2(clusters, params)
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
         # k = 1
-        k = round(log10(length(cluster)) + 0.5) 
+        k = floor(log10(length(cluster))) + 1 
         # k = minimum(w_internal[cluster])
 
         for i in cluster_sorted
@@ -285,7 +285,7 @@ function config_model_ta2(clusters, params)
             change = 0
             t = 0
             for loc in pool[sortperm(view(w_internal, pool), rev=true)]
-                if w_internal[loc] == 0
+                if w_internal[loc] == 0 || w_internal[i] == 0
                     break
                 end
 
@@ -297,19 +297,26 @@ function config_model_ta2(clusters, params)
                 if t == k
                     break
                 end
-
-                if w_internal[i] == 0
-                    break
-                end
             end
 
             if t < k
                 for loc in pool[sortperm(view(w_internal_copy, pool), rev=true)]
+                    if w_internal[i] == 0
+                        break
+                    end
+
+                    if minmax(i, loc) in local_edges
+                        # println("Gotcha!")
+                        # readline()
+                        continue
+                    end
+
                     if w_internal[loc] == 0
-                        if w_internal[loc] == w[loc]
+                        if w_internal_copy[loc] == w[loc]
                             change += 1
                             w[loc] += 1
                         end
+                        w_internal_copy[loc] += 1
                         w_internal[loc] += 1
                         # break
                     end
@@ -322,16 +329,12 @@ function config_model_ta2(clusters, params)
                     if t == k
                         break
                     end
-
-                    if w_internal[i] == 0
-                        break
-                    end
                 end
             end
 
-            if change > 0
-                println("Changes: ", change)
-            end
+            # if change > 0
+            #     println("Changes: ", change)
+            # end
 
             # topk = partialsortperm(view(w_internal, pool), 1:k, rev=true)
             # locs = pool[topk]
