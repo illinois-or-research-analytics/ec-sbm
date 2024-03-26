@@ -6,9 +6,9 @@
 
 # for method in abcdta2
 # do
-#     for network_id in cen #wiki_topcats cit_patents cit_hepph wiki_talk oc
+#     for network_id in cit_hepph cen wiki_topcats cit_patents wiki_talk #cen wiki_topcats cit_patents cit_hepph wiki_talk oc
 #     do
-#         for resolution in .1 #.001 .01 .1
+#         for resolution in .001 .01 #.001 .01 .1
 #         do
 #             echo "=> $network_id at $resolution using $method <="
 
@@ -45,16 +45,19 @@
 
 # ===================================
 
-network_id=cen
-resolution=.01
-method=abcdta2
+network_id=wiki_topcats
+resolution=.001
+method=abcdta
+based_on=cm
 
-python gen_abcdta.py $network_id $resolution $method
-python compute_stats.py $network_id $resolution $method
-python emulate-real-nets/estimate_properties_networkit.py \
-    -n "data/networks/${method}/${network_id}_${method}_networks/${network_id}_leiden${resolution}_${method}/edge.dat" \
-    -c "data/networks/${method}/${network_id}_${method}_networks/${network_id}_leiden${resolution}_${method}/com.dat" \
-    -o "data/networks/${method}/${network_id}_${method}_networks/${network_id}_leiden${resolution}_${method}/stats.json"
-python compute_upperbound.py $network_id $resolution $method
-python compute_potential_connectivity.py $network_id $resolution $method
-python compute_wiring_efficiency.py $network_id $resolution $method
+output_dir=data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/
+
+python gen_${method}.py $network_id $resolution ${method} ${based_on}
+# python compute_stats.py $network_id $resolution ${method}_${based_on}
+# python emulate-real-nets/estimate_properties_networkit.py \
+#     -n "data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/edge.dat" \
+#     -c "data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/com.dat" \
+#     -o "data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/stats.json"
+# python compute_upperbound.py $network_id $resolution ${method}_${based_on}
+# python compute_potential_connectivity.py $network_id $resolution ${method}_${based_on}
+# python compute_wiring_efficiency.py $network_id $resolution ${method}_${based_on}
