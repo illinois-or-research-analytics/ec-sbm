@@ -51,7 +51,7 @@ function populate_clusters_ta2(params::ABCDParams)
             j += 1
         end
         # j == j0 && throw(ArgumentError("could not find a large enough cluster for vertex of weight $vw"))
-        wts = Weights(view(slots, (j0+1):j))
+        # wts = Weights(view(slots, (j0+1):j))
         # wts.sum == 0 && throw(ArgumentError("could not find an empty slot for vertex of weight $vw"))
         # loc = sample((j0+1):j, wts)
 
@@ -68,7 +68,7 @@ function populate_clusters_ta2(params::ABCDParams)
         end
         
         p = 1
-        ncandidates = c * p / 100
+        ncandidates = floor(c * p / 100)
 
         # Only sample from the first p% of the slots[j0+1:j] if there are more than 1 non-zero slots
         if ncandidates < 1
@@ -92,6 +92,15 @@ function populate_clusters_ta2(params::ABCDParams)
             wts = Weights(view(slots, (j0+1):j))
             loc = sample((j0+1):j, wts)
         end
+
+        # ==============================================
+
+        # t = j0 + 1
+        # while t < j && floor((1.0 - params.ξ) * vw) > floor(log10(s[t + 1]))
+        #     t += 1
+        # end
+        # wts = Weights(view(slots, (j0+1):t))
+        # loc = sample((j0+1):t, wts)
 
         # ==============================================
         
@@ -362,6 +371,7 @@ function config_model_ta2(clusters, params)
 
         # ==============================================
 
+        connected_graph = copy(local_edges)
         local_connected_edges_count = length(local_edges)
 
         stubs = Int[]
@@ -389,6 +399,8 @@ function config_model_ta2(clusters, params)
             end
         end
 
+        # ==============================================
+
         last_recycle = length(recycle)
         recycle_counter = last_recycle
         while !isempty(recycle)
@@ -402,6 +414,11 @@ function config_model_ta2(clusters, params)
                 end
             end
             p1 = popfirst!(recycle)
+            # ================================
+            # if p1 in connected_graph
+            #     continue
+            # end
+            # ================================
             from_recycle = 2 * length(recycle) / length(stubs)
             success = false
             for _ in 1:2:length(stubs)
@@ -410,12 +427,37 @@ function config_model_ta2(clusters, params)
                     recycle_idx = rand(axes(recycle, 1))
                     recycle[recycle_idx]
                 else
+                    if isempty(local_edges)
+                        continue
+                    end
                     used_recycle = false
-                    # if isempty(local_edges)
-                    #     continue
-                    # end
                     rand(local_edges)
                 end
+                # ================================
+                # c = 0
+                # while p2 in connected_graph
+                #     p2 = if rand() < from_recycle
+                #         used_recycle = true
+                #         recycle_idx = rand(axes(recycle, 1))
+                #         recycle[recycle_idx]
+                #     else
+                #         candidates = setdiff(local_edges, connected_graph)
+                #         if isempty(candidates)
+                #             continue
+                #         end
+                #         used_recycle = false
+                #         rand(candidates)
+                #     end
+                #     c += 1
+                #     if c == 10
+                #         break
+                #     end
+                # end
+                # if p2 in connected_graph
+                #     println("Failed to find a non-intrusive edge. Breaking...")
+                #     continue
+                # end
+                # ================================
                 if rand() < 0.5
                     newp1 = minmax(p1[1], p2[1])
                     newp2 = minmax(p1[2], p2[2])
@@ -448,9 +490,11 @@ function config_model_ta2(clusters, params)
             success || push!(recycle, p1)
         end
 
+        # ==============================================
+
         old_len = length(edges)
         union!(edges, local_edges)
-
+        
         w_internal = w_internal_copy
         
         @assert length(edges) == old_len + length(local_edges)
@@ -524,6 +568,12 @@ function config_model_ta2(clusters, params)
             recycle[i], recycle[end] = recycle[end], recycle[i]
             pop!(recycle)
         else
+            # ================================
+            if isempty(global_edges)
+                push!(recycle, p1)
+                continue
+            end
+            # ================================
             x = rand(global_edges)
             pop!(global_edges, x)
         end

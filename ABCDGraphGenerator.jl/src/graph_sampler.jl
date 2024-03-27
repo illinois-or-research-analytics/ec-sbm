@@ -27,6 +27,7 @@ struct ABCDParams
     hasoutliers::Bool
 
     function ABCDParams(w, s, μ, ξ, isCL, islocal, hasoutliers=false)
+        println("length(w): ", length(w), ", sum(s): ", sum(s))
         length(w) == sum(s) || throw(ArgumentError("inconsistent data"))
         if !isnothing(μ)
             0 ≤ μ ≤ 1 || throw(ArgumentError("inconsistent data on μ"))

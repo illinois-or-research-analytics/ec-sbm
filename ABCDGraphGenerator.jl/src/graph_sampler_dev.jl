@@ -277,8 +277,8 @@ function config_model_dev(clusters, params)
 
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
-        # k = round(log10(length(cluster)) + 0.5) #minimum(w_internal[cluster])
-        k = minimum(w_internal[cluster])
+        k = floor(log10(length(cluster))) + 1 #minimum(w_internal[cluster])
+        # k = minimum(w_internal[cluster])
 
         for i in cluster_sorted
             if w_internal[i] == 0
@@ -290,6 +290,7 @@ function config_model_dev(clusters, params)
                     if w_internal[j] == 0
                         continue
                     end
+                    println("Connect ", i, " ", j)
                     push!(local_edges, minmax(i, j))
                     w_internal[i] -= 1
                     w_internal[j] -= 1
@@ -309,6 +310,7 @@ function config_model_dev(clusters, params)
                     break
                 end
 
+                println("Connect ", i, " ", loc)
                 push!(local_edges, minmax(i, loc))
                 w_internal[i] -= 1
                 w_internal[loc] -= 1
@@ -346,6 +348,7 @@ function config_model_dev(clusters, params)
                         # break
                     end
 
+                    println("Connect ", i, " ", loc)
                     push!(local_edges, minmax(i, loc))
                     w_internal[i] -= 1
                     w_internal[loc] -= 1
@@ -406,68 +409,70 @@ function config_model_dev(clusters, params)
                 push!(local_edges, e)
             end
         end
+
+        println("Recycle: ", recycle)
         
-        last_recycle = length(recycle)
-        recycle_counter = last_recycle
-        while !isempty(recycle)
-            recycle_counter -= 1
-            if recycle_counter < 0
-                if length(recycle) < last_recycle
-                    last_recycle = length(recycle)
-                    recycle_counter = last_recycle
-                else
-                    break
-                end
-            end
-            p1 = popfirst!(recycle)
-            from_recycle = 2 * length(recycle) / length(stubs)
-            success = false
-            for _ in 1:2:length(stubs)
-                p2 = if rand() < from_recycle
-                    used_recycle = true
-                    recycle_idx = rand(axes(recycle, 1))
-                    recycle[recycle_idx]
-                else
-                    used_recycle = false
-                    if isempty(local_edges)
-                        continue
-                    end
-                    rand(local_edges)
-                end
+        # last_recycle = length(recycle)
+        # recycle_counter = last_recycle
+        # while !isempty(recycle)
+        #     recycle_counter -= 1
+        #     if recycle_counter < 0
+        #         if length(recycle) < last_recycle
+        #             last_recycle = length(recycle)
+        #             recycle_counter = last_recycle
+        #         else
+        #             break
+        #         end
+        #     end
+        #     p1 = popfirst!(recycle)
+        #     from_recycle = 2 * length(recycle) / length(stubs)
+        #     success = false
+        #     for _ in 1:2:length(stubs)
+        #         p2 = if rand() < from_recycle
+        #             used_recycle = true
+        #             recycle_idx = rand(axes(recycle, 1))
+        #             recycle[recycle_idx]
+        #         else
+        #             used_recycle = false
+        #             if isempty(local_edges)
+        #                 continue
+        #             end
+        #             rand(local_edges)
+        #         end
 
-                if rand() < 0.5
-                    newp1 = minmax(p1[1], p2[1])
-                    newp2 = minmax(p1[2], p2[2])
-                else
-                    newp1 = minmax(p1[1], p2[2])
-                    newp2 = minmax(p1[2], p2[1])
-                end
+        #         if rand() < 0.5
+        #             newp1 = minmax(p1[1], p2[1])
+        #             newp2 = minmax(p1[2], p2[2])
+        #         else
+        #             newp1 = minmax(p1[1], p2[2])
+        #             newp2 = minmax(p1[2], p2[1])
+        #         end
 
-                if newp1 == newp2
-                    good_choice = false
-                elseif (newp1[1] == newp1[2]) || (newp1 in local_edges)
-                    good_choice = false
-                elseif (newp2[1] == newp2[2]) || (newp2 in local_edges)
-                    good_choice = false
-                else
-                    good_choice = true
-                end
+        #         if newp1 == newp2
+        #             good_choice = false
+        #         elseif (newp1[1] == newp1[2]) || (newp1 in local_edges)
+        #             good_choice = false
+        #         elseif (newp2[1] == newp2[2]) || (newp2 in local_edges)
+        #             good_choice = false
+        #         else
+        #             good_choice = true
+        #         end
 
-                if good_choice
-                    if used_recycle
-                        recycle[recycle_idx], recycle[end] = recycle[end], recycle[recycle_idx]
-                        pop!(recycle)
-                    else
-                        pop!(local_edges, p2)
-                    end
-                    success = true
-                    push!(local_edges, newp1)
-                    push!(local_edges, newp2)
-                    break
-                end
-            end
-            success || push!(recycle, p1)
-        end
+        #         if good_choice
+        #             if used_recycle
+        #                 recycle[recycle_idx], recycle[end] = recycle[end], recycle[recycle_idx]
+        #                 pop!(recycle)
+        #             else
+        #                 pop!(local_edges, p2)
+        #             end
+        #             success = true
+        #             push!(local_edges, newp1)
+        #             push!(local_edges, newp2)
+        #             break
+        #         end
+        #     end
+        #     success || push!(recycle, p1)
+        # end
 
         old_len = length(edges)
         union!(edges, local_edges)
@@ -550,6 +555,12 @@ function config_model_dev(clusters, params)
             recycle[i], recycle[end] = recycle[end], recycle[i]
             pop!(recycle)
         else
+            # ================================
+            if isempty(global_edges)
+                push!(recycle, p1)
+                continue
+            end
+            # ================================
             x = rand(global_edges)
             pop!(global_edges, x)
         end

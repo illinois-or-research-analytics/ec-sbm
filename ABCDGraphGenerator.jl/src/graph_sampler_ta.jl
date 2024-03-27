@@ -50,9 +50,19 @@ function populate_clusters_ta(params::ABCDParams)
         while j + 1 ≤ length(s) && mul * vw + 1 ≤ s[j + 1]
             j += 1
         end
-        j == j0 && throw(ArgumentError("could not find a large enough cluster for vertex of weight $vw"))
+        if j == j0
+            clusters[i] = 1
+            slots[1] -= 1
+            continue
+        end
+        # j == j0 && throw(ArgumentError("could not find a large enough cluster for vertex of weight $vw"))
         wts = Weights(view(slots, (j0+1):j))
-        wts.sum == 0 && throw(ArgumentError("could not find an empty slot for vertex of weight $vw"))
+        # wts.sum == 0 && throw(ArgumentError("could not find an empty slot for vertex of weight $vw"))
+        if wts.sum == 0
+            clusters[i] = 1
+            slots[1] -= 1
+            continue
+        end
         loc = sample((j0+1):j, wts)
         clusters[i] = loc
         slots[loc] -= 1
@@ -101,7 +111,8 @@ function config_model_ta(clusters, params)
 
     unresolved_collisions = 0
     w_internal = zeros(Int, length(w_internal_raw))
-    for cluster in clusterlist
+    for (ic, cluster) in enumerate(clusterlist)
+        println("Cluster: ", ic, "; size: ", length(cluster))
         maxw_idx = argmax(view(w_internal_raw, cluster))
         wsum = 0
         for i in axes(cluster, 1)
