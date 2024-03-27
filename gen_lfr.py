@@ -12,9 +12,11 @@ import json
 network_id = 'cen'
 resolution = '.001'
 
-lfr_dir = f'data/networks/{network_id}_lfr_networks/{network_id}_leiden{resolution}_lfr'
+lfr_dir = f'data/networks/{network_id}_lfr_networks/{
+    network_id}_leiden{resolution}_lfr'
 
-abcd_dir = f'data/networks/{network_id}_abcd_networks/{network_id}_leiden{resolution}_abcd'
+abcd_dir = f'data/networks/{network_id}_abcd_networks/{
+    network_id}_leiden{resolution}_abcd'
 if not os.path.exists(abcd_dir):
     os.system(f'mkdir -p {abcd_dir}')
 
@@ -60,7 +62,8 @@ def gen_lfr(stats_path, cmin):
     return N, k, mink, maxk, mu, maxc, minc, t1, t2
 
 
-network_stats_json_path = f'data/network_params/{network_id}_leiden{resolution}.json'
+network_stats_json_path = f'data/network_params/{
+    network_id}_leiden{resolution}.json'
 minc = 9
 N, k, mink, maxk, mu, maxc, minc, t1, t2 = gen_lfr(
     network_stats_json_path, minc)

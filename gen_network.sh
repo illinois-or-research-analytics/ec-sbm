@@ -45,12 +45,10 @@
 
 # ===================================
 
-network_id=wiki_topcats
-resolution=.001
-method=abcdta
-based_on=cm
-
-output_dir=data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/
+network_id=cit_hepph
+resolution=.1
+method=abcd
+based_on=leiden_cpm
 
 python gen_${method}.py $network_id $resolution ${method} ${based_on}
 # python compute_stats.py $network_id $resolution ${method}_${based_on}
