@@ -9,12 +9,12 @@ import numpy as np
 network_id = sys.argv[1]
 resolution = sys.argv[2]
 method = sys.argv[3]
+based_on = sys.argv[4]
 
 print(
     f'Statisctics for {network_id} at resolution {resolution} using {method}')
 
-_dir = f'data/networks/{method}/{network_id}_{
-    method}_networks/{network_id}_leiden{resolution}_{method}'
+_dir = f'data/networks/{method}_{based_on}/{network_id}/leiden{resolution}/'
 
 edge = 'edge' if 'abcd' in method else 'network'
 com = 'com' if 'abcd' in method else 'community'
