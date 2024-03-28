@@ -56,6 +56,8 @@ def compute_xi(G, comm_fn):
     in_degree = defaultdict(int)
     out_degree = defaultdict(int)
     for n1, n2 in G.edges:
+        if n1 not in node2com or n2 not in node2com:
+            continue
         if node2com[n1] == node2com[n2]:  # nodes are co-clustered
             in_degree[n1] += 1
             in_degree[n2] += 1
@@ -80,13 +82,15 @@ def set_up(method, based_on, network_id, resolution):
             lfr_dir = f'data/networks/lfr/{network_id}_lfr_networks/{
                 network_id}_leiden{resolution}_lfr'
 
-            G = nx.read_edgelist([' '.join(x.strip().split('\t')) for x in open(
-                f'{lfr_dir}/network.dat').readlines()])
+            G = nx.read_edgelist([
+                ' '.join(x.strip().split('\t'))
+                for x in open(f'{lfr_dir}/network.dat').readlines()
+            ])
 
             comm_fn = f'{lfr_dir}/community.dat'
-        elif based_on == 'leiden_cpm':
+        elif based_on in ['leiden_cpm', 'leiden_cpm_cm']:
             _dir = \
-                f'data/networks/leiden_cpm/{network_id}/leiden{resolution}'
+                f'data/networks/{based_on}/{network_id}/leiden{resolution}'
 
             G = nx.read_edgelist([
                 ' '.join(x.strip().split('\t'))
@@ -116,11 +120,16 @@ def set_up(method, based_on, network_id, resolution):
                 f.write('\n'.join(map(str, cs)))
 
         if not os.path.exists(f'{output_dir}/params.json'):
-            network_stats_json_path = f'data/network_params/{
-                network_id}_leiden{resolution}.json'
-            _, _, _, _, mu, _, _, _, _ = \
-                process_stats_to_params(network_stats_json_path, 0)
+            # Find mu
+            mu = None
 
+            network_stats_json_path = \
+                f'data/network_params/{network_id}_leiden{resolution}.json'
+            if os.path.exists(network_stats_json_path):
+                _, _, _, _, mu, _, _, _, _ = \
+                    process_stats_to_params(network_stats_json_path, 0)
+
+            # Set seed
             seed = 0
 
             # Generate xi

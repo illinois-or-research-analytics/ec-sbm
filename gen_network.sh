@@ -4,53 +4,14 @@
 #SBATCH --job-name="gen_network"
 #SBATCH --partition=tallis
 
-# for method in abcdta2
-# do
-#     for network_id in cit_hepph cen wiki_topcats cit_patents wiki_talk #cen wiki_topcats cit_patents cit_hepph wiki_talk oc
-#     do
-#         for resolution in .001 .01 #.001 .01 .1
-#         do
-#             echo "=> $network_id at $resolution using $method <="
-
-#             echo "======"
-
-#             echo "Generating..."
-#             python gen_abcdta.py $network_id $resolution $method
-
-#             echo "======"
-
-#             echo "Computing statistics..."
-#             python compute_stats.py $network_id $resolution $method
-
-#             echo "======"
-
-#             python emulate-real-nets/estimate_properties_networkit.py \
-#                     -n "data/networks/${method}/${network_id}_${method}_networks/${network_id}_leiden${resolution}_${method}/edge.dat" \
-#                     -c "data/networks/${method}/${network_id}_${method}_networks/${network_id}_leiden${resolution}_${method}/com.dat" \
-#                     -o "data/networks/${method}/${network_id}_${method}_networks/${network_id}_leiden${resolution}_${method}/stats.json"
-
-#             echo "======"
-
-#             python compute_upperbound.py $network_id $resolution $method
-
-#             python compute_potential_connectivity.py $network_id $resolution $method
-
-#             python compute_wiring_efficiency.py $network_id $resolution $method
-
-#             echo "==========================="
-#             echo " "
-#         done
-#     done
-# done
-
 # ===================================
 
-network_id=cit_hepph
-resolution=.1
-method=abcd
-based_on=leiden_cpm
+# network_id=cit_patents
+# resolution=.01
+# method=abcd
+# based_on=leiden_cpm
 
-python gen_${method}.py $network_id $resolution ${method} ${based_on}
+# python gen_${method}.py $network_id $resolution ${method} ${based_on}
 # python compute_stats.py $network_id $resolution ${method}_${based_on}
 # python emulate-real-nets/estimate_properties_networkit.py \
 #     -n "data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/edge.dat" \
@@ -59,3 +20,50 @@ python gen_${method}.py $network_id $resolution ${method} ${based_on}
 # python compute_upperbound.py $network_id $resolution ${method}_${based_on}
 # python compute_potential_connectivity.py $network_id $resolution ${method}_${based_on}
 # python compute_wiring_efficiency.py $network_id $resolution ${method}_${based_on}
+
+# ===================================
+
+for method in abcd
+do
+    for based_on in leiden_cpm_cm leiden_cpm
+    do
+        for network_id in orkut #cit_hepph cit_patents wiki_topcats wiki_talk orkut
+        do
+            for resolution in .0001 .001 #.0001 .001 .01
+            do
+                echo "=> $network_id at $resolution using $method based on $based_on <="
+
+                echo "======"
+                echo "Generating..."
+                
+                python gen_${method}.py $network_id $resolution ${method} ${based_on}
+
+                echo "======"
+
+                echo "Computing statistics..."
+
+                python compute_stats.py $network_id $resolution $method ${based_on}
+
+                echo "======"
+
+                python emulate-real-nets/estimate_properties_networkit.py \
+                        -n "data/networks/${method}_${based_on}/${network_id}/leiden${resolution}/edge.dat" \
+                        -c "data/networks/${method}_${based_on}/${network_id}/leiden${resolution}/com.dat" \
+                        -o "data/networks/${method}_${based_on}/${network_id}/leiden${resolution}/stats.json"
+
+                echo "======"
+
+                python compute_upperbound.py $network_id $resolution $method ${based_on}
+
+                python compute_potential_connectivity.py $network_id $resolution $method ${based_on}
+
+                python compute_wiring_efficiency.py $network_id $resolution $method ${based_on}
+
+                echo "==========================="
+                echo " "
+            done
+        done
+    done
+done
+
+# ===================================
