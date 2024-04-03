@@ -15,7 +15,7 @@ based_on = sys.argv[4]
 print(
     f'Statisctics for {network_id} at resolution {resolution} using {method}')
 
-_dir = f'data/networks/{method}_{based_on}/{network_id}/leiden{resolution}/'
+_dir = f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/'
 
 if 'abcd' in method:
     with open(f'{_dir}/params.json') as f:

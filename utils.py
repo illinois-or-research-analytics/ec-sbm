@@ -71,7 +71,7 @@ def compute_xi(G, comm_fn):
 
 def set_up(method, based_on, network_id, resolution):
     output_dir = \
-        f'data/networks/{method}_{based_on}/{network_id}/leiden{resolution}'
+        f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}'
     os.makedirs(output_dir, exist_ok=True)
 
     if not os.path.exists(f'{output_dir}/deg.dat') \
@@ -79,8 +79,9 @@ def set_up(method, based_on, network_id, resolution):
             or not os.path.exists(f'{output_dir}/params.json'):
 
         if based_on == 'lfr':
-            lfr_dir = f'data/networks/lfr/{network_id}_lfr_networks/{
-                network_id}_leiden{resolution}_lfr'
+            lfr_dir = \
+                f'data/networks/lfr/{network_id}_lfr_networks/{
+                    network_id}_leiden{resolution}_lfr'
 
             G = nx.read_edgelist([
                 ' '.join(x.strip().split('\t'))
@@ -90,7 +91,7 @@ def set_up(method, based_on, network_id, resolution):
             comm_fn = f'{lfr_dir}/community.dat'
         elif based_on in ['leiden_cpm', 'leiden_cpm_cm']:
             _dir = \
-                f'data/networks/{based_on}/{network_id}/leiden{resolution}'
+                f'data/networks/orig/{based_on}/{network_id}/leiden{resolution}'
 
             G = nx.read_edgelist([
                 ' '.join(x.strip().split('\t'))
