@@ -1,8 +1,8 @@
 import os
 
 src = './data/cm_plus_plus_data'
-tgt1 = './data/networks/leiden_cpm'
-tgt2 = './data/networks/leiden_cpm_cm'
+tgt1 = './data/networks/orig/leiden_cpm'
+tgt2 = './data/networks/orig/leiden_cpm_cm'
 
 networks = ['cen', 'cit_hepph', 'cit_patents',
             'orkut', 'wiki_talk', 'wiki_topcats']

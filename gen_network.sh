@@ -25,11 +25,11 @@
 
 for method in abcd
 do
-    for based_on in leiden_cpm_cm leiden_cpm
+    for based_on in leiden_cpm_cm
     do
-        for network_id in orkut #cit_hepph cit_patents wiki_topcats wiki_talk orkut
+        for network_id in cit_hepph #cit_patents wiki_topcats wiki_talk orkut
         do
-            for resolution in .0001 .001 #.0001 .001 .01
+            for resolution in .0001 .001 .01 #.0001 .001 .01
             do
                 echo "=> $network_id at $resolution using $method based on $based_on <="
 
@@ -47,9 +47,9 @@ do
                 echo "======"
 
                 python emulate-real-nets/estimate_properties_networkit.py \
-                        -n "data/networks/${method}_${based_on}/${network_id}/leiden${resolution}/edge.dat" \
-                        -c "data/networks/${method}_${based_on}/${network_id}/leiden${resolution}/com.dat" \
-                        -o "data/networks/${method}_${based_on}/${network_id}/leiden${resolution}/stats.json"
+                        -n "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/edge.dat" \
+                        -c "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/com.dat" \
+                        -o "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/stats.json"
 
                 echo "======"
 
