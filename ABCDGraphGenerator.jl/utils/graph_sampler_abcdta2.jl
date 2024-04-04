@@ -3,8 +3,8 @@ using Random
 
 # note that for backward compatibility reasons `[nout]` is an optional parameter
 # that comes last
-@info "Usage: julia graphta_sampler.jl networkfile communityfile degreefile communitysizesfile mu|xi fraction isCL islocal [seed] [nout]"
-@info "Example: julia graph_sampler.jl network.dat community.dat degrees.dat community_sizes.dat xi 0.2 true true 42 100"
+@info "Usage: julia graph_sampler_abcdta2.jl networkfile communityfile degreefile communitysizesfile mu|xi fraction isCL islocal [seed] [nout]"
+@info "Example: julia graph_sampler_abcdta2.jl network.dat community.dat degrees.dat community_sizes.dat xi 0.2 true true 42 100"
 
 networkfile = ARGS[1]
 communityfile = ARGS[2]

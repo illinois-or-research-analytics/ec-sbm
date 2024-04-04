@@ -309,14 +309,15 @@ function config_model_ta2(clusters, params)
             end
 
             if t < k
-                for loc in pool[sortperm(view(w_internal_copy, pool), rev=true)]
+                while t < k
                     if w_internal[i] == 0
                         break
                     end
 
+                    wts = Weights(view(w_internal_copy, pool))
+                    loc = sample(pool, wts)
+
                     if minmax(i, loc) in local_edges
-                        # println("Gotcha!")
-                        # readline()
                         continue
                     end
 
@@ -327,7 +328,6 @@ function config_model_ta2(clusters, params)
                         end
                         w_internal_copy[loc] += 1
                         w_internal[loc] += 1
-                        # break
                     end
 
                     push!(local_edges, minmax(i, loc))
@@ -335,10 +335,38 @@ function config_model_ta2(clusters, params)
                     w_internal[loc] -= 1
 
                     t += 1
-                    if t == k
-                        break
-                    end
                 end
+
+                # for loc in pool[sortperm(view(w_internal_copy, pool), rev=true)]
+                #     if w_internal[i] == 0
+                #         break
+                #     end
+
+                #     if minmax(i, loc) in local_edges
+                #         # println("Gotcha!")
+                #         # readline()
+                #         continue
+                #     end
+
+                #     if w_internal[loc] == 0
+                #         if w_internal_copy[loc] == w[loc]
+                #             change += 1
+                #             w[loc] += 1
+                #         end
+                #         w_internal_copy[loc] += 1
+                #         w_internal[loc] += 1
+                #         # break
+                #     end
+
+                #     push!(local_edges, minmax(i, loc))
+                #     w_internal[i] -= 1
+                #     w_internal[loc] -= 1
+
+                #     t += 1
+                #     if t == k
+                #         break
+                #     end
+                # end
             end
 
             # if change > 0
