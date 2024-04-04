@@ -29,6 +29,9 @@ if 'abcd' in method:
     max_ = df['degree'].max()
     mean = df['degree'].mean()
 
+    # Compute the frequency
+    df = df.groupby('degree').size().reset_index(name='count')
+
     # == Compute generated degree distribution ==
     edge_fn = 'edge.dat'
 
@@ -53,6 +56,26 @@ if 'abcd' in method:
     min_gen = df_gen['degree'].min()
     max_gen = df_gen['degree'].max()
     mean_gen = df_gen['degree'].mean()
+
+    # Compute the frequency
+    df_gen = df_gen.groupby('degree').size().reset_index(name='count_gen')
+
+    # == Plot the degree distributions ==
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5), dpi=300, tight_layout=True)
+    sns.scatterplot(ax=ax, data=df, x='degree',
+                    y='count', label='Input', alpha=0.8)
+    sns.scatterplot(ax=ax, data=df_gen, x='degree',
+                    y='count_gen', label='Generated', alpha=0.8)
+    ax.set_xlabel('Degree')
+    ax.set_ylabel('Count')
+    ax.legend()
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    plt.savefig(f'{_dir}/deg_dist.png')
 
     # Output as JSON file
     with open(f'{_dir}/deg_dist.json', 'w') as f:
