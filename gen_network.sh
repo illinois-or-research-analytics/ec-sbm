@@ -6,28 +6,29 @@
 
 # ===================================
 
-# network_id=cit_patents
-# resolution=.01
-# method=abcd
-# based_on=leiden_cpm
+# network_id=cit_hepph
+# resolution=.0001
+# method=abcdta2
+# based_on=leiden_cpm_cm
 
 # python gen_${method}.py $network_id $resolution ${method} ${based_on}
-# python compute_stats.py $network_id $resolution ${method}_${based_on}
+# python compute_stats.py $network_id $resolution ${method} ${based_on}
 # python emulate-real-nets/estimate_properties_networkit.py \
-#     -n "data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/edge.dat" \
-#     -c "data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/com.dat" \
-#     -o "data/networks/${method}/${network_id}_${method}_${based_on}_networks/${network_id}_leiden${resolution}_${method}_${based_on}/stats.json"
-# python compute_upperbound.py $network_id $resolution ${method}_${based_on}
-# python compute_potential_connectivity.py $network_id $resolution ${method}_${based_on}
-# python compute_wiring_efficiency.py $network_id $resolution ${method}_${based_on}
+#     -n "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/edge.dat" \
+#     -c "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/com.dat" \
+#     -o "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/stats.json"
+# python compute_upperbound.py $network_id $resolution ${method} ${based_on}
+# python compute_potential_connectivity.py $network_id $resolution ${method} ${based_on}
+# python compute_wiring_efficiency.py $network_id $resolution ${method} ${based_on}
+# python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
 
 # ===================================
 
-for method in abcd
+for method in abcdta2 #abcd abcdta2
 do
-    for based_on in leiden_cpm_cm
+    for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
     do
-        for network_id in cit_hepph #cit_patents wiki_topcats wiki_talk orkut
+        for network_id in cit_patents #cit_hepph cit_patents wiki_topcats wiki_talk orkut
         do
             for resolution in .0001 .001 .01 #.0001 .001 .01
             do
@@ -58,6 +59,8 @@ do
                 python compute_potential_connectivity.py $network_id $resolution $method ${based_on}
 
                 python compute_wiring_efficiency.py $network_id $resolution $method ${based_on}
+
+                python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
 
                 echo "==========================="
                 echo " "

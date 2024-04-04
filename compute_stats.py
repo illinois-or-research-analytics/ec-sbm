@@ -53,8 +53,3 @@ with open(f'{_dir}/connectivity.log', 'w') as f:
 
 os.system(
     f'python cluster-statistics/summarize.py {_dir}/stats.csv {_dir}/{edge}.dat')
-
-# lfr_summary = pd.read_csv(f'{_dir}/stats_summary.csv', header=None)
-# for row in lfr_summary.iterrows():
-#     k, v = row[1].values
-#     print(f'{k} \t\t\t {v}')

@@ -20,10 +20,10 @@ with open(f'{output_dir}/params.json', 'r') as f:
 
 # == Generate ABCD network
 print(
-    f'Generating ABCD network for {network_id} with resolution {resolution}...')
+    f'Generating ABCD-TA-p-k network for {network_id} with resolution {resolution}...')
 print(f'Mixing parameter (xi) {xi}')
 
-cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler.jl \
+cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler_{method}.jl \
                 {output_dir}/edge.dat {output_dir}/com.dat \
                 {output_dir}/deg.dat {output_dir}/cs.dat \
                 xi {xi} false false {seed} 0'

@@ -4,15 +4,25 @@
 #SBATCH --job-name="network_stats"
 #SBATCH --partition=tallis
 
-for method in abcds
+for method in abcd abcdta2
 do
-    for network_id in wiki_talk cen wiki_topcats cit_hepph cit_patents oc
+    for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
     do
-        for resolution in .001 .01 .1
+        for network_id in cit_hepph #cit_hepph cit_patents wiki_topcats wiki_talk orkut
         do
-            python compute_stats.py $network_id $resolution $method
-            # echo "python gen_abcd.py $network_id $resolution"
+            for resolution in .0001 .001 .01 #.0001 .001 .01
+            do
+                python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
+            done
         done
     done
 done
-# python compute_stats.py cen .01 abcd
+
+# ===================================
+
+# network_id=cit_hepph
+# resolution=.001
+# method=abcd
+# based_on=leiden_cpm_cm
+
+# python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
