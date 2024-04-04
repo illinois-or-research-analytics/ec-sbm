@@ -53,7 +53,10 @@ with open(f'{_dir}/{com}.dat') as f:
 upperbounds = []
 for comm, nodes in comm2nodes.items():
     mindeg = min([node2degree[node] for node in nodes])
-    upperbounds.append(mindeg * (1 - xi) / np.log10(len(nodes)))
+    if len(nodes) == 1:
+        upperbounds.append(0)
+    else:
+        upperbounds.append(mindeg * (1 - xi) / np.log10(len(nodes)))
 
 EPS = 1e-8
 bins = np.arange(
