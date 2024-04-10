@@ -55,54 +55,50 @@ function populate_clusters_ta2(params::ABCDParams)
         # wts.sum == 0 && throw(ArgumentError("could not find an empty slot for vertex of weight $vw"))
         # loc = sample((j0+1):j, wts)
 
-        # ==============================================
+        # ============================================== S
         # ABCD-TA-p
 
-        # Count the number of non-zero in slots[j0+1:j]
-        c = 0
-        t = j0
-        for k in (j0+1):j
-            if slots[k] > 0
-                c += 1
-            end
-        end
-        
-        p = 1
-        ncandidates = floor(c * p / 100)
-
-        # Only sample from the first p% of the slots[j0+1:j] if there are more than 1 non-zero slots
-        if ncandidates < 1
-            # Find the first non-zero slot
-            loc = j0 + 1
-            while slots[loc] == 0
-                loc += 1
-            end
-        elseif ncandidates < c
-            c = 0
-            t = j0 + 1
-            while t ≤ j && c < ncandidates
-                if slots[t] > 0
-                    c += 1
-                end
-                t += 1
-            end
-            wts = Weights(view(slots, (j0+1):t))
-            loc = sample((j0+1):t, wts)
-        else
-            wts = Weights(view(slots, (j0+1):j))
-            loc = sample((j0+1):j, wts)
-        end
-
-        # ==============================================
-
-        # t = j0 + 1
-        # while t < j && floor((1.0 - params.ξ) * vw) > floor(log10(s[t + 1]))
-        #     t += 1
+        # # Count the number of non-zero in slots[j0+1:j]
+        # c = 0
+        # t = j0
+        # for k in (j0+1):j
+        #     if slots[k] > 0
+        #         c += 1
+        #     end
         # end
-        # wts = Weights(view(slots, (j0+1):t))
-        # loc = sample((j0+1):t, wts)
+        
+        # p = 1
+        # ncandidates = floor(c * p / 100)
 
-        # ==============================================
+        # # Only sample from the first p% of the slots[j0+1:j] if there are more than 1 non-zero slots
+        # if ncandidates < 1
+        #     # Find the first non-zero slot
+        #     loc = j0 + 1
+        #     while slots[loc] == 0
+        #         loc += 1
+        #     end
+        # elseif ncandidates < c
+        #     c = 0
+        #     t = j0 + 1
+        #     while t ≤ j && c < ncandidates
+        #         if slots[t] > 0
+        #             c += 1
+        #         end
+        #         t += 1
+        #     end
+        #     wts = Weights(view(slots, (j0+1):t))
+        #     loc = sample((j0+1):t, wts)
+        # else
+        #     wts = Weights(view(slots, (j0+1):j))
+        #     loc = sample((j0+1):j, wts)
+        # end
+
+        # ============================================== O
+
+        wts = Weights(view(slots, (j0+1):j))
+        loc = sample((j0+1):j, wts)
+
+        # ============================================== E
         
         clusters[i] = loc
         slots[loc] -= 1
@@ -157,21 +153,27 @@ function config_model_ta2(clusters, params)
         for i in axes(cluster, 1)
             if i != maxw_idx
                 neww = randround(w_internal_raw[cluster[i]])
-                # w_internal[cluster[i]] = neww
-                # wsum += neww
-                w_internal[cluster[i]] = max(neww, 2)
-                wsum += w_internal[cluster[i]]
+                # ============================================== S
+                w_internal[cluster[i]] = neww
+                wsum += neww
+                # ============================================== O
+                # w_internal[cluster[i]] = max(neww, 2)
+                # wsum += w_internal[cluster[i]]
+                # ============================================== E
             end
         end
-        # maxw = floor(Int, w_internal_raw[cluster[maxw_idx]])
-        maxw = max(floor(Int, w_internal_raw[cluster[maxw_idx]]), 2)
+        # ============================================== S
+        maxw = floor(Int, w_internal_raw[cluster[maxw_idx]])
+        # ============================================== O
+        # maxw = max(floor(Int, w_internal_raw[cluster[maxw_idx]]), 2)
+        # ============================================== E
         w_internal[cluster[maxw_idx]] = maxw + (isodd(wsum) ? iseven(maxw) : isodd(maxw))
         if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
             @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
             w[cluster[maxw_idx]] += 1
         end
 
-        # ==============================================
+        # ============================================== S
         # ABCD-TA-p-Con: Attempt 2
 
         # required = 2 * (length(cluster) - 1)
@@ -213,7 +215,7 @@ function config_model_ta2(clusters, params)
         #     w[cluster[maxw_idx]] += 1
         # end
 
-        # ==============================================
+        # ============================================== E
 
         w_internal_copy = copy(w_internal)
 
@@ -222,10 +224,7 @@ function config_model_ta2(clusters, params)
             @assert all(iszero, w_internal[cluster])
         end
 
-        local_edges = Set{Tuple{Int, Int}}()
-        recycle = Tuple{Int,Int}[]
-
-        # ==============================================
+        # ============================================== S
         # ABCD-TA-p-Con: Attempt 1
 
         # pool = Int[]
@@ -261,20 +260,19 @@ function config_model_ta2(clusters, params)
         #     w[cluster[maxw_idx]] += 1
         # end
 
-        # ==============================================
-        # ABCD-TA-p-WellCon
+        # ============================================== E
 
+        # ============================================== S
+        # ABCD-TA-p-WellCon
+        
+        local_edges = Set{Tuple{Int, Int}}()
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
         # k = 1
-        k = floor(log10(length(cluster))) + 1 
+        k = Int(floor(log10(length(cluster))) + 1)
         # k = minimum(w_internal[cluster])
 
         for i in cluster_sorted
-            if w_internal[i] == 0
-                continue
-            end
-
             if length(pool) < k
                 for j in pool
                     if w_internal[j] == 0
@@ -291,16 +289,29 @@ function config_model_ta2(clusters, params)
                 continue
             end
 
-            change = 0
             t = 0
+
+            # Find the top-k nodes with the highest available degree
+            # and connect them to the current node
             for loc in pool[sortperm(view(w_internal, pool), rev=true)]
-                if w_internal[loc] == 0 || w_internal[i] == 0
+                if w_internal[loc] == 0
                     break
+                end
+
+                if w_internal[i] == 0
+                    if w_internal_copy[i] == w[i]
+                        w[i] += 1
+                    end
+                    w_internal_copy[i] += 1
+                    w_internal[i] += 1
                 end
 
                 push!(local_edges, minmax(i, loc))
                 w_internal[i] -= 1
                 w_internal[loc] -= 1
+
+                @assert w_internal[i] >= 0
+                @assert w_internal[loc] >= 0
 
                 t += 1
                 if t == k
@@ -308,66 +319,72 @@ function config_model_ta2(clusters, params)
                 end
             end
 
-            if t < k
-                while t < k
-                    if w_internal[i] == 0
-                        break
-                    end
+            while t < k
+                wts = Weights(view(w_internal_copy, pool))
+                loc = sample(pool, wts)
 
-                    wts = Weights(view(w_internal_copy, pool))
-                    loc = sample(pool, wts)
-
-                    if minmax(i, loc) in local_edges
-                        continue
-                    end
-
-                    if w_internal[loc] == 0
-                        if w_internal_copy[loc] == w[loc]
-                            change += 1
-                            w[loc] += 1
-                        end
-                        w_internal_copy[loc] += 1
-                        w_internal[loc] += 1
-                    end
-
-                    push!(local_edges, minmax(i, loc))
-                    w_internal[i] -= 1
-                    w_internal[loc] -= 1
-
-                    t += 1
+                if minmax(i, loc) in local_edges
+                    continue
                 end
 
-                # for loc in pool[sortperm(view(w_internal_copy, pool), rev=true)]
-                #     if w_internal[i] == 0
-                #         break
-                #     end
+                if w_internal[loc] == 0
+                    if w_internal_copy[loc] == w[loc]
+                        w[loc] += 1
+                    end
+                    w_internal_copy[loc] += 1
+                    w_internal[loc] += 1
+                end
 
-                #     if minmax(i, loc) in local_edges
-                #         # println("Gotcha!")
-                #         # readline()
-                #         continue
-                #     end
+                if w_internal[i] == 0
+                    if w_internal_copy[i] == w[i]
+                        w[i] += 1
+                    end
+                    w_internal_copy[i] += 1
+                    w_internal[i] += 1
+                end
 
-                #     if w_internal[loc] == 0
-                #         if w_internal_copy[loc] == w[loc]
-                #             change += 1
-                #             w[loc] += 1
-                #         end
-                #         w_internal_copy[loc] += 1
-                #         w_internal[loc] += 1
-                #         # break
-                #     end
+                push!(local_edges, minmax(i, loc))
+                w_internal[i] -= 1
+                w_internal[loc] -= 1
 
-                #     push!(local_edges, minmax(i, loc))
-                #     w_internal[i] -= 1
-                #     w_internal[loc] -= 1
+                @assert w_internal[i] >= 0
+                @assert w_internal[loc] >= 0
 
-                #     t += 1
-                #     if t == k
-                #         break
-                #     end
-                # end
+                t += 1
             end
+
+            # if t < k
+            #     for loc in pool[sortperm(view(w_internal_copy, pool), rev=true)]
+            #         if w_internal[i] == 0
+            #             break
+            #         end
+
+            #         if minmax(i, loc) in local_edges
+            #             # println("Gotcha!")
+            #             # readline()
+            #             continue
+            #         end
+
+            #         if w_internal[loc] == 0
+            #             if w_internal_copy[loc] == w[loc]
+            #                 change += 1
+            #                 w[loc] += 1
+            #             end
+            #             w_internal_copy[loc] += 1
+            #             w_internal[loc] += 1
+            #             # break
+            #         end
+
+            #         push!(local_edges, minmax(i, loc))
+            #         w_internal[i] -= 1
+            #         w_internal[loc] -= 1
+
+            #         t += 1
+            #         if t == k
+            #             break
+            #         end
+            #     end
+            # end
 
             # if change > 0
             #     println("Changes: ", change)
@@ -397,10 +414,9 @@ function config_model_ta2(clusters, params)
             w[cluster[maxw_idx]] += 1
         end
 
-        # ==============================================
-
         connected_graph = copy(local_edges)
-        local_connected_edges_count = length(local_edges)
+
+        # ============================================== E
 
         stubs = Int[]
         for i in cluster
@@ -416,8 +432,8 @@ function config_model_ta2(clusters, params)
 
         shuffle!(stubs)
         
-        # local_edges = Set{Tuple{Int, Int}}()
-        # recycle = Tuple{Int,Int}[]
+        local_edges = Set{Tuple{Int, Int}}()
+        recycle = Tuple{Int,Int}[]
         for i in 1:2:length(stubs)
             e = minmax(stubs[i], stubs[i+1])
             if (e[1] == e[2]) || (e in local_edges)
@@ -426,8 +442,6 @@ function config_model_ta2(clusters, params)
                 push!(local_edges, e)
             end
         end
-
-        # ==============================================
 
         last_recycle = length(recycle)
         recycle_counter = last_recycle
@@ -442,11 +456,11 @@ function config_model_ta2(clusters, params)
                 end
             end
             p1 = popfirst!(recycle)
-            # ================================
+            # ================================ S
             # if p1 in connected_graph
             #     continue
             # end
-            # ================================
+            # ================================ E
             from_recycle = 2 * length(recycle) / length(stubs)
             success = false
             for _ in 1:2:length(stubs)
@@ -461,7 +475,7 @@ function config_model_ta2(clusters, params)
                     used_recycle = false
                     rand(local_edges)
                 end
-                # ================================
+                # ================================ S
                 # c = 0
                 # while p2 in connected_graph
                 #     p2 = if rand() < from_recycle
@@ -485,7 +499,7 @@ function config_model_ta2(clusters, params)
                 #     println("Failed to find a non-intrusive edge. Breaking...")
                 #     continue
                 # end
-                # ================================
+                # ================================ E
                 if rand() < 0.5
                     newp1 = minmax(p1[1], p2[1])
                     newp2 = minmax(p1[2], p2[2])
@@ -518,13 +532,28 @@ function config_model_ta2(clusters, params)
             success || push!(recycle, p1)
         end
 
-        # ==============================================
-
-        old_len = length(edges)
-        union!(edges, local_edges)
-        union!(edges, connected_graph)
+        # ============================================== S
+        union!(local_edges, connected_graph)
         
-        w_internal = w_internal_copy
+        for u in cluster
+            w_internal[u] = 0
+        end
+        for (u, v) in local_edges
+            w_internal[u] += 1
+            if w_internal[u] > w[u]
+                @assert w[u] + 1 == w_internal[u]
+                w[u] += 1
+            end
+
+            w_internal[v] += 1
+            if w_internal[v] > w[v]
+                @assert w[v] + 1 == w_internal[v]
+                w[v] += 1
+            end
+        end
+        # ============================================== E
+
+        union!(edges, local_edges)
         
         # @assert length(edges) == old_len + length(local_edges)
         # @assert 2 * (length(local_edges) + length(recycle) - local_connected_edges_count) == length(stubs)
