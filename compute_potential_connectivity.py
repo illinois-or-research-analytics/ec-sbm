@@ -53,8 +53,11 @@ with open(f'{_dir}/{com}.dat') as f:
 potential_connectivity = []
 for comm, nodes in comm2nodes.items():
     total_deg = sum([node2degree[node] for node in nodes])
-    potential_connectivity.append(
-        total_deg * (1 - xi) / (2 * (len(nodes) - 1)))
+    if len(nodes) == 1:
+        potential_connectivity.append(0)
+    else:
+        potential_connectivity.append(
+            total_deg * (1 - xi) / (2 * (len(nodes) - 1)))
 
 EPS = 1e-8
 bins = np.arange(
