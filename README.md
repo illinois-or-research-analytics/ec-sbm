@@ -1,25 +1,43 @@
-Campus-Cluster:
+### On Campus-Cluster
 
-To run LFR generator:
-- module load gcc
+Install gcc (to run the LFR generator):
 
-To run ABCD generator:
-- Download and install Julia:
+```sh
+module load gcc
 ```
+
+Install and configure Julia (to run the ABCD generator):
+
+- Download and install Julia:
+
+```sh
 curl -fsSL https://install.julialang.org | sh
 ```
+
 - Set path for certificate
-```
+
+```sh
 export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 ```
-- Install
-```
+
+### ABCD generator
+
+To install:
+
+```sh
 julia ABCDGraphGenerator.jl/utils/install.jl
 ```
 
 To modify ABCD generator:
-```
-ln -s /home/vltanh/synnet/ABCDGraphGenerator.jl ~/.julia/packages/ABCDGraphGenerator/ZBC5x
+
+```sh
+ln -s /path/to/ABCDGraphGenerator.jl ~/.julia/packages/ABCDGraphGenerator/ZBC5x
 ```
 
-To run cluster-statistics:
+To generate network:
+
+```
+sh gen_network.sh
+```
+
+### 
