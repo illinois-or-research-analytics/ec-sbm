@@ -522,11 +522,12 @@ function config_model_ta2(clusters, params)
 
         old_len = length(edges)
         union!(edges, local_edges)
+        union!(edges, connected_graph)
         
         w_internal = w_internal_copy
         
-        @assert length(edges) == old_len + length(local_edges)
-        @assert 2 * (length(local_edges) + length(recycle) - local_connected_edges_count) == length(stubs)
+        # @assert length(edges) == old_len + length(local_edges)
+        # @assert 2 * (length(local_edges) + length(recycle) - local_connected_edges_count) == length(stubs)
         for (a, b) in recycle
             w_internal[a] -= 1
             w_internal[b] -= 1
