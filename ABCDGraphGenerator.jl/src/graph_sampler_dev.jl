@@ -134,76 +134,68 @@ function config_model_dev(clusters, params)
     unresolved_collisions = 0
     w_internal = zeros(Int, length(w_internal_raw))
     for cluster in clusterlist
-        println("==========================================")
-        println("Cluster: ", cluster)
-        
         maxw_idx = argmax(view(w_internal_raw, cluster))
         wsum = 0
         for i in axes(cluster, 1)
             if i != maxw_idx
                 neww = randround(w_internal_raw[cluster[i]])
-                w_internal[cluster[i]] = neww
+                # w_internal[cluster[i]] = neww
+                # wsum += neww
+                w_internal[cluster[i]] = max(neww, 2)
                 wsum += w_internal[cluster[i]]
             end
         end
-        maxw = floor(Int, w_internal_raw[cluster[maxw_idx]])
+        # maxw = floor(Int, w_internal_raw[cluster[maxw_idx]])
+        maxw = max(floor(Int, w_internal_raw[cluster[maxw_idx]]), 2)
         w_internal[cluster[maxw_idx]] = maxw + (isodd(wsum) ? iseven(maxw) : isodd(maxw))
         if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
             @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
             w[cluster[maxw_idx]] += 1
         end
-        wsum += w_internal[cluster[maxw_idx]]
-        
 
-        println("w_internal (before): ", w_internal[cluster], " ", sum(w_internal[cluster]))
-        println("Missing: ", 2 * (length(cluster) - 1) - wsum)
-        c = 0
-        if wsum < 2 * (length(cluster) - 1)
-            additional = 2 * (length(cluster) - 1) - wsum
-            while additional > 0
-                not_found = true
-                for i in cluster[sortperm(w_internal[cluster])]
-                    if w_internal[i] >= 2 || w_internal[i] == w[i]
-                        continue
-                    end
-                    println("i ", i, " additional: ", additional, " w_internal[i]: ", w_internal[i], " w[i]: ", w[i])
-                    not_found = false
-                    w_internal[i] += 1
-                    # w[i] += 1
-                    additional -= 1
-                    if additional == 0
-                        break
-                    end
-                end
+        # ==============================================
+        # ABCD-TA-p-Con: Attempt 2
 
-                if not_found
-                    println("Not found")
-                    for i in cluster[sortperm(w_internal[cluster])]
-                        if w_internal[i] >= 2
-                            continue
-                        end
-                        w_internal[i] += 1
-                        w[i] += 1
-                        c += 1
-                        additional -= 1
-                        if additional == 0
-                            break
-                        end
-                    end
-                end
-            end
-        end
-        println("Changes: ", c)
-        
-        wsum = sum(w_internal[cluster])
-        maxw_idx = argmax(view(w_internal, cluster))
-        w_internal[cluster[maxw_idx]] += isodd(wsum) ? 1 : 0
-        if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
-            @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
-            w[cluster[maxw_idx]] += 1
-        end
+        # required = 2 * (length(cluster) - 1)
+        # additional = required - wsum
+        # while additional > 0
+        #     not_found = true
+        #     for i in cluster[sortperm(w_internal[cluster])]
+        #         if w_internal[i] >= 2 || w_internal[i] == w[i]
+        #             continue
+        #         end
+        #         not_found = false
+        #         w_internal[i] += 1
+        #         additional -= 1
+        #         if additional == 0
+        #             break
+        #         end
+        #     end
 
-        # ===========================================
+        #     if not_found
+        #         for i in cluster[sortperm(w_internal[cluster])]
+        #             if w_internal[i] >= 2
+        #                 continue
+        #             end
+        #             w_internal[i] += 1
+        #             w[i] += 1
+        #             additional -= 1
+        #             if additional == 0
+        #                 break
+        #             end
+        #         end
+        #     end
+        # end
+
+        # wsum = sum(w_internal[cluster])
+        # maxw_idx = argmax(view(w_internal, cluster))
+        # w_internal[cluster[maxw_idx]] += isodd(wsum) ? 1 : 0
+        # if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
+        #     @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
+        #     w[cluster[maxw_idx]] += 1
+        # end
+
+        # ==============================================
 
         w_internal_copy = copy(w_internal)
 
@@ -212,72 +204,52 @@ function config_model_dev(clusters, params)
             @assert all(iszero, w_internal[cluster])
         end
 
-        println("w_internal: ", w_internal[cluster], " ", sum(w_internal[cluster]))
-
         local_edges = Set{Tuple{Int, Int}}()
         recycle = Tuple{Int,Int}[]
 
-        # ===========================================
+        # ==============================================
+        # ABCD-TA-p-Con: Attempt 1
 
         # pool = Int[]
         # cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
-        # # println("length(cluster_sorted): ", length(cluster_sorted))
-        # minw = 1 #minimum(w_internal[cluster])
-        # println("minw: ", minw)
 
         # for i in cluster_sorted
-        #     println("-- i: ", i, " w_internal[i]: ", w_internal[i])
-
         #     if w_internal[i] == 0
-        #         println("No internal degree")
         #         continue
         #     end
 
-        #     if length(pool) < minw
-        #         for j in pool
-        #             if w_internal[j] == 0
-        #                 continue
-        #             end
-        #             push!(local_edges, minmax(i, j))
-        #             w_internal[i] -= 1
-        #             w_internal[j] -= 1
-        #             if w_internal[i] == 0
-        #                 break
-        #             end
-        #         end
+        #     if isempty(pool)
         #         push!(pool, i)
-        #         println("Pool: ", pool)
-        #         println("Local edges: ", local_edges)
         #         continue
         #     end
 
-        #     topk = partialsortperm(view(w_internal, pool), 1:minw, rev=true)
-        #     locs = pool[topk]
-        #     println("locs: ", locs)
+        #     loc = pool[argmax(view(w_internal, pool))]
 
-        #     # loc = pool[argmax(view(w_internal, pool))]
-        #     # println("loc: ", loc)
-
-        #     for loc in locs
-        #         if w_internal[loc] == 0
-        #             continue
-        #         end
-
-        #         push!(local_edges, minmax(i, loc))
-        #         w_internal[i] -= 1
-        #         w_internal[loc] -= 1
+        #     if w_internal[loc] == 0
+        #         continue
         #     end
+
+        #     push!(local_edges, minmax(i, loc))
+        #     w_internal[i] -= 1
+        #     w_internal[loc] -= 1
         #     push!(pool, i)
         # end
 
-        # println("Connected edges: ", local_edges)
-        # println("w_internal: ", w_internal[cluster])
+        # wsum = sum(w_internal[cluster])
+        # maxw_idx = argmax(view(w_internal, cluster))
+        # w_internal[cluster[maxw_idx]] += isodd(wsum) ? 1 : 0
+        # if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
+        #     @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
+        #     w[cluster[maxw_idx]] += 1
+        # end
 
-        # ===========================================
+        # ==============================================
+        # ABCD-TA-p-WellCon
 
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
-        k = floor(log10(length(cluster))) + 1 #minimum(w_internal[cluster])
+        # k = 1
+        k = floor(log10(length(cluster))) + 1 
         # k = minimum(w_internal[cluster])
 
         for i in cluster_sorted
@@ -290,7 +262,6 @@ function config_model_dev(clusters, params)
                     if w_internal[j] == 0
                         continue
                     end
-                    println("Connect ", i, " ", j)
                     push!(local_edges, minmax(i, j))
                     w_internal[i] -= 1
                     w_internal[j] -= 1
@@ -302,15 +273,13 @@ function config_model_dev(clusters, params)
                 continue
             end
 
-            change_to_w_int = 0
-            change_to_w = 0
+            change = 0
             t = 0
             for loc in pool[sortperm(view(w_internal, pool), rev=true)]
-                if w_internal[loc] == 0
+                if w_internal[loc] == 0 || w_internal[i] == 0
                     break
                 end
 
-                println("Connect ", i, " ", loc)
                 push!(local_edges, minmax(i, loc))
                 w_internal[i] -= 1
                 w_internal[loc] -= 1
@@ -319,49 +288,72 @@ function config_model_dev(clusters, params)
                 if t == k
                     break
                 end
-
-                if w_internal[i] == 0
-                    break
-                end
             end
 
             if t < k
-                for loc in pool[sortperm(view(w_internal_copy, pool), rev=true)]
+                while t < k
                     if w_internal[i] == 0
                         break
                     end
 
+                    wts = Weights(view(w_internal_copy, pool))
+                    loc = sample(pool, wts)
+
                     if minmax(i, loc) in local_edges
-                        println("Gotcha!")
-                        readline()
                         continue
                     end
 
                     if w_internal[loc] == 0
                         if w_internal_copy[loc] == w[loc]
-                            change_to_w += 1
+                            change += 1
                             w[loc] += 1
                         end
-                        change_to_w_int += 1
-                        w_internal[loc] += 1
                         w_internal_copy[loc] += 1
-                        # break
+                        w_internal[loc] += 1
                     end
 
-                    println("Connect ", i, " ", loc)
                     push!(local_edges, minmax(i, loc))
                     w_internal[i] -= 1
                     w_internal[loc] -= 1
 
                     t += 1
-                    if t == k
-                        break
-                    end
                 end
+
+                # for loc in pool[sortperm(view(w_internal_copy, pool), rev=true)]
+                #     if w_internal[i] == 0
+                #         break
+                #     end
+
+                #     if minmax(i, loc) in local_edges
+                #         # println("Gotcha!")
+                #         # readline()
+                #         continue
+                #     end
+
+                #     if w_internal[loc] == 0
+                #         if w_internal_copy[loc] == w[loc]
+                #             change += 1
+                #             w[loc] += 1
+                #         end
+                #         w_internal_copy[loc] += 1
+                #         w_internal[loc] += 1
+                #         # break
+                #     end
+
+                #     push!(local_edges, minmax(i, loc))
+                #     w_internal[i] -= 1
+                #     w_internal[loc] -= 1
+
+                #     t += 1
+                #     if t == k
+                #         break
+                #     end
+                # end
             end
 
-            println("Changes: ", change_to_w)
-            println("Changes to w_internal: ", change_to_w_int)
+            # if change > 0
+            #     println("Changes: ", change)
+            # end
 
             # topk = partialsortperm(view(w_internal, pool), 1:k, rev=true)
             # locs = pool[topk]
@@ -379,28 +371,35 @@ function config_model_dev(clusters, params)
             push!(pool, i)
         end
 
-        println("Well-Connected edges: ", local_edges)
-        println("w_internal: ", w_internal[cluster], " ", sum(w_internal[cluster]))
+        wsum = sum(w_internal[cluster])
+        maxw_idx = argmax(view(w_internal, cluster))
+        w_internal[cluster[maxw_idx]] += isodd(wsum) ? 1 : 0
+        if w_internal[cluster[maxw_idx]] > w[cluster[maxw_idx]]
+            @assert w[cluster[maxw_idx]] + 1 == w_internal[cluster[maxw_idx]]
+            w[cluster[maxw_idx]] += 1
+        end
 
+        # ==============================================
+
+        connected_graph = copy(local_edges)
         local_connected_edges_count = length(local_edges)
 
-        # ===========================================
-
         stubs = Int[]
-        for i in cluster[sortperm(w_internal[cluster])]
+        for i in cluster
             for j in 1:w_internal[i]
                 push!(stubs, i)
             end
         end
         @assert sum(w_internal[cluster]) == length(stubs)
         @assert iseven(length(stubs))
-
         if params.hasoutliers && cluster === clusterlist[1]
             @assert isempty(stubs)
         end
-        
-        shuffle!(stubs)
 
+        shuffle!(stubs)
+        
+        # local_edges = Set{Tuple{Int, Int}}()
+        # recycle = Tuple{Int,Int}[]
         for i in 1:2:length(stubs)
             e = minmax(stubs[i], stubs[i+1])
             if (e[1] == e[2]) || (e in local_edges)
@@ -410,87 +409,112 @@ function config_model_dev(clusters, params)
             end
         end
 
-        println("Recycle: ", recycle)
-        
-        # last_recycle = length(recycle)
-        # recycle_counter = last_recycle
-        # while !isempty(recycle)
-        #     recycle_counter -= 1
-        #     if recycle_counter < 0
-        #         if length(recycle) < last_recycle
-        #             last_recycle = length(recycle)
-        #             recycle_counter = last_recycle
-        #         else
-        #             break
-        #         end
-        #     end
-        #     p1 = popfirst!(recycle)
-        #     from_recycle = 2 * length(recycle) / length(stubs)
-        #     success = false
-        #     for _ in 1:2:length(stubs)
-        #         p2 = if rand() < from_recycle
-        #             used_recycle = true
-        #             recycle_idx = rand(axes(recycle, 1))
-        #             recycle[recycle_idx]
-        #         else
-        #             used_recycle = false
-        #             if isempty(local_edges)
-        #                 continue
-        #             end
-        #             rand(local_edges)
-        #         end
+        # ==============================================
 
-        #         if rand() < 0.5
-        #             newp1 = minmax(p1[1], p2[1])
-        #             newp2 = minmax(p1[2], p2[2])
-        #         else
-        #             newp1 = minmax(p1[1], p2[2])
-        #             newp2 = minmax(p1[2], p2[1])
-        #         end
+        last_recycle = length(recycle)
+        recycle_counter = last_recycle
+        while !isempty(recycle)
+            recycle_counter -= 1
+            if recycle_counter < 0
+                if length(recycle) < last_recycle
+                    last_recycle = length(recycle)
+                    recycle_counter = last_recycle
+                else
+                    break
+                end
+            end
+            p1 = popfirst!(recycle)
+            # ================================
+            # if p1 in connected_graph
+            #     continue
+            # end
+            # ================================
+            from_recycle = 2 * length(recycle) / length(stubs)
+            success = false
+            for _ in 1:2:length(stubs)
+                p2 = if rand() < from_recycle
+                    used_recycle = true
+                    recycle_idx = rand(axes(recycle, 1))
+                    recycle[recycle_idx]
+                else
+                    if isempty(local_edges)
+                        continue
+                    end
+                    used_recycle = false
+                    rand(local_edges)
+                end
+                # ================================
+                # c = 0
+                # while p2 in connected_graph
+                #     p2 = if rand() < from_recycle
+                #         used_recycle = true
+                #         recycle_idx = rand(axes(recycle, 1))
+                #         recycle[recycle_idx]
+                #     else
+                #         candidates = setdiff(local_edges, connected_graph)
+                #         if isempty(candidates)
+                #             continue
+                #         end
+                #         used_recycle = false
+                #         rand(candidates)
+                #     end
+                #     c += 1
+                #     if c == 10
+                #         break
+                #     end
+                # end
+                # if p2 in connected_graph
+                #     println("Failed to find a non-intrusive edge. Breaking...")
+                #     continue
+                # end
+                # ================================
+                if rand() < 0.5
+                    newp1 = minmax(p1[1], p2[1])
+                    newp2 = minmax(p1[2], p2[2])
+                else
+                    newp1 = minmax(p1[1], p2[2])
+                    newp2 = minmax(p1[2], p2[1])
+                end
+                if newp1 == newp2
+                    good_choice = false
+                elseif (newp1[1] == newp1[2]) || (newp1 in local_edges)
+                    good_choice = false
+                elseif (newp2[1] == newp2[2]) || (newp2 in local_edges)
+                    good_choice = false
+                else
+                    good_choice = true
+                end
+                if good_choice
+                    if used_recycle
+                        recycle[recycle_idx], recycle[end] = recycle[end], recycle[recycle_idx]
+                        pop!(recycle)
+                    else
+                        pop!(local_edges, p2)
+                    end
+                    success = true
+                    push!(local_edges, newp1)
+                    push!(local_edges, newp2)
+                    break
+                end
+            end
+            success || push!(recycle, p1)
+        end
 
-        #         if newp1 == newp2
-        #             good_choice = false
-        #         elseif (newp1[1] == newp1[2]) || (newp1 in local_edges)
-        #             good_choice = false
-        #         elseif (newp2[1] == newp2[2]) || (newp2 in local_edges)
-        #             good_choice = false
-        #         else
-        #             good_choice = true
-        #         end
-
-        #         if good_choice
-        #             if used_recycle
-        #                 recycle[recycle_idx], recycle[end] = recycle[end], recycle[recycle_idx]
-        #                 pop!(recycle)
-        #             else
-        #                 pop!(local_edges, p2)
-        #             end
-        #             success = true
-        #             push!(local_edges, newp1)
-        #             push!(local_edges, newp2)
-        #             break
-        #         end
-        #     end
-        #     success || push!(recycle, p1)
-        # end
+        # ==============================================
 
         old_len = length(edges)
         union!(edges, local_edges)
-
-        println("Edges: ", local_edges)
-        println("Recycle: ", recycle)
-
+        union!(edges, connected_graph)
+        
         w_internal = w_internal_copy
-
-        @assert length(edges) == old_len + length(local_edges)
-        @assert 2 * (length(local_edges) + length(recycle) - local_connected_edges_count) == length(stubs)
+        
+        # @assert length(edges) == old_len + length(local_edges)
+        # @assert 2 * (length(local_edges) + length(recycle) - local_connected_edges_count) == length(stubs)
         for (a, b) in recycle
             w_internal[a] -= 1
             w_internal[b] -= 1
         end
         unresolved_collisions += length(recycle)
-
-        println("w_internal: ", sum(w_internal[cluster]))
     end
 
     if unresolved_collisions > 0
