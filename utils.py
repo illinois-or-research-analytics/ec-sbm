@@ -1,9 +1,26 @@
+import csv
 import json
 from collections import defaultdict
+from typing import Dict, List
 
 import numpy as np
 import os
 import networkx as nx
+
+from hm01.graph import Graph, IntangibleSubgraph, RealizedSubgraph
+from hm01.mincut import viecut
+
+
+def from_existing_clustering(filepath) -> List[IntangibleSubgraph]:
+    # node_id cluster_id format
+    clusters: Dict[str, IntangibleSubgraph] = {}
+    with open(filepath) as f:
+        for line in f:
+            node_id, cluster_id = line.split()
+            clusters.setdefault(
+                cluster_id, IntangibleSubgraph([], cluster_id)
+            ).subset.append(int(node_id))
+    return {key: val for key, val in clusters.items()}
 
 
 def process_stats_to_params(stats_path, cmin):
@@ -69,14 +86,18 @@ def compute_xi(G, comm_fn):
     return xi
 
 
-def set_up(method, based_on, network_id, resolution):
+def set_up(method, based_on, network_id, resolution, use_existing_clustering=False):
     output_dir = \
         f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}'
     os.makedirs(output_dir, exist_ok=True)
 
     if not os.path.exists(f'{output_dir}/deg.dat') \
             or not os.path.exists(f'{output_dir}/cs.dat') \
-            or not os.path.exists(f'{output_dir}/params.json'):
+            or not os.path.exists(f'{output_dir}/params.json') \
+            or (use_existing_clustering and (
+                not os.path.exists(f'{output_dir}/com.dat')
+                or not os.path.exists(f'{output_dir}/mcs.dat')
+            )):
 
         if based_on == 'lfr':
             lfr_dir = \
@@ -100,26 +121,6 @@ def set_up(method, based_on, network_id, resolution):
 
             comm_fn = f'{_dir}/com.dat'
 
-        if not os.path.exists(f'{output_dir}/deg.dat') or not os.path.exists(f'{output_dir}/cs.dat'):
-            cs = {}
-            degree = []
-            for line in open(comm_fn).readlines():
-                u, c = line.strip().split('\t')
-
-                if u in G.nodes:
-                    degree.append(len(G[u]))
-
-                    cs.setdefault(c, 0)
-                    cs[c] += 1
-
-            degree = sorted(degree, reverse=True)
-            with open(f'{output_dir}/deg.dat', 'w') as f:
-                f.write('\n'.join(map(str, degree)))
-
-            cs = sorted(cs.values(), reverse=True)
-            with open(f'{output_dir}/cs.dat', 'w') as f:
-                f.write('\n'.join(map(str, cs)))
-
         if not os.path.exists(f'{output_dir}/params.json'):
             # Find mu
             mu = None
@@ -142,5 +143,86 @@ def set_up(method, based_on, network_id, resolution):
                     'xi': xi,
                     'mu': mu
                 }, f)
+
+        if not os.path.exists(f'{output_dir}/deg.dat') \
+                or not os.path.exists(f'{output_dir}/cs.dat') \
+                or (use_existing_clustering and (
+                    not os.path.exists(f'{output_dir}/com.dat')
+                    or not os.path.exists(f'{output_dir}/mcs.dat')
+                )):
+            cs = {}
+            node_degree = []
+
+            if use_existing_clustering:
+                node_comm = []
+
+            for line in open(comm_fn).readlines():
+                u, c = line.strip().split('\t')
+
+                if u in G.nodes:
+                    node_degree.append((u, len(G[u])))
+
+                    cs.setdefault(c, 0)
+                    cs[c] += 1
+
+                    if use_existing_clustering:
+                        node_comm.append((u, c))
+
+            comm_size = [
+                (c, cs[c])
+                for c in cs
+            ]
+
+            node_degree = sorted(node_degree, reverse=True, key=lambda x: x[1])
+            degree = [[x[1]] for x in node_degree]
+            with open(f'{output_dir}/deg.dat', 'w') as f:
+                csv_writer = csv.writer(f, delimiter='\t')
+                csv_writer.writerows(degree)
+
+            comm_size = sorted(comm_size, reverse=True, key=lambda x: x[1])
+            cs = [[x[1]] for x in comm_size]
+            with open(f'{output_dir}/cs.dat', 'w') as f:
+                csv_writer = csv.writer(f, delimiter='\t')
+                csv_writer.writerows(cs)
+                f.close()
+
+            if use_existing_clustering:
+                node_relabeled = {
+                    u: i
+                    for i, (u, _) in enumerate(node_degree, 1)
+                }
+
+                comm_relabeled = {
+                    c: i
+                    for i, (c, _) in enumerate(comm_size, 1)
+                }
+
+                node_comm = [
+                    [node_relabeled[u], comm_relabeled[c]]
+                    for u, c in node_comm
+                ]
+
+                with open(f'{output_dir}/com.dat', 'w') as f:
+                    csv_writer = csv.writer(f, delimiter='\t')
+                    csv_writer.writerows(node_comm)
+                    f.close()
+
+                G = nx.relabel_nodes(G, node_relabeled)
+                clusters = \
+                    from_existing_clustering(f'{output_dir}/com.dat')
+
+                mincut_results = {
+                    int(k): viecut(cluster.realize(G))
+                    for k, cluster in clusters.items()
+                }
+
+                mcs = [None for _ in range(len(clusters))]
+                for k, m in mincut_results.items():
+                    mcs[k - 1] = [m[-1]]
+
+                with open(f'{output_dir}/mcs.dat', 'w') as f:
+                    csv_writer = csv.writer(f, delimiter='\t')
+                    csv_writer.writerows(mcs)
+                    f.close()
 
     return output_dir

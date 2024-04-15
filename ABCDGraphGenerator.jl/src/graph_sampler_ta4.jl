@@ -1,112 +1,63 @@
-function populate_clusters_ta2(params::ABCDParams)
-    w, s = params.w, params.s
-    if isnothing(params.ξ)
-        mul = 1.0 - params.μ
-    else
-        n = length(w)
-        if params.hasoutliers
-            s0 = s[1]
-            n = length(params.w)
-            ϕ = 1.0 - sum((sl/(n-s0))^2 for sl in s[2:end]) * (n-s0)*params.ξ / ((n-s0)*params.ξ + s0)
+struct ABCDParams4
+    w::Vector{Int}
+    s::Vector{Int}
+    clusters::Vector{Vector{Int64}}
+    mcs::Vector{Int64}
+    μ::Union{Float64, Nothing}
+    ξ::Union{Float64, Nothing}
+    isCL::Bool
+    islocal::Bool
+    hasoutliers::Bool
+
+    function ABCDParams4(w, s, clusters, mcs, μ, ξ, isCL, islocal, hasoutliers=false)
+        length(w) == sum(s) || throw(ArgumentError("inconsistent data"))
+        if !isnothing(μ)
+            0 ≤ μ ≤ 1 || throw(ArgumentError("inconsistent data on μ"))
+        end
+        if !isnothing(ξ)
+            0 ≤ ξ ≤ 1 || throw(ArgumentError("inconsistent data ξ"))
+            if islocal
+                throw(ArgumentError("when ξ is provided local model is not allowed"))
+            end
+        end
+        if isnothing(μ) && isnothing(ξ)
+            throw(ArgumentError("inconsistent data: either μ or ξ must be provided"))
+        end
+
+        if !(isnothing(μ) || isnothing(ξ))
+            throw(ArgumentError("inconsistent data: only μ or ξ may be provided"))
+        end
+
+        if hasoutliers
+            news = copy(s)
+            sort!(@view(news[2:end]), rev=true)
         else
-            ϕ = 1.0 - sum((sl/n)^2 for sl in s)
-        end
-        mul = 1.0 - params.ξ*ϕ
-    end
-    @assert length(w) == sum(s)
-    @assert 0 ≤ mul ≤ 1
-    @assert issorted(w, rev=true)
-    if params.hasoutliers
-        @assert issorted(s[2:end], rev=true)
-    else
-        @assert issorted(s, rev=true)
-    end
-
-    slots = copy(s)
-    clusters = fill(-1, length(w))
-
-    if params.hasoutliers
-        nout = s[1]
-        n = length(params.w)
-        L = sum(d -> min(1.0, params.ξ * d), params.w)
-        threshold = L + nout - L * nout / n - 1.0
-        idx = findfirst(<=(threshold), params.w)
-        @assert all(i -> params.w[i] <= threshold, idx:n)
-        if length(idx:n) < nout
-            throw(ArgumentError("not enough nodes feasible for classification as outliers"))
-        end
-        tabu = sample(idx:n, nout, replace=false)
-        clusters[tabu] .= 1
-        slots[1] = 0
-        stabu = Set(tabu)
-    else
-        stabu = Set{Int}()
-    end
-
-    j0 = params.hasoutliers ? 1 : 0
-    j = j0
-    for (i, vw) in enumerate(w)
-        i in stabu && continue
-        while j + 1 ≤ length(s) && mul * vw + 1 ≤ s[j + 1]
-            j += 1
+            p = sortperm(s, rev=true)
+            news = copy(s[p])
+            # mcs .= mcs[p]
+            
+            # TODO: Handle renaming clusters after sorting
+            # Currently assuming cluster size is correctly sorted
+            @assert news == s
         end
 
-        # ============================================== S
-        # ABCD-TA-p
+        p = sortperm(w, rev=true)
+        neww = copy(w[p])
+        clusters .= clusters[p]
 
-        # # Count the number of non-zero in slots[j0+1:j]
-        # c = 0
-        # t = j0
-        # for k in (j0+1):j
-        #     if slots[k] > 0
-        #         c += 1
-        #     end
-        # end
-        
-        # p = 1
-        # ncandidates = floor(c * p / 100)
+        # TODO: Remove
+        # This is only to make sure that w is sorted
+        @assert neww == w
 
-        # # Only sample from the first p% of the slots[j0+1:j] if there are more than 1 non-zero slots
-        # if ncandidates < 1
-        #     # Find the first non-zero slot
-        #     loc = j0 + 1
-        #     while slots[loc] == 0
-        #         loc += 1
-        #     end
-        # elseif ncandidates < c
-        #     c = 0
-        #     t = j0 + 1
-        #     while t ≤ j && c < ncandidates
-        #         if slots[t] > 0
-        #             c += 1
-        #         end
-        #         t += 1
-        #     end
-        #     wts = Weights(view(slots, (j0+1):t))
-        #     loc = sample((j0+1):t, wts)
-        # else
-        #     wts = Weights(view(slots, (j0+1):j))
-        #     loc = sample((j0+1):j, wts)
-        # end
-
-        # ============================================== O
-
-        j == j0 && throw(ArgumentError("could not find a large enough cluster for vertex of weight $vw"))
-        wts = Weights(view(slots, (j0+1):j))
-        wts.sum == 0 && throw(ArgumentError("could not find an empty slot for vertex of weight $vw"))
-        loc = sample((j0+1):j, wts)
-
-        # ============================================== E
-        
-        clusters[i] = loc
-        slots[loc] -= 1
+        new(neww,
+            news,
+            clusters,
+            mcs,
+            μ, ξ, isCL, islocal, hasoutliers)
     end
-    @assert sum(slots) == 0
-    @assert minimum(clusters) == 1
-    return clusters
 end
 
-function config_model_ta2(clusters, params)
+function config_model_ta4(clusters, params)
     @assert !params.isCL
     @assert !params.islocal
     w, s, μ = params.w, params.s, params.μ
@@ -145,7 +96,7 @@ function config_model_ta2(clusters, params)
 
     unresolved_collisions = 0
     w_internal = zeros(Int, length(w_internal_raw))
-    for cluster in clusterlist
+    for (cluster_id, cluster) in enumerate(clusterlist)
         maxw_idx = argmax(view(w_internal_raw, cluster))
         wsum = 0
         for i in axes(cluster, 1)
@@ -266,9 +217,7 @@ function config_model_ta2(clusters, params)
         local_edges = Set{Tuple{Int, Int}}()
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
-        # k = 1
-        k = Int(floor(log10(length(cluster))) + 1)
-        # k = minimum(w_internal[cluster])
+        k = params.mcs[cluster_id]
 
         for i in cluster_sorted
             if length(pool) < k
@@ -693,17 +642,17 @@ function config_model_ta2(clusters, params)
     return edges
 end
 
-"""
-    gen_graph_tadev(params::ABCDParams)
+function populate_clusters_ta4(params::ABCDParams4)
+    clusters = fill(-1, length(params.w))
+    for (v, c) in params.clusters
+        clusters[v] = c
+    end
+    @assert minimum(clusters) == 1
+    return clusters
+end
 
-Generate modified ABCD graph (dev) following parameters specified in `params`.
-
-Return a named tuple containing a set of edges of the graph and a list of cluster
-assignments of the vertices.
-The ordering of vertices and clusters is in descending order (as in `params`).
-"""
-function gen_graph_ta2(params::ABCDParams)
-    clusters = populate_clusters_ta2(params)
-    edges = params.isCL ? CL_model(clusters, params) : config_model_ta2(clusters, params)
+function gen_graph_ta4(params::ABCDParams4)
+    clusters = populate_clusters_ta4(params)
+    edges = params.isCL ? CL_model(clusters, params) : config_model_ta4(clusters, params)
     (edges=edges, clusters=clusters)
 end

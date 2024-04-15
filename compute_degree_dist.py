@@ -1,7 +1,10 @@
 import sys
 import json
 
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 network_id = sys.argv[1]
 resolution = sys.argv[2]
@@ -36,17 +39,17 @@ if 'abcd' in method:
     edge_fn = 'edge.dat'
 
     with open(f'{_dir}/{edge_fn}') as f:
-        edges = [x.strip().split('\t') for x in f.readlines()]
+        neighbors = {}
+        for x in f.readlines():
+            u, v = x.strip().split('\t')
 
-    neighbors = {}
-    for u, v in edges:
-        neighbors.setdefault(u, [])
-        neighbors[u].append(v)
+            neighbors.setdefault(u, 0)
+            neighbors[u] += 1
 
-        neighbors.setdefault(v, [])
-        neighbors[v].append(u)
+            neighbors.setdefault(v, 0)
+            neighbors[v] += 1
 
-    degrees = [len(neighbors[u]) for u in neighbors]
+    degrees = [neighbors[u] for u in neighbors]
     df_gen = pd.DataFrame(degrees, columns=['degree'])
 
     # Compute the quantiles
@@ -61,21 +64,19 @@ if 'abcd' in method:
     df_gen = df_gen.groupby('degree').size().reset_index(name='count_gen')
 
     # == Plot the degree distributions ==
-
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-
     fig, ax = plt.subplots(1, 1, figsize=(5, 5), dpi=300, tight_layout=True)
     sns.scatterplot(ax=ax, data=df, x='degree',
-                    y='count', label='Input', alpha=0.8)
+                    y='count', label='Input', alpha=0.5)
     sns.scatterplot(ax=ax, data=df_gen, x='degree',
-                    y='count_gen', label='Generated', alpha=0.8)
+                    y='count_gen', label='Generated', alpha=0.5)
     ax.set_xlabel('Degree')
     ax.set_ylabel('Count')
     ax.legend()
     ax.set_xscale('log')
     ax.set_yscale('log')
     plt.savefig(f'{_dir}/deg_dist.png')
+    plt.clf()
+    plt.close()
 
     # Output as JSON file
     with open(f'{_dir}/deg_dist.json', 'w') as f:
