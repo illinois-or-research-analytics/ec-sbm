@@ -67,8 +67,6 @@ do
 
                 echo "==========================="
                 echo " "
-
-                break
             done
         done
     done
