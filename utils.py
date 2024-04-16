@@ -99,9 +99,9 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
                 or not os.path.exists(f'{output_dir}/mcs.dat')
             )):
 
-        if based_on == 'lfr':
+        if based_on == 'leiden_cpm_lfr':
             lfr_dir = \
-                f'data/networks/lfr/{network_id}_lfr_networks/{
+                f'data/networks/orig/lfr/{network_id}_lfr_networks/{
                     network_id}_leiden{resolution}_lfr'
 
             G = nx.read_edgelist([
