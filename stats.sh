@@ -20,9 +20,10 @@
 
 # ===================================
 
-network_id=orkut
+network_id=cit_hepph
 resolution=.001
-method=abcdta2
+method=abcdta4
 based_on=leiden_cpm_cm
 
-python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
+# python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
+python compute_mcs.py ${network_id} ${resolution} ${method} ${based_on}

@@ -212,13 +212,13 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
                     from_existing_clustering(f'{output_dir}/com.dat')
 
                 mincut_results = {
-                    int(k): viecut(cluster.realize(G))
+                    int(k): viecut(cluster.realize(G))[-1]
                     for k, cluster in clusters.items()
                 }
 
                 mcs = [None for _ in range(len(clusters))]
                 for k, m in mincut_results.items():
-                    mcs[k - 1] = [m[-1]]
+                    mcs[k - 1] = [m]
 
                 with open(f'{output_dir}/mcs.dat', 'w') as f:
                     csv_writer = csv.writer(f, delimiter='\t')

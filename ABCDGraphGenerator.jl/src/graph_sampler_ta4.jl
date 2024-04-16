@@ -217,20 +217,30 @@ function config_model_ta4(clusters, params)
         local_edges = Set{Tuple{Int, Int}}()
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
-        k = params.mcs[cluster_id]
+        k = max(params.mcs[cluster_id], 1)
 
         for i in cluster_sorted
             if length(pool) < k
                 for j in pool
                     if w_internal[j] == 0
-                        continue
+                        if w_internal_copy[j] == w[j]
+                            w[j] += 1
+                        end
+                        w_internal_copy[j] += 1
+                        w_internal[j] += 1
                     end
+
+                    if w_internal[i] == 0
+                        if w_internal_copy[i] == w[i]
+                            w[i] += 1
+                        end
+                        w_internal_copy[i] += 1
+                        w_internal[i] += 1
+                    end
+
                     push!(local_edges, minmax(i, j))
                     w_internal[i] -= 1
                     w_internal[j] -= 1
-                    if w_internal[i] == 0
-                        break
-                    end
                 end
                 push!(pool, i)
                 continue
@@ -293,9 +303,6 @@ function config_model_ta4(clusters, params)
                 push!(local_edges, minmax(i, loc))
                 w_internal[i] -= 1
                 w_internal[loc] -= 1
-
-                @assert w_internal[i] >= 0
-                @assert w_internal[loc] >= 0
 
                 t += 1
             end
