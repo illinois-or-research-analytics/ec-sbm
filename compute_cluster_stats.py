@@ -61,7 +61,7 @@ if 'abcd' in method:
     }
 
     mincut_results = {
-        k: viecut(cluster)[-1] if cluster.n() > 1 else 1
+        k: viecut(cluster)[-1]
         for k, cluster in clusters.items()
     }
 

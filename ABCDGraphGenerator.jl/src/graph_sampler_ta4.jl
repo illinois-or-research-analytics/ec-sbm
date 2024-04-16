@@ -247,6 +247,7 @@ function config_model_ta4(clusters, params)
             end
 
             t = 0
+            selected = Set{Int}()
 
             # Find the top-k nodes with the highest available degree
             # and connect them to the current node
@@ -263,12 +264,10 @@ function config_model_ta4(clusters, params)
                     w_internal[i] += 1
                 end
 
+                push!(selected, loc)
                 push!(local_edges, minmax(i, loc))
                 w_internal[i] -= 1
                 w_internal[loc] -= 1
-
-                @assert w_internal[i] >= 0
-                @assert w_internal[loc] >= 0
 
                 t += 1
                 if t == k
@@ -277,8 +276,9 @@ function config_model_ta4(clusters, params)
             end
 
             while t < k
-                wts = Weights(view(w_internal_copy, pool))
-                loc = sample(pool, wts)
+                candidates = setdiff(pool, selected)
+                wts = Weights(view(w_internal_copy, candidates))
+                loc = sample(candidates, wts)
 
                 if minmax(i, loc) in local_edges
                     continue
@@ -300,6 +300,7 @@ function config_model_ta4(clusters, params)
                     w_internal[i] += 1
                 end
 
+                push!(selected, loc)
                 push!(local_edges, minmax(i, loc))
                 w_internal[i] -= 1
                 w_internal[loc] -= 1
@@ -523,6 +524,11 @@ function config_model_ta4(clusters, params)
                 "; fraction: ", 2 * unresolved_collisions / total_weight)
     end
 
+    # ============================================== S
+    local_edges = copy(edges)
+    edges = Set{Tuple{Int, Int}}()
+    # ============================================== E
+
     stubs = Int[]
     for i in axes(w, 1)
         for j in w_internal[i]+1:w[i]
@@ -604,6 +610,7 @@ function config_model_ta4(clusters, params)
             end
         end
     end
+
     old_len = length(edges)
     union!(edges, global_edges)
     @assert length(edges) == old_len + length(global_edges)
@@ -646,6 +653,11 @@ function config_model_ta4(clusters, params)
         println("Very hard graph. Failed to generate ", unresolved_collisions,
                 "edges; fraction: ", 2 * unresolved_collisions / total_weight)
     end
+
+    # ============================================== S
+    union!(edges, local_edges)
+    # ============================================== E
+
     return edges
 end
 
