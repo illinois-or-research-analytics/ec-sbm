@@ -3,8 +3,8 @@ using Random
 
 # note that for backward compatibility reasons `[nout]` is an optional parameter
 # that comes last
-@info "Usage: julia graph_sampler_abcdta3.jl networkfile communityfile degreefile communitysizesfile mu|xi fraction isCL islocal [seed] [nout]"
-@info "Example: julia graph_sampler_abcdta3.jl network.dat community.dat degrees.dat community_sizes.dat xi 0.2 true true 42 100"
+@info "Usage: julia graph_sampler_abcdta3.jl networkfile communityfile degreefile communitysizesfile mu|xi fraction isCL islocal [seed] [nout] cominpfile"
+@info "Example: julia graph_sampler_abcdta3.jl network.dat community.dat degrees.dat community_sizes.dat xi 0.2 true true 42 100 com_inp.dat"
 
 networkfile = ARGS[1]
 communityfile = ARGS[2]
@@ -22,7 +22,9 @@ else
 	nout = 0
 end
 
-length(ARGS) >= 11 && @warn "more than 10 parameters passed"
+cominpfile = ARGS[11]
+
+length(ARGS) >= 12 && @warn "more than 11 parameters passed"
 
 coms = parse.(Int, readlines(communitysizesfile))
 
@@ -50,7 +52,13 @@ if isCL && nout > 0
 	throw(ArgumentError("Chung-Lu graph is not supported with outliers"))
 end
 
-clusters = (x -> parse.(Int, x)).(split.(readlines(communityfile)))
+clusters = (x -> parse.(Int, x)).(split.(readlines(cominpfile)))
+
+open(communityfile, "w") do io
+	for (i, c) in clusters
+		println(io, i, "\t", c)
+	end
+end
 
 p = ABCDGraphGenerator.ABCDParams3(
     parse.(Int, readlines(degreefile)),
@@ -58,7 +66,7 @@ p = ABCDGraphGenerator.ABCDParams3(
     clusters,
 	μ, ξ, isCL, islocal, nout > 0)
 
-edges, clusters = ABCDGraphGenerator.gen_graph_ta3(p)
+edges, _ = ABCDGraphGenerator.gen_graph_ta3(p)
 
 open(networkfile, "w") do io
 	for (a, b) in sort!(collect(edges))

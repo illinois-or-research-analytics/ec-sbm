@@ -11,6 +11,14 @@ from hm01.graph import Graph, IntangibleSubgraph, RealizedSubgraph
 from hm01.mincut import viecut
 
 
+COM_INP = 'com_inp.dat'
+COM_OUT = 'com.dat'
+DEG = 'deg.dat'
+CS = 'cs.dat'
+MCS = 'mcs.dat'
+PARAMS = 'params.json'
+
+
 def from_existing_clustering(filepath) -> List[IntangibleSubgraph]:
     # node_id cluster_id format
     clusters: Dict[str, IntangibleSubgraph] = {}
@@ -91,12 +99,12 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
         f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}'
     os.makedirs(output_dir, exist_ok=True)
 
-    if not os.path.exists(f'{output_dir}/deg.dat') \
-            or not os.path.exists(f'{output_dir}/cs.dat') \
-            or not os.path.exists(f'{output_dir}/params.json') \
+    if not os.path.exists(f'{output_dir}/{DEG}') \
+            or not os.path.exists(f'{output_dir}/{CS}') \
+            or not os.path.exists(f'{output_dir}/{PARAMS}') \
             or (use_existing_clustering and (
-                not os.path.exists(f'{output_dir}/com.dat')
-                or not os.path.exists(f'{output_dir}/mcs.dat')
+                not os.path.exists(f'{output_dir}/{COM_INP}')
+                or not os.path.exists(f'{output_dir}/{MCS}')
             )):
 
         if based_on == 'leiden_cpm_lfr':
@@ -137,18 +145,18 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
             # Generate xi
             xi = compute_xi(G, comm_fn)
 
-            with open(f'{output_dir}/params.json', 'w') as f:
+            with open(f'{output_dir}/{PARAMS}', 'w') as f:
                 json.dump({
                     'seed': seed,
                     'xi': xi,
                     'mu': mu
                 }, f)
 
-        if not os.path.exists(f'{output_dir}/deg.dat') \
-                or not os.path.exists(f'{output_dir}/cs.dat') \
+        if not os.path.exists(f'{output_dir}/{DEG}') \
+                or not os.path.exists(f'{output_dir}/{CS}') \
                 or (use_existing_clustering and (
-                    not os.path.exists(f'{output_dir}/com.dat')
-                    or not os.path.exists(f'{output_dir}/mcs.dat')
+                    not os.path.exists(f'{output_dir}/{COM_INP}')
+                    or not os.path.exists(f'{output_dir}/{MCS}')
                 )):
             cs = {}
             node_degree = []
@@ -173,18 +181,22 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
                 for c in cs
             ]
 
-            node_degree = sorted(node_degree, reverse=True, key=lambda x: x[1])
-            degree = [[x[1]] for x in node_degree]
-            with open(f'{output_dir}/deg.dat', 'w') as f:
-                csv_writer = csv.writer(f, delimiter='\t')
-                csv_writer.writerows(degree)
+            if not os.path.exists(f'{output_dir}/{DEG}'):
+                node_degree = sorted(
+                    node_degree, reverse=True, key=lambda x: x[1])
+                degree = [[x[1]] for x in node_degree]
+                with open(f'{output_dir}/{DEG}', 'w') as f:
+                    csv_writer = csv.writer(f, delimiter='\t')
+                    csv_writer.writerows(degree)
+                    f.close()
 
-            comm_size = sorted(comm_size, reverse=True, key=lambda x: x[1])
-            cs = [[x[1]] for x in comm_size]
-            with open(f'{output_dir}/cs.dat', 'w') as f:
-                csv_writer = csv.writer(f, delimiter='\t')
-                csv_writer.writerows(cs)
-                f.close()
+            if not os.path.exists(f'{output_dir}/{CS}'):
+                comm_size = sorted(comm_size, reverse=True, key=lambda x: x[1])
+                cs = [[x[1]] for x in comm_size]
+                with open(f'{output_dir}/{CS}', 'w') as f:
+                    csv_writer = csv.writer(f, delimiter='\t')
+                    csv_writer.writerows(cs)
+                    f.close()
 
             if use_existing_clustering:
                 node_relabeled = {
@@ -202,27 +214,29 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
                     for u, c in node_comm
                 ]
 
-                with open(f'{output_dir}/com.dat', 'w') as f:
-                    csv_writer = csv.writer(f, delimiter='\t')
-                    csv_writer.writerows(node_comm)
-                    f.close()
+                if not os.path.exists(f'{output_dir}/{COM_INP}'):
+                    with open(f'{output_dir}/{COM_INP}', 'w') as f:
+                        csv_writer = csv.writer(f, delimiter='\t')
+                        csv_writer.writerows(node_comm)
+                        f.close()
 
-                G = nx.relabel_nodes(G, node_relabeled)
-                clusters = \
-                    from_existing_clustering(f'{output_dir}/com.dat')
+                if not os.path.exists(f'{output_dir}/{MCS}'):
+                    G = nx.relabel_nodes(G, node_relabeled)
+                    clusters = from_existing_clustering(
+                        f'{output_dir}/{COM_INP}')
 
-                mincut_results = {
-                    int(k): viecut(cluster.realize(G))[-1]
-                    for k, cluster in clusters.items()
-                }
+                    mincut_results = {
+                        int(k): viecut(cluster.realize(G))[-1]
+                        for k, cluster in clusters.items()
+                    }
 
-                mcs = [None for _ in range(len(clusters))]
-                for k, m in mincut_results.items():
-                    mcs[k - 1] = [m]
+                    mcs = [None for _ in range(len(clusters))]
+                    for k, m in mincut_results.items():
+                        mcs[k - 1] = [m]
 
-                with open(f'{output_dir}/mcs.dat', 'w') as f:
-                    csv_writer = csv.writer(f, delimiter='\t')
-                    csv_writer.writerows(mcs)
-                    f.close()
+                    with open(f'{output_dir}/{MCS}', 'w') as f:
+                        csv_writer = csv.writer(f, delimiter='\t')
+                        csv_writer.writerows(mcs)
+                        f.close()
 
     return output_dir
