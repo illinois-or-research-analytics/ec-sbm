@@ -29,7 +29,7 @@ cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler_{method}.jl \
                 {output_dir}/edge.dat {output_dir}/com.dat \
                 {output_dir}/deg.dat {output_dir}/cs.dat \
                 xi {xi} false false {seed} 0 \
-                {output_dir}/mcs.dat'
+                {output_dir}/com_inp.dat {output_dir}/mcs.dat'
 
 with open(f'{output_dir}/run.log', 'w') as f:
     f.write(cmd)
