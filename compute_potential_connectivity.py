@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from utils import process_stats_to_params
+from constants import *
 
 network_id = sys.argv[1]
 resolution = sys.argv[2]
@@ -18,7 +19,7 @@ print(
 _dir = f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/'
 
 if 'abcd' in method:
-    with open(f'{_dir}/params.json') as f:
+    with open(f'{_dir}/{PARAMS}') as f:
         xi = json.load(f)['xi']
 else:
     network_stats_json_path = f'data/network_params/{
@@ -31,7 +32,7 @@ com = 'com' if 'abcd' in method else 'community'
 
 node2degree = {}
 if 'abcd' in method:
-    with open(f'{_dir}/deg.dat') as f:
+    with open(f'{_dir}/{DEG}') as f:
         for i, line in enumerate(f.readlines()):
             node2degree[i + 1] = int(line.strip())
 else:
@@ -44,7 +45,7 @@ else:
         node2degree[u] = len(G[u])
 
 comm2nodes = {}
-with open(f'{_dir}/{com}.dat') as f:
+with open(f'{_dir}/{COM_OUT}') as f:
     for line in f.readlines():
         node, comm = map(int, line.strip().split('\t'))
         comm2nodes.setdefault(comm, [])

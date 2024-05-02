@@ -1,22 +1,15 @@
+import os
 import csv
 import json
 from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
-import os
 import networkx as nx
-
 from hm01.graph import Graph, IntangibleSubgraph, RealizedSubgraph
 from hm01.mincut import viecut
 
-
-COM_INP = 'com_inp.dat'
-COM_OUT = 'com.dat'
-DEG = 'deg.dat'
-CS = 'cs.dat'
-MCS = 'mcs.dat'
-PARAMS = 'params.json'
+from constants import *
 
 
 def from_existing_clustering(filepath) -> List[IntangibleSubgraph]:
@@ -129,7 +122,7 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
 
             comm_fn = f'{_dir}/com.dat'
 
-        if not os.path.exists(f'{output_dir}/params.json'):
+        if not os.path.exists(f'{output_dir}/{PARAMS}'):
             # Find mu
             mu = None
 
@@ -154,9 +147,11 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
 
         if not os.path.exists(f'{output_dir}/{DEG}') \
                 or not os.path.exists(f'{output_dir}/{CS}') \
+                or not os.path.exists(f'{output_dir}/{NODE_ID}') \
                 or (use_existing_clustering and (
                     not os.path.exists(f'{output_dir}/{COM_INP}')
                     or not os.path.exists(f'{output_dir}/{MCS}')
+                    or not os.path.exists(f'{output_dir}/{COM_ID}')
                 )):
             cs = {}
             node_degree = []
@@ -232,6 +227,11 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
 
                     mcs = [None for _ in range(len(clusters))]
                     for k, m in mincut_results.items():
+                        # if m == 0:
+                        #     print(k)
+                        #     for c_old, c_new in comm_relabeled.items():
+                        #         if c_new == k:
+                        #             print(c_old)
                         mcs[k - 1] = [m]
 
                     with open(f'{output_dir}/{MCS}', 'w') as f:
