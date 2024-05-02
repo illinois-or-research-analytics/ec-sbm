@@ -6,6 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from constants import *
+
 network_id = sys.argv[1]
 resolution = sys.argv[2]
 method = sys.argv[3]
@@ -18,7 +20,7 @@ _dir = f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/'
 
 if 'abcd' in method:
     # == Compute input degree distribution ==
-    deg_fn = 'deg.dat'
+    deg_fn = DEG
 
     with open(f'{_dir}/{deg_fn}') as f:
         degrees = [int(x.strip()) for x in f.readlines()]
@@ -36,7 +38,7 @@ if 'abcd' in method:
     df = df.groupby('degree').size().reset_index(name='count')
 
     # == Compute generated degree distribution ==
-    edge_fn = 'edge.dat'
+    edge_fn = EDGE
 
     with open(f'{_dir}/{edge_fn}') as f:
         neighbors = {}

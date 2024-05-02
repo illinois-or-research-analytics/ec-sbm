@@ -10,6 +10,8 @@ import networkit as nk
 
 from utils import from_existing_clustering, viecut, Graph
 
+from constants import *
+
 network_id = sys.argv[1]
 resolution = sys.argv[2]
 method = sys.argv[3]
@@ -22,8 +24,8 @@ _dir = f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/'
 
 if 'abcd' in method:
     # Compute input mcs
-    mcs_fn = 'mcs.dat'
-    cs_fn = 'cs.dat'
+    mcs_fn = MCS
+    cs_fn = CS
 
     with open(f'{_dir}/{mcs_fn}') as f:
         csv_reader = csv.reader(f, delimiter='\t')
@@ -45,8 +47,8 @@ if 'abcd' in method:
         df['size'] = df['id'].map(cs)
 
     # Compute generated mcs
-    edge_fn = 'edge.dat'
-    com_fn = 'com.dat'
+    edge_fn = EDGE
+    com_fn = COM_OUT
 
     edgelist_reader = nk.graphio.EdgeListReader("\t", 0)
     nk_graph = edgelist_reader.read(f'{_dir}/{edge_fn}')

@@ -6,9 +6,9 @@
 
 # ===================================
 
-# network_id=cit_hepph
-# resolution=.0001
-# method=abcd
+# network_id=cit_patents
+# resolution=.001
+# method=abcdta4
 # based_on=leiden_cpm_cm
 
 # # python extract_network.py $network_id $resolution ${method} ${based_on}
@@ -26,13 +26,13 @@
 
 # ===================================
 
-for method in abcdta1 #abcd abcdta2 abcdta3 abcdta4
+for method in abcdta4 #abcd abcdta2 abcdta3 abcdta4
 do
-    for network_id in cit_hepph cit_patents #cit_hepph cit_patents wiki_topcats wiki_talk orkut
+    for network_id in cit_hepph #cit_hepph cit_patents wiki_topcats wiki_talk orkut
     do
         for resolution in .0001 .001 .01 #.0001 .001 .01
         do
-            for based_on in leiden_cpm_cm leiden_cpm #leiden_cpm_cm leiden_cpm
+            for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
             do
                 echo "=> $network_id at $resolution using $method based on $based_on <="
 
@@ -51,8 +51,8 @@ do
                 echo "======"
 
                 python emulate-real-nets/estimate_properties_networkit.py \
-                        -n "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/edge.dat" \
-                        -c "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/com.dat" \
+                        -n "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/edge.tsv" \
+                        -c "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/com.tsv" \
                         -o "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/stats.json"
 
                 echo "======"
@@ -71,6 +71,8 @@ do
                 echo " "
             done
         done
+
+        break
     done
 done
 

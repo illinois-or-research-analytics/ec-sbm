@@ -4,6 +4,8 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 
+from constants import *
+
 network_id = sys.argv[1]
 resolution = sys.argv[2]
 method = sys.argv[3]

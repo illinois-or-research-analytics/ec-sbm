@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
+from constants import *
+
 network_id = sys.argv[1]
 resolution = sys.argv[2]
 method = sys.argv[3]
@@ -16,10 +18,10 @@ print(
 
 _dir = f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/'
 
-edge = 'edge' if 'abcd' in method else 'network'
-com = 'com' if 'abcd' in method else 'community'
+edge = EDGE if 'abcd' in method else 'network.dat'
+com = COM_OUT if 'abcd' in method else 'community.dat'
 os.system(
-    f'python cluster-statistics/stats.py -i {_dir}/{edge}.dat -e {_dir}/{com}.dat -o {_dir}/stats.csv')
+    f'python cluster-statistics/stats.py -i {_dir}/{edge} -e {_dir}/{com} -o {_dir}/stats.csv')
 
 stats = pd.read_csv(f'{_dir}/stats.csv')
 c = Counter(stats['connectivity'].tolist())
