@@ -30,8 +30,8 @@ if 'abcd' in method:
     comm_mapping = {}
     with open(f'{_dir}/{COM_ID}') as f:
         reader = csv.reader(f, delimiter='\t')
-        for comm, comm_id in reader:
-            comm_mapping[int(comm)] = comm_id
+        for i, (comm_id, *_) in enumerate(reader, 1):
+            comm_mapping[i] = comm_id
 
     with open(f'{_dir}/{mcs_fn}') as f:
         csv_reader = csv.reader(f, delimiter='\t')

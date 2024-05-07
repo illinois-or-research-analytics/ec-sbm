@@ -174,43 +174,55 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
                         node_comm.append((u, c))
             f.close()
 
+            node_degree = sorted(
+                node_degree,
+                reverse=True,
+                key=lambda x: x[1],
+            )
+
+            if not os.path.exists(f'{output_dir}/{DEG}'):
+                with open(f'{output_dir}/{DEG}', 'w') as f:
+                    csv_writer = csv.writer(f, delimiter='\t')
+                    csv_writer.writerows([
+                        [x]
+                        for _, x in node_degree
+                    ])
+                    f.close()
+
+            node_relabeled = {
+                u: i
+                for i, (u, _) in enumerate(node_degree, 1)
+            }
+
+            if not os.path.exists(f'{output_dir}/{NODE_ID}'):
+                with open(f'{output_dir}/{NODE_ID}', 'w') as f:
+                    csv_writer = csv.writer(f, delimiter='\t')
+                    csv_writer.writerows([
+                        [u]
+                        for u, _ in node_degree
+                    ])
+                    f.close()
+
             comm_size = [
                 (c, cs[c])
                 for c in cs
             ]
-
-            if not os.path.exists(f'{output_dir}/{DEG}'):
-                node_degree = sorted(
-                    node_degree, reverse=True, key=lambda x: x[1])
-                degree = [[x[1]] for x in node_degree]
-                with open(f'{output_dir}/{DEG}', 'w') as f:
-                    csv_writer = csv.writer(f, delimiter='\t')
-                    csv_writer.writerows(degree)
-                    f.close()
+            comm_size = sorted(
+                comm_size,
+                reverse=True,
+                key=lambda x: x[1],
+            )
 
             if not os.path.exists(f'{output_dir}/{CS}'):
-                comm_size = sorted(comm_size, reverse=True, key=lambda x: x[1])
-                cs = [[x[1]] for x in comm_size]
                 with open(f'{output_dir}/{CS}', 'w') as f:
                     csv_writer = csv.writer(f, delimiter='\t')
-                    csv_writer.writerows(cs)
+                    csv_writer.writerows([
+                        [x]
+                        for _, x in comm_size
+                    ])
                     f.close()
 
             if use_existing_clustering:
-                node_relabeled = {
-                    u: i
-                    for i, (u, _) in enumerate(node_degree, 1)
-                }
-
-                if not os.path.exists(f'{output_dir}/{NODE_ID}'):
-                    with open(f'{output_dir}/{NODE_ID}', 'w') as f:
-                        csv_writer = csv.writer(f, delimiter='\t')
-                        csv_writer.writerows([
-                            [i, u]
-                            for i, (u, _) in enumerate(node_degree, 1)
-                        ])
-                        f.close()
-
                 comm_relabeled = {
                     c: i
                     for i, (c, _) in enumerate(comm_size, 1)
@@ -220,8 +232,8 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
                     with open(f'{output_dir}/{COM_ID}', 'w') as f:
                         csv_writer = csv.writer(f, delimiter='\t')
                         csv_writer.writerows([
-                            [i, c]
-                            for i, (c, _) in enumerate(comm_size, 1)
+                            [c]
+                            for c, _ in comm_size
                         ])
                         f.close()
 
@@ -265,27 +277,32 @@ def post_process(output_dir):
     if os.path.exists(f'{output_dir}/{NODE_ID}'):
         with open(f'{output_dir}/{NODE_ID}', 'r') as f:
             csv_reader = csv.reader(f, delimiter='\t')
-            node_mapping = dict()
-            for old_id, new_id in csv_reader:
-                node_mapping[old_id] = new_id
+            node_mapping = {
+                str(i): _id
+                for i, (_id, *_) in enumerate(csv_reader, 1)
+            }
     else:
-        node_mapping = dict()
+        node_mapping = None
 
     if os.path.exists(f'{output_dir}/{COM_ID}'):
         with open(f'{output_dir}/{COM_ID}', 'r') as f:
             csv_reader = csv.reader(f, delimiter='\t')
-            comm_mapping = dict()
-            for old_id, new_id in csv_reader:
-                comm_mapping[old_id] = new_id
+            comm_mapping = {
+                str(i): _id
+                for i, (_id, *_) in enumerate(csv_reader, 1)
+            }
     else:
-        comm_mapping = dict()
+        comm_mapping = None
 
     with open(f'{output_dir}/{EDGE}', 'r') as f:
         csv_reader = csv.reader(f, delimiter='\t')
         edges = []
         for u, v in csv_reader:
-            u = node_mapping.get(u, u)
-            v = node_mapping.get(v, v)
+            if node_mapping is not None:
+                assert u in node_mapping
+                assert v in node_mapping
+                u = node_mapping[u]
+                v = node_mapping[v]
             edges.append((u, v))
         f.close()
 
@@ -298,8 +315,12 @@ def post_process(output_dir):
         csv_reader = csv.reader(f, delimiter='\t')
         com_out = []
         for u, c in csv_reader:
-            u = node_mapping.get(u, u)
-            c = comm_mapping.get(c, c)
+            if node_mapping is not None:
+                assert u in node_mapping
+                u = node_mapping[u]
+            if comm_mapping is not None:
+                assert c in comm_mapping
+                c = comm_mapping[c]
             com_out.append((u, c))
         f.close()
 

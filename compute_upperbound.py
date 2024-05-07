@@ -36,12 +36,12 @@ if 'abcd' in method:
     node_mapping = dict()
     with open(f'{_dir}/{NODE_ID}') as f:
         reader = csv.reader(f, delimiter='\t')
-        for node, node_id in reader:
-            node_mapping[int(node)] = node_id
+        for i, (_id, *_) in enumerate(reader, 1):
+            node_mapping[i] = _id
 
     with open(f'{_dir}/{DEG}') as f:
-        for i, line in enumerate(f.readlines()):
-            node2degree[node_mapping[i + 1]] = int(line.strip())
+        for i, line in enumerate(f.readlines(), 1):
+            node2degree[node_mapping[i]] = int(line.strip())
 else:
     f = open(f'{_dir}/{edge}')
     reader = csv.reader(f, delimiter='\t')
