@@ -26,41 +26,41 @@
 
 # ===================================
 
-for method in abcdta4 #abcd abcdta2 abcdta3 abcdta4
+for method in abcd abcdta4 #abcd abcdta4
 do
-    for network_id in cit_hepph #cit_hepph cit_patents wiki_topcats wiki_talk orkut
+    for network_id in cit_hepph cit_patents #cit_hepph cit_patents wiki_topcats wiki_talk orkut
     do
-        for resolution in .001 #.0001 .001 .01
+        for resolution in .0001 .001 .01 #.0001 .001 .01
         do
-            for based_on in leiden_cpm_cm leiden_cpm #leiden_cpm_cm leiden_cpm
+            for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
             do
                 echo "=> $network_id at $resolution using $method based on $based_on <="
 
-                echo "======"
-                echo "Generating..."
+                # echo "======"
+                # echo "Generating..."
                 
-                # python extract_network.py $network_id $resolution ${method} ${based_on}
-                python gen_${method}.py $network_id $resolution ${method} ${based_on}
+                # # python extract_network.py $network_id $resolution ${method} ${based_on}
+                # python gen_${method}.py $network_id $resolution ${method} ${based_on}
 
-                echo "======"
+                # echo "======"
 
-                echo "Computing statistics..."
+                # echo "Computing statistics..."
 
-                python compute_stats.py $network_id $resolution $method ${based_on}
+                # python compute_stats.py $network_id $resolution $method ${based_on}
 
-                echo "======"
+                # echo "======"
 
-                python emulate-real-nets/estimate_properties_networkit.py \
-                        -n "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/edge.tsv" \
-                        -c "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/com.tsv" \
-                        -o "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/stats.json"
+                # python emulate-real-nets/estimate_properties_networkit.py \
+                #         -n "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/edge.tsv" \
+                #         -c "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/com.tsv" \
+                #         -o "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/stats.json"
 
-                echo "======"
+                # echo "======"
 
-                # python compute_upperbound.py $network_id $resolution $method ${based_on}
-                # python compute_potential_connectivity.py $network_id $resolution $method ${based_on}
-                # python compute_wiring_efficiency.py $network_id $resolution $method ${based_on}
-                python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
+                # # python compute_upperbound.py $network_id $resolution $method ${based_on}
+                # # python compute_potential_connectivity.py $network_id $resolution $method ${based_on}
+                # # python compute_wiring_efficiency.py $network_id $resolution $method ${based_on}
+                # python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
                 python compute_cluster_stats.py ${network_id} ${resolution} ${method} ${based_on}
 
                 echo "==========================="

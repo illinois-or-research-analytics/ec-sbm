@@ -1,3 +1,4 @@
+import os
 import sys
 import csv
 
@@ -9,17 +10,8 @@ import networkit as nk
 from src.utils import from_existing_clustering, viecut, Graph
 from src.constants import *
 
-network_id = sys.argv[1]
-resolution = sys.argv[2]
-method = sys.argv[3]
-based_on = sys.argv[4]
 
-print(
-    f'Cluster statistics for {network_id} at resolution {resolution} using {method}')
-
-_dir = f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/'
-
-if 'abcd' in method:
+def with_bijection(_dir):
     # Compute input mcs
     mcs_fn = MCS
     cs_fn = CS
@@ -123,5 +115,63 @@ if 'abcd' in method:
     plt.savefig(f'{_dir}/mcs_compare.png')
     plt.clf()
     plt.close()
+
+
+def without_bijection(_dir):
+    # Compute input mcs
+    with open(f'{_dir}/{MCS}') as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        mcs = [int(row[0]) for row in csv_reader]
+
+    df = pd.DataFrame(mcs, columns=['mcs'])
+    df = df.groupby('mcs').size().reset_index(name='count')
+
+    # Compute generated mcs
+    elr = nk.graphio.EdgeListReader(
+        separator="\t",
+        firstNode=0,
+        # continuous=False,
+        directed=False,
+    )
+    G = Graph(elr.read(f'{_dir}/{EDGE}'), None)
+    clusters = from_existing_clustering(f'{_dir}/{COM_OUT}')
+    clusters = [cluster.realize(G) for cluster in clusters.values()]
+    mcs_gen = [viecut(cluster)[-1] for cluster in clusters]
+
+    df_gen = pd.DataFrame(mcs_gen, columns=['mcs'])
+    df_gen.to_csv(f'{_dir}/mcs_gen.tsv', index=False, sep='\t', header=False)
+    df_gen = df_gen.groupby('mcs').size().reset_index(name='count')
+
+    # Plot the mcs distributions
+    _, ax = plt.subplots(1, 1, figsize=(5, 5), dpi=300, tight_layout=True)
+    sns.scatterplot(ax=ax, data=df, x='mcs',
+                    y='count', label='Input', alpha=0.5)
+    sns.scatterplot(ax=ax, data=df_gen, x='mcs',
+                    y='count', label='Generated', alpha=0.5)
+    ax.set_xlabel('Minimum cut size')
+    ax.set_ylabel('Count (log)')
+    ax.legend()
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    plt.savefig(f'{_dir}/mcs_dist.png')
+    plt.clf()
+    plt.close()
+
+
+network_id = sys.argv[1]
+resolution = sys.argv[2]
+method = sys.argv[3]
+based_on = sys.argv[4]
+
+print(
+    f'Cluster statistics for {network_id} at resolution {resolution} using {method}')
+
+_dir = f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/'
+
+
+if 'abcd' in method:
+    if method == 'abcdta4':
+        with_bijection(_dir)
+    without_bijection(_dir)
 else:
     raise NotImplementedError
