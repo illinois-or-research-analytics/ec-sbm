@@ -3,7 +3,8 @@ import os
 import time
 import json
 
-from utils import set_up
+from src.utils import set_up, post_process
+from src.constants import *
 
 
 network_id = sys.argv[1]
@@ -23,9 +24,9 @@ print(
     f'Generating ABCD network for {network_id} with resolution {resolution}...')
 print(f'Mixing parameter (xi) {xi}')
 
-cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler.jl \
-                {output_dir}/edge.dat {output_dir}/com.dat \
-                {output_dir}/deg.dat {output_dir}/cs.dat \
+cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler_{method}.jl \
+                {output_dir}/{EDGE} {output_dir}/{COM_OUT} \
+                {output_dir}/{DEG} {output_dir}/{CS} \
                 xi {xi} false false {seed} 0'
 
 with open(f'{output_dir}/run.log', 'w') as f:
@@ -34,6 +35,7 @@ with open(f'{output_dir}/run.log', 'w') as f:
 
     start = time.perf_counter()
     os.system(cmd)
+    post_process(output_dir)
     elapsed = time.perf_counter() - start
 
     f.write(f"Generation time: {elapsed}")

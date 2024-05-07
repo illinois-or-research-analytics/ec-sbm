@@ -1,12 +1,11 @@
 import sys
 import json
 
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from constants import *
+from src.constants import *
 
 network_id = sys.argv[1]
 resolution = sys.argv[2]
