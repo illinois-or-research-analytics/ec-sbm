@@ -6,65 +6,92 @@
 
 # ===================================
 
-# network_id=cit_patents
+# network_id=cit_hepph
 # resolution=.001
 # method=abcdta4
 # based_on=leiden_cpm_cm
+# seed=0
 
-# # python extract_network.py $network_id $resolution ${method} ${based_on}
-# python gen_${method}.py $network_id $resolution ${method} ${based_on}
-# python compute_stats.py $network_id $resolution ${method} ${based_on}
+# dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/${seed}/"
+
+# python gen_${method}.py \
+#     --network-id ${network_id} \
+#     --resolution $resolution \
+#     --method ${method} \
+#     --based_on ${based_on} \
+#     --seed ${seed}
+# python compute_stats.py \
+#     --network-id ${network_id} \
+#     --resolution $resolution \
+#     --method ${method} \
+#     --based_on ${based_on} \
+#     --seed ${seed}
 # python emulate-real-nets/estimate_properties_networkit.py \
-#     -n "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/edge.dat" \
-#     -c "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/com.dat" \
-#     -o "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/stats.json"
-# # python compute_upperbound.py $network_id $resolution ${method} ${based_on}
-# # python compute_potential_connectivity.py $network_id $resolution ${method} ${based_on}
-# # python compute_wiring_efficiency.py $network_id $resolution ${method} ${based_on}
-# python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
-# python compute_cluster_stats.py ${network_id} ${resolution} ${method} ${based_on}
+#     -n "${dir}/edge.tsv" \
+#     -c "${dir}/com.tsv" \
+#     -o "${dir}/stats.json"
+# python compute_degree_dist.py \
+#     --network-id ${network_id} \
+#     --resolution $resolution \
+#     --method ${method} \
+#     --based_on ${based_on} \
+#     --seed ${seed}
+# python compute_cluster_stats.py \
+#     --network-id ${network_id} \
+#     --resolution $resolution \
+#     --method ${method} \
+#     --based_on ${based_on} \
+#     --seed ${seed}
 
 # ===================================
 
-for method in abcd abcdta4 #abcd abcdta4
+for method in abcd #abcd abcdta4
 do
-    for network_id in cit_hepph cit_patents #cit_hepph cit_patents wiki_topcats wiki_talk orkut
+    for network_id in cit_hepph #cit_hepph cit_patents wiki_topcats wiki_talk orkut
     do
         for resolution in .0001 .001 .01 #.0001 .001 .01
         do
             for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
             do
-                echo "=> $network_id at $resolution using $method based on $based_on <="
+                seed=0
 
-                # echo "======"
-                # echo "Generating..."
-                
-                # # python extract_network.py $network_id $resolution ${method} ${based_on}
-                # python gen_${method}.py $network_id $resolution ${method} ${based_on}
+                dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/${seed}/"
 
-                # echo "======"
+                echo "=================================="
+                echo $dir
 
-                # echo "Computing statistics..."
+                python gen_${method}.py \
+                    --network-id ${network_id} \
+                    --resolution $resolution \
+                    --method ${method} \
+                    --based_on ${based_on} \
+                    --seed ${seed}
 
-                # python compute_stats.py $network_id $resolution $method ${based_on}
+                python compute_stats.py \
+                    --network-id ${network_id} \
+                    --resolution $resolution \
+                    --method ${method} \
+                    --based_on ${based_on} \
+                    --seed ${seed}
+                python emulate-real-nets/estimate_properties_networkit.py \
+                    -n "${dir}/edge.tsv" \
+                    -c "${dir}/com.tsv" \
+                    -o "${dir}/stats.json"
+                python compute_degree_dist.py \
+                    --network-id ${network_id} \
+                    --resolution $resolution \
+                    --method ${method} \
+                    --based_on ${based_on} \
+                    --seed ${seed}
+                python compute_cluster_stats.py \
+                    --network-id ${network_id} \
+                    --resolution $resolution \
+                    --method ${method} \
+                    --based_on ${based_on} \
+                    --seed ${seed}
 
-                # echo "======"
-
-                # python emulate-real-nets/estimate_properties_networkit.py \
-                #         -n "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/edge.tsv" \
-                #         -c "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/com.tsv" \
-                #         -o "data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/stats.json"
-
-                # echo "======"
-
-                # # python compute_upperbound.py $network_id $resolution $method ${based_on}
-                # # python compute_potential_connectivity.py $network_id $resolution $method ${based_on}
-                # # python compute_wiring_efficiency.py $network_id $resolution $method ${based_on}
-                # python compute_degree_dist.py ${network_id} ${resolution} ${method} ${based_on}
-                python compute_cluster_stats.py ${network_id} ${resolution} ${method} ${based_on}
-
-                echo "==========================="
-                echo " "
+                echo "=================================="
+                echo ""
             done
         done
     done

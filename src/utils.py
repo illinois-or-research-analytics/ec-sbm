@@ -87,9 +87,9 @@ def compute_xi(G, comm_fn):
     return xi
 
 
-def set_up(method, based_on, network_id, resolution, use_existing_clustering=False):
+def set_up(method, based_on, network_id, resolution, seed, use_existing_clustering=False):
     output_dir = \
-        f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}'
+        f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/{seed}'
     os.makedirs(output_dir, exist_ok=True)
 
     if not os.path.exists(f'{output_dir}/{DEG}') \
@@ -133,9 +133,6 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
             if os.path.exists(network_stats_json_path):
                 _, _, _, _, mu, _, _, _, _ = \
                     process_stats_to_params(network_stats_json_path, 0)
-
-            # Set seed
-            seed = 0
 
             # Generate xi
             xi = compute_xi(G, comm_fn)
