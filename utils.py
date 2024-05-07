@@ -101,26 +101,28 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
             )):
 
         if based_on == 'leiden_cpm_lfr':
-            lfr_dir = \
+            _dir = \
                 f'data/networks/orig/lfr/{network_id}_lfr_networks/{
                     network_id}_leiden{resolution}_lfr'
 
-            G = nx.read_edgelist([
-                ' '.join(x.strip().split('\t'))
-                for x in open(f'{lfr_dir}/network.dat').readlines()
-            ])
-
-            comm_fn = f'{lfr_dir}/community.dat'
+            edgelist_fn = f'{_dir}/network.dat'
+            comm_fn = f'{_dir}/community.dat'
         elif based_on in ['leiden_cpm', 'leiden_cpm_cm']:
             _dir = \
                 f'data/networks/orig/{based_on}/{network_id}/leiden{resolution}'
 
-            G = nx.read_edgelist([
-                ' '.join(x.strip().split('\t'))
-                for x in open(f'{_dir}/edge.dat').readlines()
-            ])
-
+            edgelist_fn = f'{_dir}/edge.dat'
             comm_fn = f'{_dir}/com.dat'
+        else:
+            raise ValueError(f'Unknown based_on: {based_on}')
+
+        f = open(edgelist_fn, 'r')
+        csv_reader = csv.reader(f, delimiter='\t')
+        G = nx.read_edgelist([
+            ' '.join(x)
+            for x in csv_reader
+        ])
+        f.close()
 
         if not os.path.exists(f'{output_dir}/{PARAMS}'):
             # Find mu
@@ -159,9 +161,9 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
             if use_existing_clustering:
                 node_comm = []
 
-            for line in open(comm_fn).readlines():
-                u, c = line.strip().split('\t')
-
+            f = open(comm_fn, 'r')
+            csv_reader = csv.reader(f, delimiter='\t')
+            for u, c in csv_reader:
                 if u in G.nodes:
                     node_degree.append((u, len(G[u])))
 
@@ -170,6 +172,7 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
 
                     if use_existing_clustering:
                         node_comm.append((u, c))
+            f.close()
 
             comm_size = [
                 (c, cs[c])
@@ -199,10 +202,28 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
                     for i, (u, _) in enumerate(node_degree, 1)
                 }
 
+                if not os.path.exists(f'{output_dir}/{NODE_ID}'):
+                    with open(f'{output_dir}/{NODE_ID}', 'w') as f:
+                        csv_writer = csv.writer(f, delimiter='\t')
+                        csv_writer.writerows([
+                            [i, u]
+                            for i, (u, _) in enumerate(node_degree, 1)
+                        ])
+                        f.close()
+
                 comm_relabeled = {
                     c: i
                     for i, (c, _) in enumerate(comm_size, 1)
                 }
+
+                if not os.path.exists(f'{output_dir}/{COM_ID}'):
+                    with open(f'{output_dir}/{COM_ID}', 'w') as f:
+                        csv_writer = csv.writer(f, delimiter='\t')
+                        csv_writer.writerows([
+                            [i, c]
+                            for i, (c, _) in enumerate(comm_size, 1)
+                        ])
+                        f.close()
 
                 node_comm = [
                     [node_relabeled[u], comm_relabeled[c]]
@@ -227,11 +248,6 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
 
                     mcs = [None for _ in range(len(clusters))]
                     for k, m in mincut_results.items():
-                        # if m == 0:
-                        #     print(k)
-                        #     for c_old, c_new in comm_relabeled.items():
-                        #         if c_new == k:
-                        #             print(c_old)
                         mcs[k - 1] = [m]
 
                     with open(f'{output_dir}/{MCS}', 'w') as f:
@@ -240,3 +256,54 @@ def set_up(method, based_on, network_id, resolution, use_existing_clustering=Fal
                         f.close()
 
     return output_dir
+
+
+def post_process(output_dir):
+    assert os.path.exists(f'{output_dir}/{EDGE}')
+    assert os.path.exists(f'{output_dir}/{COM_OUT}')
+
+    if os.path.exists(f'{output_dir}/{NODE_ID}'):
+        with open(f'{output_dir}/{NODE_ID}', 'r') as f:
+            csv_reader = csv.reader(f, delimiter='\t')
+            node_mapping = dict()
+            for old_id, new_id in csv_reader:
+                node_mapping[old_id] = new_id
+    else:
+        node_mapping = dict()
+
+    if os.path.exists(f'{output_dir}/{COM_ID}'):
+        with open(f'{output_dir}/{COM_ID}', 'r') as f:
+            csv_reader = csv.reader(f, delimiter='\t')
+            comm_mapping = dict()
+            for old_id, new_id in csv_reader:
+                comm_mapping[old_id] = new_id
+    else:
+        comm_mapping = dict()
+
+    with open(f'{output_dir}/{EDGE}', 'r') as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        edges = []
+        for u, v in csv_reader:
+            u = node_mapping.get(u, u)
+            v = node_mapping.get(v, v)
+            edges.append((u, v))
+        f.close()
+
+    with open(f'{output_dir}/{EDGE}', 'w') as f:
+        csv_writer = csv.writer(f, delimiter='\t')
+        csv_writer.writerows(edges)
+        f.close()
+
+    with open(f'{output_dir}/{COM_OUT}', 'r') as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        com_out = []
+        for u, c in csv_reader:
+            u = node_mapping.get(u, u)
+            c = comm_mapping.get(c, c)
+            com_out.append((u, c))
+        f.close()
+
+    with open(f'{output_dir}/{COM_OUT}', 'w') as f:
+        csv_writer = csv.writer(f, delimiter='\t')
+        csv_writer.writerows(com_out)
+        f.close()

@@ -1,4 +1,5 @@
 import sys
+import csv
 import json
 
 import networkx as nx
@@ -27,27 +28,35 @@ else:
     _, _, _, _, xi, _, _, _, _ = \
         process_stats_to_params(network_stats_json_path, 0)
 
-edge = 'edge' if 'abcd' in method else 'network'
-com = 'com' if 'abcd' in method else 'community'
+edge = EDGE if 'abcd' in method else 'network.dat'
+com = COM_OUT if 'abcd' in method else 'community.dat'
 
 node2degree = {}
 if 'abcd' in method:
+    node_mapping = dict()
+    with open(f'{_dir}/{NODE_ID}') as f:
+        reader = csv.reader(f, delimiter='\t')
+        for node, node_id in reader:
+            node_mapping[int(node)] = node_id
+
     with open(f'{_dir}/{DEG}') as f:
         for i, line in enumerate(f.readlines()):
-            node2degree[i + 1] = int(line.strip())
+            node2degree[node_mapping[i + 1]] = int(line.strip())
 else:
+    f = open(f'{_dir}/{edge}')
+    reader = csv.reader(f, delimiter='\t')
     G = nx.read_edgelist([
-        ' '.join(x.strip().split('\t'))
-        for x in open(f'{_dir}/{edge}.dat').readlines()
-    ], nodetype=int)
+        ' '.join(x) for x in reader
+    ])
+    f.close()
 
     for u in G.nodes:
         node2degree[u] = len(G[u])
 
 comm2nodes = {}
-with open(f'{_dir}/{COM_OUT}') as f:
-    for line in f.readlines():
-        node, comm = map(int, line.strip().split('\t'))
+with open(f'{_dir}/{com}') as f:
+    reader = csv.reader(f, delimiter='\t')
+    for node, comm in reader:
         comm2nodes.setdefault(comm, [])
         comm2nodes[comm].append(node)
 
