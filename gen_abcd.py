@@ -1,19 +1,37 @@
-import sys
 import os
 import time
 import json
+import argparse
 
 from src.utils import set_up, post_process
 from src.constants import *
 
 
-network_id = sys.argv[1]
-resolution = sys.argv[2]
-method = sys.argv[3]
-based_on = sys.argv[4]
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--network-id', type=str, required=True)
+    parser.add_argument('--resolution', type=str, required=True)
+    parser.add_argument('--method', type=str, required=True)
+    parser.add_argument('--based_on', type=str, required=True)
+    parser.add_argument('--seed', type=int, required=False, default=0)
+    return parser.parse_args()
 
-output_dir = set_up(method, based_on, network_id,
-                    resolution, use_existing_clustering=True)
+
+args = parse_args()
+network_id = args.network_id
+resolution = args.resolution
+method = args.method
+based_on = args.based_on
+seed = args.seed
+
+output_dir = set_up(
+    method,
+    based_on,
+    network_id,
+    resolution,
+    seed,
+    use_existing_clustering=True,
+)
 
 with open(f'{output_dir}/params.json', 'r') as f:
     params = json.load(f)

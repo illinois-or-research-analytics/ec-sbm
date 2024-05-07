@@ -1,5 +1,5 @@
 import os
-import sys
+import argparse
 from collections import Counter
 
 import matplotlib.pyplot as plt
@@ -8,15 +8,30 @@ import numpy as np
 
 from src.constants import *
 
-network_id = sys.argv[1]
-resolution = sys.argv[2]
-method = sys.argv[3]
-based_on = sys.argv[4]
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--network-id', type=str, required=True)
+    parser.add_argument('--resolution', type=str, required=True)
+    parser.add_argument('--method', type=str, required=True)
+    parser.add_argument('--based_on', type=str, required=True)
+    parser.add_argument('--seed', type=int, required=False, default=0)
+    return parser.parse_args()
+
+
+args = parse_args()
+network_id = args.network_id
+resolution = args.resolution
+method = args.method
+based_on = args.based_on
+seed = args.seed
 
 print(
     f'Statisctics for {network_id} at resolution {resolution} using {method}')
 
-_dir = f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/'
+_dir = \
+    f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/{seed}'
+assert os.path.exists(_dir)
 
 edge = EDGE if 'abcd' in method else 'network.dat'
 com = COM_OUT if 'abcd' in method else 'community.dat'
