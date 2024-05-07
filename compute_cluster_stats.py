@@ -1,16 +1,13 @@
 import sys
 import csv
-import json
 
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import networkit as nk
 
-from utils import from_existing_clustering, viecut, Graph
-
-from constants import *
+from src.utils import from_existing_clustering, viecut, Graph
+from src.constants import *
 
 network_id = sys.argv[1]
 resolution = sys.argv[2]

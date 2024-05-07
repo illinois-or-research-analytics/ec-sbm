@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-from constants import *
+from src.constants import *
 
 network_id = sys.argv[1]
 resolution = sys.argv[2]

@@ -3,8 +3,8 @@ import os
 import time
 import json
 
-from utils import set_up, post_process
-from constants import *
+from src.utils import set_up, post_process
+from src.constants import *
 
 
 network_id = sys.argv[1]

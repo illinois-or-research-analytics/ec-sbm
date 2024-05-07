@@ -9,7 +9,7 @@ import networkx as nx
 from hm01.graph import Graph, IntangibleSubgraph, RealizedSubgraph
 from hm01.mincut import viecut
 
-from constants import *
+from .constants import *
 
 
 def from_existing_clustering(filepath) -> List[IntangibleSubgraph]:
