@@ -62,16 +62,16 @@ if 'abcd' in method:
     mean_gen = df_gen['degree'].mean()
 
     # Compute the frequency
-    df_gen = df_gen.groupby('degree').size().reset_index(name='count_gen')
+    df_gen = df_gen.groupby('degree').size().reset_index(name='count')
 
     # == Plot the degree distributions ==
     fig, ax = plt.subplots(1, 1, figsize=(5, 5), dpi=300, tight_layout=True)
     sns.scatterplot(ax=ax, data=df, x='degree',
                     y='count', label='Input', alpha=0.5)
     sns.scatterplot(ax=ax, data=df_gen, x='degree',
-                    y='count_gen', label='Generated', alpha=0.5)
+                    y='count', label='Generated', alpha=0.5)
     ax.set_xlabel('Degree')
-    ax.set_ylabel('Count')
+    ax.set_ylabel('Count (log)')
     ax.legend()
     ax.set_xscale('log')
     ax.set_yscale('log')
