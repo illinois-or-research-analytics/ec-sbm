@@ -1,0 +1,3 @@
+[submodule "network_evaluation"]
+	path = network_evaluation
+	url = git@github.com:illinois-or-research-analytics/network_evaluation.git
