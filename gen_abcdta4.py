@@ -3,7 +3,7 @@ import os
 import time
 import json
 
-from utils import set_up
+from utils import set_up, post_process
 from constants import *
 
 
@@ -11,6 +11,7 @@ network_id = sys.argv[1]
 resolution = sys.argv[2]
 method = sys.argv[3]
 based_on = sys.argv[4]
+
 
 output_dir = set_up(method,
                     based_on, network_id, resolution,
@@ -38,6 +39,7 @@ with open(f'{output_dir}/run.log', 'w') as f:
 
     start = time.perf_counter()
     os.system(cmd)
+    post_process(output_dir)
     elapsed = time.perf_counter() - start
 
     f.write(f"Generation time: {elapsed}")

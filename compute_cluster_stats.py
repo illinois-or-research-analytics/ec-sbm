@@ -27,12 +27,24 @@ if 'abcd' in method:
     mcs_fn = MCS
     cs_fn = CS
 
+    comm_mapping = {}
+    with open(f'{_dir}/{COM_ID}') as f:
+        reader = csv.reader(f, delimiter='\t')
+        for comm, comm_id in reader:
+            comm_mapping[int(comm)] = comm_id
+
     with open(f'{_dir}/{mcs_fn}') as f:
         csv_reader = csv.reader(f, delimiter='\t')
         mcs = [int(row[0]) for row in csv_reader]
 
         # Index column for dataframe
-        mcs = [{'id': i + 1, 'mcs': mcs[i]} for i in range(len(mcs))]
+        mcs = [
+            {
+                'id': comm_mapping[i + 1],
+                'mcs': mcs[i],
+            }
+            for i in range(len(mcs))
+        ]
         df = pd.DataFrame(mcs, columns=['id', 'mcs'])
 
     with open(f'{_dir}/{cs_fn}') as f:
@@ -41,7 +53,7 @@ if 'abcd' in method:
 
         # Index column for dataframe
         cs = {
-            int(i + 1): cs[i]
+            comm_mapping[i + 1]: cs[i]
             for i in range(len(cs))
         }
         df['size'] = df['id'].map(cs)
@@ -50,15 +62,20 @@ if 'abcd' in method:
     edge_fn = EDGE
     com_fn = COM_OUT
 
-    edgelist_reader = nk.graphio.EdgeListReader("\t", 0)
+    edgelist_reader = nk.graphio.EdgeListReader(
+        "\t",
+        0,
+        # continuous=False,
+        directed=False,
+    )
     nk_graph = edgelist_reader.read(f'{_dir}/{edge_fn}')
-    G = Graph(nk_graph, "")
+    G = Graph(nk_graph, None)
 
     clusters = \
         from_existing_clustering(f'{_dir}/{com_fn}')
 
     clusters = {
-        int(k): cluster.realize(G)
+        k: cluster.realize(G)
         for k, cluster in clusters.items()
     }
 
@@ -110,5 +127,4 @@ if 'abcd' in method:
     plt.clf()
     plt.close()
 else:
-    edge = 'edge' if 'abcd' in method else 'network'
-    com = 'com' if 'abcd' in method else 'community'
+    raise NotImplementedError
