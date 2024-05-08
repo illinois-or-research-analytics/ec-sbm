@@ -161,7 +161,7 @@ def without_bijection(_dir):
     ax.set_xlabel('Minimum cut size')
     ax.set_ylabel('Count (log)')
     ax.legend()
-    ax.set_xscale('log')
+    # ax.set_xscale('log')
     ax.set_yscale('log')
     plt.savefig(f'{_dir}/mcs_dist.png')
     plt.clf()

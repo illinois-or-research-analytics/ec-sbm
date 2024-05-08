@@ -20,42 +20,34 @@ do
         do
             for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
             do
-                for seed in $(seq 1 $T)
+                orig_dir="data/networks/orig/${based_on}/${network_id}/leiden${resolution}/"
+                orig_outdir="data/stats/orig/${based_on}/${network_id}/leiden${resolution}/"
+
+                python network_evaluation/compute_stats.py \
+                        --input-network ${orig_dir}/edge.dat \
+                        --input-clustering ${orig_dir}/com.dat \
+                        --output-folder ${orig_outdir} \
+                        --overwrite
+
+                for seed in 0 #$(seq 1 $T)
                 do
                     dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/${seed}/"
 
                     echo "=================================="
                     echo $dir
 
-                    python gen_${method}.py \
-                        --network-id ${network_id} \
-                        --resolution $resolution \
-                        --method ${method} \
-                        --based_on ${based_on} \
-                        --seed ${seed}
+                    # python gen_${method}.py \
+                    #     --network-id ${network_id} \
+                    #     --resolution $resolution \
+                    #     --method ${method} \
+                    #     --based_on ${based_on} \
+                    #     --seed ${seed}
 
-                    # python compute_stats.py \
-                    #     --network-id ${network_id} \
-                    #     --resolution $resolution \
-                    #     --method ${method} \
-                    #     --based_on ${based_on} \
-                    #     --seed ${seed}
-                    # python emulate-real-nets/estimate_properties_networkit.py \
-                    #     -n "${dir}/edge.tsv" \
-                    #     -c "${dir}/com.tsv" \
-                    #     -o "${dir}/stats.json"
-                    # python compute_degree_dist.py \
-                    #     --network-id ${network_id} \
-                    #     --resolution $resolution \
-                    #     --method ${method} \
-                    #     --based_on ${based_on} \
-                    #     --seed ${seed}
-                    # python compute_cluster_stats.py \
-                    #     --network-id ${network_id} \
-                    #     --resolution $resolution \
-                    #     --method ${method} \
-                    #     --based_on ${based_on} \
-                    #     --seed ${seed}
+                    python network_evaluation/compute_stats.py \
+                        --input-network ${dir}/edge.tsv \
+                        --input-clustering ${dir}/com.tsv \
+                        --output-folder ${dir} \
+                        --overwrite
 
                     echo "=================================="
                     echo ""
