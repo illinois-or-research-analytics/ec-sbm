@@ -47,7 +47,7 @@
 
 for method in abcd #abcd abcdta4
 do
-    for network_id in cit_hepph #cit_hepph cit_patents wiki_topcats wiki_talk orkut
+    for network_id in cit_patents #cit_hepph cit_patents wiki_topcats wiki_talk orkut
     do
         for resolution in .0001 .001 .01 #.0001 .001 .01
         do
@@ -60,29 +60,29 @@ do
                 echo "=================================="
                 echo $dir
 
-                python gen_${method}.py \
-                    --network-id ${network_id} \
-                    --resolution $resolution \
-                    --method ${method} \
-                    --based_on ${based_on} \
-                    --seed ${seed}
+                # python gen_${method}.py \
+                #     --network-id ${network_id} \
+                #     --resolution $resolution \
+                #     --method ${method} \
+                #     --based_on ${based_on} \
+                #     --seed ${seed}
 
-                python compute_stats.py \
-                    --network-id ${network_id} \
-                    --resolution $resolution \
-                    --method ${method} \
-                    --based_on ${based_on} \
-                    --seed ${seed}
-                python emulate-real-nets/estimate_properties_networkit.py \
-                    -n "${dir}/edge.tsv" \
-                    -c "${dir}/com.tsv" \
-                    -o "${dir}/stats.json"
-                python compute_degree_dist.py \
-                    --network-id ${network_id} \
-                    --resolution $resolution \
-                    --method ${method} \
-                    --based_on ${based_on} \
-                    --seed ${seed}
+                # python compute_stats.py \
+                #     --network-id ${network_id} \
+                #     --resolution $resolution \
+                #     --method ${method} \
+                #     --based_on ${based_on} \
+                #     --seed ${seed}
+                # python emulate-real-nets/estimate_properties_networkit.py \
+                #     -n "${dir}/edge.tsv" \
+                #     -c "${dir}/com.tsv" \
+                #     -o "${dir}/stats.json"
+                # python compute_degree_dist.py \
+                #     --network-id ${network_id} \
+                #     --resolution $resolution \
+                #     --method ${method} \
+                #     --based_on ${based_on} \
+                #     --seed ${seed}
                 python compute_cluster_stats.py \
                     --network-id ${network_id} \
                     --resolution $resolution \
