@@ -1,27 +1,29 @@
 #!/bin/bash
-#SBATCH --time=08:00:00
+#SBATCH --time=24:00:00
 #SBATCH --nodes=1
-#SBATCH --job-name="gen_network"
-#SBATCH --partition=tallis
+#SBATCH --output=slurm_output/slurm-%j.out
+#SBATCH --job-name="eval"
+#SBATCH --partition=eng-research-gpu
+#SBATCH --mem=64G
+#SBATCH --dependency=afterok:11131610
 
 # ===================================
 
-# network_id=cit_hepph
-# resolution=.001
-# method=abcdta4
-# based_on=leiden_cpm_cm
-T=10
+T=9
 
-for network_id in cit_hepph cit_patents #cit_hepph cit_patents wiki_topcats wiki_talk orkut
+for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
 do
-    for method in abcdta4 abcd #abcd abcdta4
+    for network_id in cit_hepph cit_patents wiki_talk wiki_topcats orkut #cit_hepph cit_patents wiki_topcats wiki_talk orkut
     do
         for resolution in .0001 .001 .01 #.0001 .001 .01
         do
-            for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
+            for method in abcdta4 abcd #abcd abcdta4
             do
                 orig_dir="data/networks/orig/${based_on}/${network_id}/leiden${resolution}/"
                 orig_outdir="data/stats/orig/${based_on}/${network_id}/leiden${resolution}/"
+
+                echo "=================================================="
+                echo $orig_dir
 
                 python network_evaluation/compute_stats.py \
                         --input-network ${orig_dir}/edge.dat \
@@ -29,9 +31,10 @@ do
                         --output-folder ${orig_outdir} \
                         --overwrite
 
+                reps_dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/"
                 for seed in 0 #$(seq 1 $T)
                 do
-                    dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/${seed}/"
+                    dir="${reps_dir}/${seed}/"
 
                     echo "=================================="
                     echo $dir
@@ -52,6 +55,14 @@ do
                     echo "=================================="
                     echo ""
                 done
+
+                python network_evaluation/compare_stats.py \
+                    --input-network-folder ${orig_outdir} \
+                    --input-replicates-folder ${reps_dir} \
+                    --output-folder ${reps_dir}
+
+                echo "=================================================="
+                echo ""
             done
         done
     done
