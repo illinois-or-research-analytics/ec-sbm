@@ -9,27 +9,25 @@ from src.constants import *
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--network-id', type=str, required=True)
-    parser.add_argument('--resolution', type=str, required=True)
-    parser.add_argument('--method', type=str, required=True)
-    parser.add_argument('--based_on', type=str, required=True)
+    parser.add_argument('--edgelist', type=str, required=True)
+    parser.add_argument('--clustering', type=str, required=True)
+    parser.add_argument('--output-folder', type=str, required=True)
     parser.add_argument('--seed', type=int, required=False, default=0)
+    parser.add_argument('--id', type=str, required=False, default='default_id')
     return parser.parse_args()
 
 
 args = parse_args()
-network_id = args.network_id
-resolution = args.resolution
-method = args.method
-based_on = args.based_on
+edgelist_fn = args.edgelist
+clustering_fn = args.clustering
+output_dir = args.output_folder
 seed = args.seed
 
-output_dir = set_up(
-    method,
-    based_on,
-    network_id,
-    resolution,
+set_up(
+    edgelist_fn,
+    clustering_fn,
     seed,
+    output_dir,
     use_existing_clustering=True,
 )
 
@@ -38,13 +36,10 @@ with open(f'{output_dir}/params.json', 'r') as f:
     seed = params['seed']
     xi = params['xi']
 
-# == Generate ABCD network
-print(
-    f'ABCD-TA-MCS(network={network_id}, resolution={resolution})')
+# == Generate ABCD network ==
 print(f'Seed: {seed}')
-print(f'Mixing parameter (xi): {xi}')
 
-cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler_{method}.jl \
+cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler_abcdta4.jl \
                 {output_dir}/{EDGE} {output_dir}/{COM_OUT} \
                 {output_dir}/{DEG} {output_dir}/{CS} \
                 xi {xi} false false {seed} 0 \
