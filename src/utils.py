@@ -87,184 +87,228 @@ def compute_xi(G, comm_fn):
     return xi
 
 
-def set_up(method, based_on, network_id, resolution, seed, use_existing_clustering=False):
-    output_dir = \
-        f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/{seed}'
-    os.makedirs(output_dir, exist_ok=True)
+def is_setup_done(output_dir, use_existing_clustering):
+    return os.path.exists(f'{output_dir}/{DEG}') \
+        and os.path.exists(f'{output_dir}/{NODE_ID}') \
+        and os.path.exists(f'{output_dir}/{CS}') \
+        and os.path.exists(f'{output_dir}/{PARAMS}') \
+        and (
+            not use_existing_clustering
+            or (
+                os.path.exists(f'{output_dir}/{COM_INP}')
+                and os.path.exists(f'{output_dir}/{MCS}')
+            )
+    )
 
-    if not os.path.exists(f'{output_dir}/{DEG}') \
-            or not os.path.exists(f'{output_dir}/{CS}') \
-            or not os.path.exists(f'{output_dir}/{PARAMS}') \
-            or (use_existing_clustering and (
-                not os.path.exists(f'{output_dir}/{COM_INP}')
-                or not os.path.exists(f'{output_dir}/{MCS}')
-            )):
 
-        if based_on == 'leiden_cpm_lfr':
-            _dir = \
-                f'data/networks/orig/lfr/{network_id}_lfr_networks/{
-                    network_id}_leiden{resolution}_lfr'
+def read_graph(edgelist_fn):
+    f = open(edgelist_fn, 'r')
+    csv_reader = csv.reader(f, delimiter='\t')
+    G = nx.read_edgelist([
+        ' '.join(x)
+        for x in csv_reader
+    ])
+    f.close()
+    return G
 
-            edgelist_fn = f'{_dir}/network.dat'
-            comm_fn = f'{_dir}/community.dat'
-        elif based_on in ['leiden_cpm', 'leiden_cpm_cm']:
-            _dir = \
-                f'data/networks/orig/{based_on}/{network_id}/leiden{resolution}'
 
-            edgelist_fn = f'{_dir}/edge.dat'
-            comm_fn = f'{_dir}/com.dat'
-        else:
-            raise ValueError(f'Unknown based_on: {based_on}')
+def generate_params_file(G, clustering_fn, seed, output_dir):
+    xi = compute_xi(G, clustering_fn)
 
-        f = open(edgelist_fn, 'r')
-        csv_reader = csv.reader(f, delimiter='\t')
-        G = nx.read_edgelist([
-            ' '.join(x)
-            for x in csv_reader
+    with open(f'{output_dir}/{PARAMS}', 'w') as f:
+        json.dump(
+            {
+                'seed': seed,
+                'xi': xi,
+            },
+            f,
+        )
+
+    print(f'[INFO] {PARAMS} file is created.')
+
+
+def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
+    cs = {}
+    node_degree = []
+
+    if use_existing_clustering:
+        node_comm = []
+
+    f = open(clustering_fn, 'r')
+    csv_reader = csv.reader(f, delimiter='\t')
+    for u, c in csv_reader:
+        if u in G.nodes:
+            node_degree.append((u, len(G[u])))
+
+            cs.setdefault(c, 0)
+            cs[c] += 1
+
+            if use_existing_clustering:
+                node_comm.append((u, c))
+    f.close()
+
+    if use_existing_clustering:
+        return node_degree, cs, node_comm
+    else:
+        return node_degree, cs
+
+
+def generate_degree_sequence_file(node_degree_sorted, output_dir):
+    with open(f'{output_dir}/{DEG}', 'w') as f:
+        csv_writer = csv.writer(f, delimiter='\t')
+        csv_writer.writerows([
+            [x]
+            for _, x in node_degree_sorted
         ])
         f.close()
 
-        if not os.path.exists(f'{output_dir}/{PARAMS}'):
-            # Find mu
-            mu = None
+    print(f'[INFO] {DEG} file is created.')
 
-            network_stats_json_path = \
-                f'data/network_params/{network_id}_leiden{resolution}.json'
-            if os.path.exists(network_stats_json_path):
-                _, _, _, _, mu, _, _, _, _ = \
-                    process_stats_to_params(network_stats_json_path, 0)
 
-            # Generate xi
-            xi = compute_xi(G, comm_fn)
+def generate_node_id_file(node_degree_sorted, output_dir):
+    with open(f'{output_dir}/{NODE_ID}', 'w') as f:
+        csv_writer = csv.writer(f, delimiter='\t')
+        csv_writer.writerows([
+            [u]
+            for u, _ in node_degree_sorted
+        ])
+        f.close()
 
-            with open(f'{output_dir}/{PARAMS}', 'w') as f:
-                json.dump({
-                    'seed': seed,
-                    'xi': xi,
-                    'mu': mu
-                }, f)
+    print(f'[INFO] {NODE_ID} file is created.')
 
-        if not os.path.exists(f'{output_dir}/{DEG}') \
-                or not os.path.exists(f'{output_dir}/{CS}') \
-                or not os.path.exists(f'{output_dir}/{NODE_ID}') \
-                or (use_existing_clustering and (
-                    not os.path.exists(f'{output_dir}/{COM_INP}')
-                    or not os.path.exists(f'{output_dir}/{MCS}')
-                    or not os.path.exists(f'{output_dir}/{COM_ID}')
-                )):
-            cs = {}
-            node_degree = []
 
-            if use_existing_clustering:
-                node_comm = []
+def generate_com_id_file(comm_size, output_dir):
+    with open(f'{output_dir}/{COM_ID}', 'w') as f:
+        csv_writer = csv.writer(f, delimiter='\t')
+        csv_writer.writerows([
+            [c]
+            for c, _ in comm_size
+        ])
+        f.close()
 
-            f = open(comm_fn, 'r')
-            csv_reader = csv.reader(f, delimiter='\t')
-            for u, c in csv_reader:
-                if u in G.nodes:
-                    node_degree.append((u, len(G[u])))
+    print(f'[INFO] {COM_ID} file is created.')
 
-                    cs.setdefault(c, 0)
-                    cs[c] += 1
 
-                    if use_existing_clustering:
-                        node_comm.append((u, c))
-            f.close()
+def generate_com_inp_file(comm_size, node_comm, node_relabeled, output_dir):
+    comm_relabeled = {
+        c: i
+        for i, (c, _) in enumerate(comm_size, 1)
+    }
 
-            node_degree = sorted(
-                node_degree,
-                reverse=True,
-                key=lambda x: x[1],
-            )
+    node_comm = [
+        [node_relabeled[u], comm_relabeled[c]]
+        for u, c in node_comm
+    ]
 
-            if not os.path.exists(f'{output_dir}/{DEG}'):
-                with open(f'{output_dir}/{DEG}', 'w') as f:
-                    csv_writer = csv.writer(f, delimiter='\t')
-                    csv_writer.writerows([
-                        [x]
-                        for _, x in node_degree
-                    ])
-                    f.close()
+    with open(f'{output_dir}/{COM_INP}', 'w') as f:
+        csv_writer = csv.writer(f, delimiter='\t')
+        csv_writer.writerows(node_comm)
+        f.close()
 
-            node_relabeled = {
-                u: i
-                for i, (u, _) in enumerate(node_degree, 1)
-            }
+    print(f'[INFO] {COM_INP} file is created.')
 
-            if not os.path.exists(f'{output_dir}/{NODE_ID}'):
-                with open(f'{output_dir}/{NODE_ID}', 'w') as f:
-                    csv_writer = csv.writer(f, delimiter='\t')
-                    csv_writer.writerows([
-                        [u]
-                        for u, _ in node_degree
-                    ])
-                    f.close()
 
-            comm_size = [
-                (c, cs[c])
-                for c in cs
-            ]
-            comm_size = sorted(
-                comm_size,
-                reverse=True,
-                key=lambda x: x[1],
-            )
+def generate_mcs_file(G, node_relabeled, output_dir):
+    G = nx.relabel_nodes(G, node_relabeled)
+    clusters = from_existing_clustering(f'{output_dir}/{COM_INP}')
 
-            if not os.path.exists(f'{output_dir}/{CS}'):
-                with open(f'{output_dir}/{CS}', 'w') as f:
-                    csv_writer = csv.writer(f, delimiter='\t')
-                    csv_writer.writerows([
-                        [x]
-                        for _, x in comm_size
-                    ])
-                    f.close()
+    mincut_results = {
+        int(k): viecut(cluster.realize(G))[-1]
+        for k, cluster in clusters.items()
+    }
 
-            if use_existing_clustering:
-                comm_relabeled = {
-                    c: i
-                    for i, (c, _) in enumerate(comm_size, 1)
-                }
+    mcs = [None for _ in range(len(clusters))]
+    for k, m in mincut_results.items():
+        mcs[k - 1] = [m]
 
-                if not os.path.exists(f'{output_dir}/{COM_ID}'):
-                    with open(f'{output_dir}/{COM_ID}', 'w') as f:
-                        csv_writer = csv.writer(f, delimiter='\t')
-                        csv_writer.writerows([
-                            [c]
-                            for c, _ in comm_size
-                        ])
-                        f.close()
+    with open(f'{output_dir}/{MCS}', 'w') as f:
+        csv_writer = csv.writer(f, delimiter='\t')
+        csv_writer.writerows(mcs)
+        f.close()
 
-                node_comm = [
-                    [node_relabeled[u], comm_relabeled[c]]
-                    for u, c in node_comm
-                ]
+    print(f'[INFO] {MCS} file is created.')
 
-                if not os.path.exists(f'{output_dir}/{COM_INP}'):
-                    with open(f'{output_dir}/{COM_INP}', 'w') as f:
-                        csv_writer = csv.writer(f, delimiter='\t')
-                        csv_writer.writerows(node_comm)
-                        f.close()
 
-                if not os.path.exists(f'{output_dir}/{MCS}'):
-                    G = nx.relabel_nodes(G, node_relabeled)
-                    clusters = from_existing_clustering(
-                        f'{output_dir}/{COM_INP}')
+def set_up(edgelist_fn, clustering_fn, seed, output_dir, use_existing_clustering=False):
+    # TODO: Refactor this function, this is so bad
+    if os.path.exists(output_dir):
+        print('[WARNING] Output directory already exists. It will be overwritten.')
+    else:
+        os.makedirs(output_dir)
 
-                    mincut_results = {
-                        int(k): viecut(cluster.realize(G))[-1]
-                        for k, cluster in clusters.items()
-                    }
+    if is_setup_done(output_dir, use_existing_clustering):
+        return
 
-                    mcs = [None for _ in range(len(clusters))]
-                    for k, m in mincut_results.items():
-                        mcs[k - 1] = [m]
+    assert os.path.exists(edgelist_fn), \
+        f'Edge list file ({edgelist_fn}) does not exist.'
+    assert os.path.exists(clustering_fn), \
+        f'Clustering file ({clustering_fn}) does not exist.'
 
-                    with open(f'{output_dir}/{MCS}', 'w') as f:
-                        csv_writer = csv.writer(f, delimiter='\t')
-                        csv_writer.writerows(mcs)
-                        f.close()
+    G = read_graph(edgelist_fn)
 
-    return output_dir
+    if not os.path.exists(f'{output_dir}/{PARAMS}'):
+        generate_params_file(G, clustering_fn, seed, output_dir)
+
+    if is_setup_done(output_dir, use_existing_clustering):
+        return
+
+    if use_existing_clustering:
+        node_degree, comm_size, node_comm = \
+            compute_degree_and_cs(G, clustering_fn, True)
+    else:
+        node_degree, comm_size = \
+            compute_degree_and_cs(G, clustering_fn, False)
+
+    node_degree_sorted = sorted(
+        node_degree,
+        reverse=True,
+        key=lambda x: x[1],
+    )
+
+    node_relabeled = {
+        u: i
+        for i, (u, _) in enumerate(node_degree_sorted, 1)
+    }
+
+    generate_degree_sequence_file(node_degree_sorted, output_dir)
+    generate_node_id_file(node_degree_sorted, output_dir)
+
+    if is_setup_done(output_dir, use_existing_clustering):
+        return
+
+    comm_size = [
+        (c, comm_size[c])
+        for c in comm_size
+    ]
+
+    comm_size_sorted = sorted(
+        comm_size,
+        reverse=True,
+        key=lambda x: x[1],
+    )
+
+    with open(f'{output_dir}/{CS}', 'w') as f:
+        csv_writer = csv.writer(f, delimiter='\t')
+        csv_writer.writerows([
+            [x]
+            for _, x in comm_size_sorted
+        ])
+        f.close()
+
+    if is_setup_done(output_dir, use_existing_clustering):
+        return
+
+    generate_com_id_file(comm_size_sorted, output_dir)
+    generate_com_inp_file(comm_size_sorted, node_comm,
+                          node_relabeled, output_dir)
+
+    if is_setup_done(output_dir, use_existing_clustering):
+        return
+
+    generate_mcs_file(G, node_relabeled, output_dir)
+
+    assert is_setup_done(output_dir, use_existing_clustering)
+    return
 
 
 def post_process(output_dir):
