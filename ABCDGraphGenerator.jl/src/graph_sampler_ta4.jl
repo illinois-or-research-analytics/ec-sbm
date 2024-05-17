@@ -217,7 +217,7 @@ function config_model_ta4(clusters, params)
         local_edges = Set{Tuple{Int, Int}}()
         pool = Int[]
         cluster_sorted = cluster[sortperm(w_internal[cluster], rev=true)]
-        k = max(params.mcs[cluster_id], 1)
+        k = params.mcs[cluster_id]
 
         for i in cluster_sorted
             if length(pool) < k
@@ -247,13 +247,16 @@ function config_model_ta4(clusters, params)
             end
 
             t = 0
+            if t == k
+                break
+            end
             selected = Set{Int}()
 
             # Find the top-k nodes with the highest available degree
             # and connect them to the current node
             for loc in pool[sortperm(view(w_internal, pool), rev=true)]
                 if w_internal[loc] == 0
-                    break
+                    continue
                 end
 
                 if w_internal[i] == 0
