@@ -11,110 +11,100 @@ from src.constants import *
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--network-id', type=str, required=True)
-    parser.add_argument('--resolution', type=str, required=True)
-    parser.add_argument('--method', type=str, required=True)
-    parser.add_argument('--based_on', type=str, required=True)
-    parser.add_argument('--seed', type=int, required=False, default=0)
+    parser.add_argument('--network-folder', type=str, required=True)
+    parser.add_argument('--output-folder', type=str, required=True)
     return parser.parse_args()
 
 
+print('Evaluation')
+print('== Input == ')
+
 args = parse_args()
-network_id = args.network_id
-resolution = args.resolution
-method = args.method
-based_on = args.based_on
-seed = args.seed
+network_dir = args.network_folder
+output_dir = args.output_folder
 
-print(
-    f'Degree distribution for {network_id} at resolution {resolution} using {method}')
+print(f'Network/Clustering: {network_dir}')
+print(f'Output: {output_dir}')
 
-_dir = \
-    f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/{seed}/'
-assert os.path.exists(_dir)
+print('== Output == ')
 
-if 'abcd' in method:
-    # == Compute input degree distribution ==
-    deg_fn = DEG
+assert os.path.exists(network_dir)
+os.makedirs(output_dir, exist_ok=True)
 
-    with open(f'{_dir}/{deg_fn}') as f:
-        degrees = [int(x.strip()) for x in f.readlines()]
-        df = pd.DataFrame(degrees, columns=['degree'])
+# == Compute input degree distribution ==
+with open(f'{network_dir}/{DEG}') as f:
+    degrees = [int(x.strip()) for x in f.readlines()]
+    df = pd.DataFrame(degrees, columns=['degree'])
 
-    # Compute the quantiles
-    q1 = df['degree'].quantile(0.25)
-    q3 = df['degree'].quantile(0.75)
-    med = df['degree'].median()
-    min_ = df['degree'].min()
-    max_ = df['degree'].max()
-    mean = df['degree'].mean()
+# Compute the quantiles
+q1 = df['degree'].quantile(0.25)
+q3 = df['degree'].quantile(0.75)
+med = df['degree'].median()
+min_ = df['degree'].min()
+max_ = df['degree'].max()
+mean = df['degree'].mean()
 
-    # Compute the frequency
-    df = df.groupby('degree').size().reset_index(name='count')
+# Compute the frequency
+df = df.groupby('degree').size().reset_index(name='count')
 
-    # == Compute generated degree distribution ==
-    edge_fn = EDGE
+# == Compute generated degree distribution ==
+with open(f'{network_dir}/{EDGE}') as f:
+    neighbors = {}
+    for x in f.readlines():
+        u, v = x.strip().split('\t')
 
-    with open(f'{_dir}/{edge_fn}') as f:
-        neighbors = {}
-        for x in f.readlines():
-            u, v = x.strip().split('\t')
+        neighbors.setdefault(u, 0)
+        neighbors[u] += 1
 
-            neighbors.setdefault(u, 0)
-            neighbors[u] += 1
+        neighbors.setdefault(v, 0)
+        neighbors[v] += 1
 
-            neighbors.setdefault(v, 0)
-            neighbors[v] += 1
+degrees = [neighbors[u] for u in neighbors]
+df_gen = pd.DataFrame(degrees, columns=['degree'])
 
-    degrees = [neighbors[u] for u in neighbors]
-    df_gen = pd.DataFrame(degrees, columns=['degree'])
+# Compute the quantiles
+q1_gen = df_gen['degree'].quantile(0.25)
+q3_gen = df_gen['degree'].quantile(0.75)
+med_gen = df_gen['degree'].median()
+min_gen = df_gen['degree'].min()
+max_gen = df_gen['degree'].max()
+mean_gen = df_gen['degree'].mean()
 
-    # Compute the quantiles
-    q1_gen = df_gen['degree'].quantile(0.25)
-    q3_gen = df_gen['degree'].quantile(0.75)
-    med_gen = df_gen['degree'].median()
-    min_gen = df_gen['degree'].min()
-    max_gen = df_gen['degree'].max()
-    mean_gen = df_gen['degree'].mean()
+# Compute the frequency
+df_gen = df_gen.groupby('degree').size().reset_index(name='count')
 
-    # Compute the frequency
-    df_gen = df_gen.groupby('degree').size().reset_index(name='count')
+# == Plot the degree distributions ==
+fig, ax = plt.subplots(1, 1, figsize=(5, 5), dpi=300, tight_layout=True)
+sns.scatterplot(ax=ax, data=df, x='degree',
+                y='count', label='Input', alpha=0.5)
+sns.scatterplot(ax=ax, data=df_gen, x='degree',
+                y='count', label='Generated', alpha=0.5)
+ax.set_xlabel('Degree')
+ax.set_ylabel('Count (log)')
+ax.legend()
+ax.set_xscale('log')
+ax.set_yscale('log')
+plt.savefig(f'{output_dir}/deg_dist.png')
+plt.clf()
+plt.close()
 
-    # == Plot the degree distributions ==
-    fig, ax = plt.subplots(1, 1, figsize=(5, 5), dpi=300, tight_layout=True)
-    sns.scatterplot(ax=ax, data=df, x='degree',
-                    y='count', label='Input', alpha=0.5)
-    sns.scatterplot(ax=ax, data=df_gen, x='degree',
-                    y='count', label='Generated', alpha=0.5)
-    ax.set_xlabel('Degree')
-    ax.set_ylabel('Count (log)')
-    ax.legend()
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    plt.savefig(f'{_dir}/deg_dist.png')
-    plt.clf()
-    plt.close()
-
-    # Output as JSON file
-    with open(f'{_dir}/deg_dist.json', 'w') as f:
-        json.dump({
-            'input': {
-                'min': min_,
-                'q1': q1,
-                'med': med,
-                'q3': q3,
-                'max': max_,
-                'mean': mean
-            },
-            'generated': {
-                'min': min_gen,
-                'q1': q1_gen,
-                'med': med_gen,
-                'q3': q3_gen,
-                'max': max_gen,
-                'mean': mean_gen
-            }
-        }, f)
-else:
-    edge = 'edge' if 'abcd' in method else 'network'
-    com = 'com' if 'abcd' in method else 'community'
+# Output as JSON file
+with open(f'{output_dir}/deg_dist.json', 'w') as f:
+    json.dump({
+        'input': {
+            'min': min_,
+            'q1': q1,
+            'med': med,
+            'q3': q3,
+            'max': max_,
+            'mean': mean
+        },
+        'generated': {
+            'min': min_gen,
+            'q1': q1_gen,
+            'med': med_gen,
+            'q3': q3_gen,
+            'max': max_gen,
+            'mean': mean_gen
+        }
+    }, f)

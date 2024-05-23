@@ -13,15 +13,25 @@ def parse_args():
     parser.add_argument('--clustering', type=str, required=True)
     parser.add_argument('--output-folder', type=str, required=True)
     parser.add_argument('--seed', type=int, required=False, default=0)
-    parser.add_argument('--id', type=str, required=False, default='default_id')
     return parser.parse_args()
 
+
+print('Generation')
+print('== Input == ')
 
 args = parse_args()
 edgelist_fn = args.edgelist
 clustering_fn = args.clustering
 output_dir = args.output_folder
 seed = args.seed
+
+print(f'Method: ABCD-MCS')
+print(f'Network: {edgelist_fn}')
+print(f'Clustering: {clustering_fn}')
+print(f'Output folder: {output_dir}')
+print(f'Seed: {seed}')
+
+print('== Output == ')
 
 logs = []
 

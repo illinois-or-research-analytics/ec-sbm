@@ -9,52 +9,68 @@ from src.constants import *
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--network-id', type=str, required=True)
-    parser.add_argument('--resolution', type=str, required=True)
-    parser.add_argument('--method', type=str, required=True)
-    parser.add_argument('--based_on', type=str, required=True)
+    parser.add_argument('--edgelist', type=str, required=True)
+    parser.add_argument('--clustering', type=str, required=True)
+    parser.add_argument('--output-folder', type=str, required=True)
     parser.add_argument('--seed', type=int, required=False, default=0)
     return parser.parse_args()
 
 
+print('== Input == ')
+
 args = parse_args()
-network_id = args.network_id
-resolution = args.resolution
-method = args.method
-based_on = args.based_on
+edgelist_fn = args.edgelist
+clustering_fn = args.clustering
+output_dir = args.output_folder
 seed = args.seed
 
-output_dir = set_up(
-    method,
-    based_on,
-    network_id,
-    resolution,
+print(f'Method: ABCD')
+print(f'Network: {edgelist_fn}')
+print(f'Clustering: {clustering_fn}')
+print(f'Output folder: {output_dir}')
+print(f'Seed: {seed}')
+
+print('== Output == ')
+
+logs = []
+
+start = time.perf_counter()
+set_up(
+    edgelist_fn,
+    clustering_fn,
     seed,
+    output_dir,
     use_existing_clustering=True,
 )
+elapsed = time.perf_counter() - start
+logs.append(f"Setup time: {elapsed}")
 
 with open(f'{output_dir}/params.json', 'r') as f:
     params = json.load(f)
     seed = params['seed']
     xi = params['xi']
 
-# == Generate ABCD network
-print(
-    f'Generating ABCD network for {network_id} with resolution {resolution}...')
-print(f'Mixing parameter (xi) {xi}')
+cmd = f'''
+julia ABCDGraphGenerator.jl/utils/graph_sampler.jl \
+    {output_dir}/{EDGE} {output_dir}/{COM_OUT} \
+    {output_dir}/{DEG} {output_dir}/{CS} \
+    xi {xi} false false {seed} 0
+'''
+logs.append(cmd)
 
-cmd = f'julia ABCDGraphGenerator.jl/utils/graph_sampler.jl \
-                {output_dir}/{EDGE} {output_dir}/{COM_OUT} \
-                {output_dir}/{DEG} {output_dir}/{CS} \
-                xi {xi} false false {seed} 0'
+start = time.perf_counter()
+os.system(cmd)
+elapsed = time.perf_counter() - start
+logs.append(f"Generation time: {elapsed}")
 
-with open(f'{output_dir}/run.log', 'w') as f:
-    f.write(cmd)
-    f.write('\n')
+start = time.perf_counter()
+post_process(output_dir)
+elapsed = time.perf_counter() - start
+logs.append(f"Post-process time: {elapsed}")
 
-    start = time.perf_counter()
-    os.system(cmd)
-    post_process(output_dir)
-    elapsed = time.perf_counter() - start
-
-    f.write(f"Generation time: {elapsed}")
+assert os.path.exists(output_dir)
+log_f = open(f'{output_dir}/run.log', 'w')
+for log in logs:
+    log_f.write(log)
+    log_f.write('\n')
+log_f.close()

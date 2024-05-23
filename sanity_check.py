@@ -6,25 +6,28 @@ def check_wellconnected(root: str):
     # Find all files connectivity.log in directory
     files = glob.glob(root + '/**/connectivity.log', recursive=True)
 
-    # Read file to see if the first line contains "= 1.0\n"
+    # Read csv file to see the line with "well_connected_ratio" and check if it is 1.0
     for file in files:
         with open(file, 'r') as f:
-            first_line = f.readline()
-            if "= 1.0\n" not in first_line:
-                print(f"File {file} is not well-connected")
+            for line in f:
+                if "well_connected" in line:
+                    _, ratio = line.split(',')
+                    if float(ratio) < 1.0:
+                        print(f"File {file} is not well connected")
 
 
 def check_connected(root: str):
     # Find all files connectivity.log in directory
     files = glob.glob(root + '/**/connectivity.log', recursive=True)
 
-    # Read file to see if the second line contains "= 0.0\n"
+    # Read csv file to see the line with "disconnected_percentage" and check if it is 0.0
     for file in files:
         with open(file, 'r') as f:
-            _ = f.readline()
-            second_line = f.readline()
-            if "= 0.0\n" not in second_line:
-                print(f"File {file} is not connected")
+            for line in f:
+                if "disconnected_percentage" in line:
+                    _, perc = line.split(',')
+                    if float(perc) > 0.0:
+                        print(f"File {file} has disconnected clusters")
 
 
 def check_output_mcs(root: str):
