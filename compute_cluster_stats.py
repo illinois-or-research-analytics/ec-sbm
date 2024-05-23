@@ -11,16 +11,6 @@ from src.utils import from_existing_clustering, viecut, Graph
 from src.constants import *
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--network-id', type=str, required=True)
-    parser.add_argument('--resolution', type=str, required=True)
-    parser.add_argument('--method', type=str, required=True)
-    parser.add_argument('--based_on', type=str, required=True)
-    parser.add_argument('--seed', type=int, required=False, default=0)
-    return parser.parse_args()
-
-
 def with_bijection(_dir):
     # Compute input mcs
     mcs_fn = MCS
@@ -168,24 +158,39 @@ def without_bijection(_dir):
     plt.close()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--network-id', type=str, required=True)
+    parser.add_argument('--resolution', type=str, required=True)
+    parser.add_argument('--method', type=str, required=True)
+    parser.add_argument('--based_on', type=str, required=True)
+    parser.add_argument('--seed', type=int, required=False, default=0)
+    return parser.parse_args()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--network-folder', type=str, required=True)
+    parser.add_argument('--output-folder', type=str, required=True)
+    parser.add_argument('--is-with-bijection', action='store_true')
+    return parser.parse_args()
+
+
+print('Evaluation')
+print('== Input == ')
+
 args = parse_args()
+network_dir = args.network_folder
+output_dir = args.output_folder
 
-network_id = args.network_id
-resolution = args.resolution
-method = args.method
-based_on = args.based_on
-seed = args.seed
+print(f'Network/Clustering: {network_dir}')
+print(f'Output: {output_dir}')
 
-print(
-    f'Cluster statistics for {network_id} at resolution {resolution} using {method}')
+print('== Output == ')
 
-_dir = \
-    f'data/networks/{method}/{based_on}/{network_id}/leiden{resolution}/{seed}/'
-assert os.path.exists(_dir)
+assert os.path.exists(network_dir)
+os.makedirs(output_dir, exist_ok=True)
 
-if 'abcd' in method:
-    if method == 'abcdta4':
-        with_bijection(_dir)
-    without_bijection(_dir)
-else:
-    raise NotImplementedError
+if args.is_with_bijection:
+    with_bijection(network_dir)
+without_bijection(network_dir)
