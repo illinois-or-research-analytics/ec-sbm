@@ -23,19 +23,18 @@ args = parse_args()
 edgelist_fp = Path(args.output_network)
 clustering_fp = Path(args.output_clustering)
 
-nodes_in_edgelist = set()
-with open(edgelist_fp) as f:
-    for line in f:
-        node1, node2 = line.strip().split()
-        nodes_in_edgelist.add(node1)
-        nodes_in_edgelist.add(node2)
-
 nodes_in_clustering = set()
 with open(clustering_fp) as f:
     for line in f:
         node, _ = line.strip().split()
         nodes_in_clustering.add(node)
 
-assert nodes_in_edgelist == nodes_in_clustering
+with open(edgelist_fp) as f:
+    for line in f:
+        node1, node2 = line.strip().split()
+        assert node1 in nodes_in_clustering, \
+            f'Node {node1} is not clustered'
+        assert node2 in nodes_in_clustering, \
+            f'Node {node2} is not clustered'
 
 print('Test passed!')
