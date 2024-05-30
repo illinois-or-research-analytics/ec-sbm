@@ -1,33 +1,25 @@
 import glob
 import pandas as pd
+import json
+import sys
 
 
 def check_wellconnected(root: str):
-    # Find all files connectivity.log in directory
-    files = glob.glob(root + '/**/connectivity.log', recursive=True)
-
-    # Read csv file to see the line with "well_connected_ratio" and check if it is 1.0
+    files = glob.glob(root + '/**/stats.json', recursive=True)
     for file in files:
         with open(file, 'r') as f:
-            for line in f:
-                if "well_connected" in line:
-                    _, ratio = line.split(',')
-                    if float(ratio) < 1.0:
-                        print(f"File {file} is not well connected")
+            data = json.load(f)
+            if data['ratio_wellconnected_clusters'] < 1.0:
+                print(f"File {file} is not well connected")
 
 
 def check_connected(root: str):
-    # Find all files connectivity.log in directory
-    files = glob.glob(root + '/**/connectivity.log', recursive=True)
-
-    # Read csv file to see the line with "disconnected_percentage" and check if it is 0.0
+    files = glob.glob(root + '/**/stats.json', recursive=True)
     for file in files:
         with open(file, 'r') as f:
-            for line in f:
-                if "disconnected_percentage" in line:
-                    _, perc = line.split(',')
-                    if float(perc) > 0.0:
-                        print(f"File {file} has disconnected clusters")
+            data = json.load(f)
+            if data['n_disconnects'] > 0:
+                print(f"File {file} is disconnected")
 
 
 def check_output_mcs(root: str):
@@ -58,9 +50,9 @@ tests = [
     check_wellconnected,
     check_connected,
     check_output_mcs,
-    # check_input_mcs,
+    check_input_mcs,
 ]
 
-root = 'data/networks/abcdta4/leiden_cpm_cm'
+root = sys.argv[1]
 for test in tests:
     test(root)
