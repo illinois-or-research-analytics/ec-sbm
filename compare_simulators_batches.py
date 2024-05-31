@@ -11,6 +11,23 @@ roots = [
     Path('data/networks/abcd/leiden_cpm_cm')
 ]
 
+output_dir = Path(f'output')
+output_dir.mkdir(exist_ok=True, parents=True)
+
+# Expected structure:
+# root
+# ├── {network_id}
+# │   ├── leiden{resolution}
+# │   │   ├── {replicate_id}
+# │   │   │   └── {COMP_FN}
+
+# Expected format of {COMP_FN}:
+# stat,stat_type,distance_type,distance
+
+# Output format: {output_dir}/{network_id}_{resolution}.csv
+# stat,stat_type,distance_type,distance_count_{name},distance_mean_{name},distance_std_{name} for name in names
+# for every (network, clustering) pair where there are at least two simulators producing at least one replicate each
+
 network_ids = [
     set(x.name for x in root.iterdir())
     for root in roots
@@ -104,7 +121,7 @@ comparable_pairs = {
     (network_id, resolution)
     for network_id in all_network_ids
     for resolution in all_resolutions[network_id]
-    if all(one_successes[network_id][resolution])
+    if sum(one_successes[network_id][resolution]) > 1
 }
 
 for network_id, resolution in comparable_pairs:
@@ -137,4 +154,4 @@ for network_id, resolution in comparable_pairs:
             )
 
     print(f'{network_id} {resolution}')
-    agg_df.to_csv(f'output/{network_id}_{resolution}.csv', index=False)
+    agg_df.to_csv(output_dir / f'{network_id}_{resolution}.csv', index=False)
