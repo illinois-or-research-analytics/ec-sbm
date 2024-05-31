@@ -16,6 +16,12 @@ stats = {
     ('deg_assort', 'scalar', 'rel_diff'),
 }
 
+# Expected input:
+# root
+# ├── {network}_{resolution}.csv
+
+# Output: output/{stat}_{stat_type}_{distance_type}.png
+
 output.mkdir(exist_ok=True, parents=True)
 
 means = dict()
