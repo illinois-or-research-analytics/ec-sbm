@@ -1,82 +1,54 @@
+import os
 import csv
 import time
-from pathlib import Path
 import argparse
+import random
 
 import pandas as pd
 import numpy as np
 import graph_tool.all as gt
 from scipy.sparse import dok_matrix
 
-COLORS = [
-    "#1c71d8",
-    "#2ec27e",
-    "#f7a325",
-    "#f04844",
-    "#8a2be2",
-    "#ff4500",
-    "#00bfff",
-    "#ff1493",
-    "#00ff00",
-    "#ff0000",
-    "#0000ff",
-    "#ff00ff",
-    "#00ffff",
-    "#ffff00",
-    "#000000",
-]
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--edgelist',
-        type=Path,
-        required=True,
-        help='Path to the edge list file',
-    )
-    parser.add_argument(
-        '--clustering',
-        type=Path,
-        required=True,
-        help='Path to the clustering file',
-    )
-    parser.add_argument(
-        '--output-folder',
-        type=Path,
-        required=True,
-        help='Path to the output folder',
-    )
-    parser.add_argument(
-        '--seed',
-        type=int,
-        default=0,
-        help='Random seed',
-    )
-    parser.add_argument(
-        '--visualize',
-        action='store_true',
-        help='Visualize the generated SBM',
-    )
+    parser.add_argument('--edgelist', type=str, required=True)
+    parser.add_argument('--clustering', type=str, required=True)
+    parser.add_argument('--output-folder', type=str, required=True)
+    parser.add_argument('--seed', type=int, required=False, default=0)
     return parser.parse_args()
 
 
-args = parse_args()
-edgelist_fp = args.edgelist
-clustering_fp = args.clustering
-output_folder = args.output_folder
-seed = args.seed
-visualize = args.visualize
+print('Generation')
+print('== Input == ')
 
-assert edgelist_fp.exists(), f'{edgelist_fp} does not exist'
-assert clustering_fp.exists(), f'{clustering_fp} does not exist'
-output_folder.mkdir(parents=True, exist_ok=True)
+args = parse_args()
+edgelist_fn = args.edgelist
+clustering_fn = args.clustering
+output_dir = args.output_folder
+seed = args.seed
+
+print(f'Method: ABCD-MCS')
+print(f'Network: {edgelist_fn}')
+print(f'Clustering: {clustering_fn}')
+print(f'Output folder: {output_dir}')
+print(f'Seed: {seed}')
+
+print('== Output == ')
+
+logs = []
+
+start = time.perf_counter()
+
+assert os.path.exists(edgelist_fn), f'{edgelist_fn} does not exist'
+assert os.path.exists(clustering_fn), f'{clustering_fn} does not exist'
+os.makedirs(output_dir, exist_ok=True)
 
 # Compute node and cluster mappings
 node_id2iid = dict()
 cluster_id2iid = dict()
 clustering = dict()
-with open(clustering_fp, 'r') as f:
+with open(clustering_fn, 'r') as f:
     reader = csv.reader(f, delimiter='\t')
     for node_id, cluster_id in reader:
         if node_id not in node_id2iid:
@@ -108,7 +80,7 @@ all_clusters = list(cluster_id2iid.values())
 
 # Compute neighbor
 neighbor = dict()
-with open(edgelist_fp, 'r') as f:
+with open(edgelist_fn, 'r') as f:
     reader = csv.reader(f, delimiter='\t')
     for src_id, tgt_id in reader:
         src_iid = node_id2iid[src_id]
@@ -137,8 +109,12 @@ out_degs = np.array([
     for node_iid in all_nodes
 ])
 
+elapsed = time.perf_counter() - start
+logs.append(f"Setup time: {elapsed}")
+
+start = time.perf_counter()
+
 # Generate SBM
-np.random.seed(seed)
 start = time.perf_counter()
 g = gt.generate_sbm(
     b,
@@ -150,10 +126,14 @@ g = gt.generate_sbm(
 )
 gt.remove_parallel_edges(g)
 gt.remove_self_loops(g)
-print(f'Elapsed time: {time.perf_counter() - start:.3f} sec')
+
+elapsed = time.perf_counter() - start
+logs.append(f"Generation time: {elapsed}")
+
+start = time.perf_counter()
 
 # Copy clustering file
-with open(output_folder / 'com.tsv', 'w') as f:
+with open(f'{output_dir}/com.tsv', 'w') as f:
     df = pd.DataFrame([
         (node_iid2id[node_iid], cluster_iid2id[cluster_iid])
         for node_iid, cluster_iid in node2cluster.items()
@@ -163,7 +143,7 @@ with open(output_folder / 'com.tsv', 'w') as f:
     df.to_csv(f, sep='\t', index=False, header=False)
 
 # Save edge list
-with open(output_folder / 'edge.tsv', 'w') as f:
+with open(f'{output_dir}/edge.tsv', 'w') as f:
     df = pd.DataFrame([
         (node_iid2id[src], node_iid2id[tgt])
         for src, tgt in g.iter_edges()
@@ -172,20 +152,12 @@ with open(output_folder / 'edge.tsv', 'w') as f:
     )
     df.to_csv(f, sep='\t', index=False, header=False)
 
-if visualize:
-    # Draw graph
-    vcolor = g.new_vp("string")
-    for v in g.vertices():
-        vcolor[v] = COLORS[node2cluster[v]]
+elapsed = time.perf_counter() - start
+logs.append(f"Post-process time: {elapsed}")
 
-    vid = g.new_vp('string')
-    for v in g.vertices():
-        vid[v] = node_iid2id[v]
-
-    gt.graph_draw(
-        g,
-        output=str(output_folder / 'sbm.png'),
-        bg_color='white',
-        vertex_text=vid,
-        vertex_fill_color=vcolor,
-    )
+assert os.path.exists(output_dir)
+log_f = open(f'{output_dir}/run.log', 'w')
+for log in logs:
+    log_f.write(log)
+    log_f.write('\n')
+log_f.close()
