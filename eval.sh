@@ -2,21 +2,21 @@
 #SBATCH --time=168:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/slurm-%j.out
-#SBATCH --job-name="eval"
+#SBATCH --job-name="eval_sbm_104"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
 # ===================================
 
 orig="orig_wo_outliers"
-start=1
-end=10
+start=0
+end=0
 
 for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
 do
-    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # $(cat data/networks.txt)
+    for network_id in $(cat data/networks.txt)
     do
-        for resolution in .001
+        for resolution in .0001 .001 .01
         do
             orig_dir="data/networks/${orig}/${based_on}/${network_id}/leiden${resolution}/"
 
@@ -28,6 +28,11 @@ do
 
             if [ ! -d ${orig_dir} ]; then
                 raw_dir="data/networks/orig/${based_on}/${network_id}/leiden${resolution}/"
+
+                if [ ! -d ${raw_dir} ]; then
+                    echo "Error: ${raw_dir} not found"
+                    continue
+                fi
 
                 echo "Cleaning outliers"
                 echo "Raw: ${raw_dir}"
@@ -59,7 +64,7 @@ do
             echo "============================"
             echo ""
             
-            for method in abcdta4 abcd #abcd abcdta4
+            for method in sbm #abcd abcdta4 sbm
             do    
                 reps_dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/"
                 echo $reps_dir
@@ -73,7 +78,7 @@ do
 
                     echo "Generating network"
 
-                    if [ ! -d ${dir} ]; then
+                    if [ ! -f ${dir}/edge.tsv ] || [ ! -f ${dir}/com.tsv ]; then
                         python gen_${method}.py \
                             --edgelist ${edgelist_fn} \
                             --clustering ${clustering_fn} \
@@ -105,7 +110,7 @@ do
                     fi
 
                     if [ ! -f ${dir}/mcs_dist.png ]; then
-                        if [ $method = "abcdta4" ]; then
+                        if [ $method = "abcdta4" ] || [ $method = "sbm" ]; then
                             python compute_cluster_stats.py \
                                 --network-folder ${dir} \
                                 --output-folder ${dir} \
