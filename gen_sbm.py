@@ -2,12 +2,14 @@ import os
 import csv
 import time
 import argparse
-import random
 
 import pandas as pd
 import numpy as np
 import graph_tool.all as gt
 from scipy.sparse import dok_matrix
+
+from src.utils import set_up
+from src.constants import *
 
 
 def parse_args():
@@ -39,14 +41,29 @@ print('== Output == ')
 logs = []
 
 start = time.perf_counter()
-
-assert os.path.exists(edgelist_fn), f'{edgelist_fn} does not exist'
-assert os.path.exists(clustering_fn), f'{clustering_fn} does not exist'
-os.makedirs(output_dir, exist_ok=True)
+set_up(
+    edgelist_fn,
+    clustering_fn,
+    seed,
+    output_dir,
+    use_existing_clustering=True,
+)
+elapsed = time.perf_counter() - start
+logs.append(f"Setup time: {elapsed}")
 
 # Compute node and cluster mappings
 node_id2iid = dict()
+with open(f'{output_dir}/{NODE_ID}') as f:
+    reader = csv.reader(f, delimiter='\t')
+    for node_iid, (node_id,) in enumerate(reader):
+        node_id2iid[node_id] = node_iid
+
 cluster_id2iid = dict()
+with open(f'{output_dir}/{COM_ID}') as f:
+    reader = csv.reader(f, delimiter='\t')
+    for cluster_iid, (cluster_id,) in enumerate(reader):
+        cluster_id2iid[cluster_id] = cluster_iid
+
 clustering = dict()
 with open(clustering_fn, 'r') as f:
     reader = csv.reader(f, delimiter='\t')
@@ -124,8 +141,8 @@ g = gt.generate_sbm(
     micro_degs=True,
     directed=False,
 )
-gt.remove_parallel_edges(g)
-gt.remove_self_loops(g)
+# gt.remove_parallel_edges(g)
+# gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
 logs.append(f"Generation time: {elapsed}")
@@ -133,7 +150,7 @@ logs.append(f"Generation time: {elapsed}")
 start = time.perf_counter()
 
 # Copy clustering file
-with open(f'{output_dir}/com.tsv', 'w') as f:
+with open(f'{output_dir}/{COM_OUT}', 'w') as f:
     df = pd.DataFrame([
         (node_iid2id[node_iid], cluster_iid2id[cluster_iid])
         for node_iid, cluster_iid in node2cluster.items()
@@ -143,7 +160,7 @@ with open(f'{output_dir}/com.tsv', 'w') as f:
     df.to_csv(f, sep='\t', index=False, header=False)
 
 # Save edge list
-with open(f'{output_dir}/edge.tsv', 'w') as f:
+with open(f'{output_dir}/{EDGE}', 'w') as f:
     df = pd.DataFrame([
         (node_iid2id[src], node_iid2id[tgt])
         for src, tgt in g.iter_edges()
