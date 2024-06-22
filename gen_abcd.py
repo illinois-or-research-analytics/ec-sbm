@@ -64,7 +64,10 @@ elapsed = time.perf_counter() - start
 logs.append(f"Generation time: {elapsed}")
 
 start = time.perf_counter()
-post_process(output_dir)
+try:
+    post_process(output_dir)
+except Exception as e:
+    logs.append(f"Post-process error: {e}")
 elapsed = time.perf_counter() - start
 logs.append(f"Post-process time: {elapsed}")
 
