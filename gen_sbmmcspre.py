@@ -1,3 +1,4 @@
+import os
 import csv
 import time
 import argparse
@@ -20,8 +21,8 @@ def parse_args():
     return parser.parse_args()
 
 
-# print('Generation')
-# print('== Input == ')
+print('Generation')
+print('== Input == ')
 
 args = parse_args()
 edgelist_fn = args.edgelist
@@ -29,13 +30,13 @@ clustering_fn = args.clustering
 output_dir = args.output_folder
 seed = args.seed
 
-# print(f'Method: ABCD-MCS')
-# print(f'Network: {edgelist_fn}')
-# print(f'Clustering: {clustering_fn}')
-# print(f'Output folder: {output_dir}')
-# print(f'Seed: {seed}')
+print(f'Method: ABCD-MCS')
+print(f'Network: {edgelist_fn}')
+print(f'Clustering: {clustering_fn}')
+print(f'Output folder: {output_dir}')
+print(f'Seed: {seed}')
 
-# print('== Output == ')
+print('== Output == ')
 
 logs = []
 
@@ -49,6 +50,8 @@ set_up(
 )
 elapsed = time.perf_counter() - start
 logs.append(f"Setup time: {elapsed}")
+
+start = time.perf_counter()
 
 # Compute node and cluster mappings
 node_id2iid = dict()
@@ -322,6 +325,11 @@ g.add_edge_list(edges)
 gt.remove_parallel_edges(g)
 gt.remove_self_loops(g)
 
+elapsed = time.perf_counter() - start
+logs.append(f"Generation time: {elapsed}")
+
+start = time.perf_counter()
+
 with open(f'{output_dir}/{COM_OUT}', 'w') as f:
     df = pd.DataFrame([
         (node_iid2id[node_iid], cluster_iid2id[cluster_iid])
@@ -339,3 +347,13 @@ with open(f'{output_dir}/{EDGE}', 'w') as f:
         columns=['src_id', 'tgt_id'],
     )
     df.to_csv(f, sep='\t', index=False, header=False)
+
+elapsed = time.perf_counter() - start
+logs.append(f"Post-process time: {elapsed}")
+
+assert os.path.exists(output_dir)
+log_f = open(f'{output_dir}/run.log', 'w')
+for log in logs:
+    log_f.write(log)
+    log_f.write('\n')
+log_f.close()
