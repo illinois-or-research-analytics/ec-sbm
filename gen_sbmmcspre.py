@@ -300,14 +300,17 @@ out_degs = deg
 # print(probs.toarray())
 # print(out_degs)
 
-g = gt.generate_sbm(
-    b,
-    probs,
-    out_degs=out_degs,
-    micro_ers=True,
-    micro_degs=True,
-    directed=False,
-)
+if out_degs.sum() > 0:
+    g = gt.generate_sbm(
+        b,
+        probs,
+        out_degs=out_degs,
+        micro_ers=True,
+        micro_degs=True,
+        directed=False,
+    )
+else:
+    g = gt.Graph(directed=False)
 g.add_edge_list(edges)
 # gt.remove_parallel_edges(g)
 # gt.remove_self_loops(g)
