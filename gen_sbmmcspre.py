@@ -226,7 +226,7 @@ def generate_cluster(cluster_nodes, k):
 
             ii += 1
 
-        candidates = processed_nodes
+        candidates = set(x for x in processed_nodes)
         while ii < k:
             assert int_deg[u] > 0
 
@@ -239,22 +239,6 @@ def generate_cluster(cluster_nodes, k):
                 int_deg[v] += 1
                 probs[node2cluster[u], node2cluster[v]] += 1
                 probs[node2cluster[v], node2cluster[u]] += 1
-
-                # # pick a non-zero random cluster
-                # cluster_edge_counts = \
-                #     probs[node2cluster[u]].toarray().reshape(-1)
-                # cluster_candidates = set(np.where(
-                #     cluster_edge_counts >= 0
-                # )[0])
-                # # cluster_candidates.remove(node2cluster[u])
-                # cluster_candidates = list(cluster_candidates)
-                # cluster_weights = cluster_edge_counts[cluster_candidates] / \
-                #     cluster_edge_counts[cluster_candidates].sum()
-                # ext_cluster = np.random.choice(
-                #     cluster_candidates, p=cluster_weights)
-
-                # probs[node2cluster[u], ext_cluster] += 1
-                # probs[ext_cluster, node2cluster[u]] += 1
 
             if probs[node2cluster[u], node2cluster[v]] == 0:
                 int_deg[u] += 1
