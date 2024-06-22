@@ -30,7 +30,7 @@ clustering_fn = args.clustering
 output_dir = args.output_folder
 seed = args.seed
 
-print(f'Method: ABCD-MCS')
+print(f'Method: SBM-MCS(pre)')
 print(f'Network: {edgelist_fn}')
 print(f'Clustering: {clustering_fn}')
 print(f'Output folder: {output_dir}')
@@ -162,12 +162,13 @@ def generate_cluster(cluster_nodes, k):
             assert int_deg[u] > 0
 
             # print(f'Pick node {v}')
-            if int_deg[v] == 0:
+            if probs[node2cluster[u], node2cluster[v]] == 0:
+                int_deg[u] += 1
                 int_deg[v] += 1
                 probs[node2cluster[u], node2cluster[v]] += 1
                 probs[node2cluster[v], node2cluster[u]] += 1
 
-            if probs[node2cluster[u], node2cluster[v]] == 0:
+            if int_deg[v] == 0:
                 int_deg[u] += 1
                 int_deg[v] += 1
                 probs[node2cluster[u], node2cluster[v]] += 1
@@ -197,6 +198,8 @@ def generate_cluster(cluster_nodes, k):
         )
         n_processed = len(processed_nodes_ordered)
 
+        candidates = set(x for x in processed_nodes)
+
         ii = 0
         iii = 0
         while ii < k and iii < n_processed:
@@ -205,16 +208,16 @@ def generate_cluster(cluster_nodes, k):
             v = processed_nodes_ordered[iii]
             iii += 1
 
-            # print(f'Pick node {v}')
-            if int_deg[v] == 0:
-                # print(f'Node {v} has degree 0. Skip.')
-                continue
-
             if probs[node2cluster[u], node2cluster[v]] == 0:
                 int_deg[u] += 1
                 int_deg[v] += 1
                 probs[node2cluster[u], node2cluster[v]] += 1
                 probs[node2cluster[v], node2cluster[u]] += 1
+
+            # print(f'Pick node {v}')
+            if int_deg[v] == 0:
+                # print(f'Node {v} has degree 0. Skip.')
+                continue
 
             edges.add(create_edge(u, v))
             int_deg[u] -= 1
@@ -224,9 +227,10 @@ def generate_cluster(cluster_nodes, k):
             # print(f'Add edge {u} {v}')
             # print(f'Probs uv: {probs[node2cluster[u], node2cluster[v]]}')
 
+            candidates.remove(v)
+
             ii += 1
 
-        candidates = set(x for x in processed_nodes)
         while ii < k:
             assert int_deg[u] > 0
 
@@ -234,13 +238,13 @@ def generate_cluster(cluster_nodes, k):
             weights = deg[list_candidates] / deg[list_candidates].sum()
             v = np.random.choice(list_candidates, p=weights)
 
-            if int_deg[v] == 0:
+            if probs[node2cluster[u], node2cluster[v]] == 0:
                 int_deg[u] += 1
                 int_deg[v] += 1
                 probs[node2cluster[u], node2cluster[v]] += 1
                 probs[node2cluster[v], node2cluster[u]] += 1
 
-            if probs[node2cluster[u], node2cluster[v]] == 0:
+            if int_deg[v] == 0:
                 int_deg[u] += 1
                 int_deg[v] += 1
                 probs[node2cluster[u], node2cluster[v]] += 1
@@ -251,11 +255,10 @@ def generate_cluster(cluster_nodes, k):
             int_deg[v] -= 1
             probs[node2cluster[u], node2cluster[v]] -= 1
             probs[node2cluster[v], node2cluster[u]] -= 1
+            # print(f'Add edge {u} {v}')
             # print(f'Probs uv: {probs[node2cluster[u], node2cluster[v]]}')
 
             candidates.remove(v)
-
-            # print(f'Add edge {u} {v}')
 
             ii += 1
 
@@ -306,8 +309,8 @@ g = gt.generate_sbm(
     directed=False,
 )
 g.add_edge_list(edges)
-gt.remove_parallel_edges(g)
-gt.remove_self_loops(g)
+# gt.remove_parallel_edges(g)
+# gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
 logs.append(f"Generation time: {elapsed}")
