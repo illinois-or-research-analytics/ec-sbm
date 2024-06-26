@@ -92,6 +92,7 @@ function config_model_ta4(clusters, params)
         push!(clusterlist[clusters[i]], i)
     end
 
+    connected_edges = Set{Tuple{Int, Int}}()
     edges = Set{Tuple{Int, Int}}()
 
     unresolved_collisions = 0
@@ -491,6 +492,7 @@ function config_model_ta4(clusters, params)
         end
 
         # ============================================== S
+        local_edges_copy = copy(local_edges)
         union!(local_edges, connected_graph)
         
         for u in cluster
@@ -509,6 +511,8 @@ function config_model_ta4(clusters, params)
                 w[v] += 1
             end
         end
+        local_edges = copy(local_edges_copy)
+        connected_edges = union(connected_edges, connected_graph)
         # ============================================== E
 
         union!(edges, local_edges)
@@ -528,8 +532,8 @@ function config_model_ta4(clusters, params)
     end
 
     # ============================================== S
-    local_edges = copy(edges)
-    edges = Set{Tuple{Int, Int}}()
+    # local_edges = copy(edges)
+    # edges = Set{Tuple{Int, Int}}()
     # ============================================== E
 
     stubs = Int[]
@@ -658,7 +662,8 @@ function config_model_ta4(clusters, params)
     end
 
     # ============================================== S
-    union!(edges, local_edges)
+    # union!(edges, local_edges)
+    union!(edges, connected_edges)
     # ============================================== E
 
     return edges
