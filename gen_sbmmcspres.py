@@ -282,14 +282,14 @@ for i in range(num_clusters):
         v = np.random.choice(candidates, p=weights, size=add_deg)
         for vv in v:
             out_degs[vv] += 1
-    elif deg_i > num_edges_from_i:
-        add_edge = deg_i - num_edges_from_i
-        # Randomly choose add_edge clusters
-        candidates = np.arange(num_clusters)
-        weights = probs_copy[i, :] / probs_copy[i, :].sum()
-        u = np.random.choice(candidates, p=weights, size=add_edge)
-        for uu in u:
-            probs[i, uu] += 1
+    # elif deg_i > num_edges_from_i:
+    #     add_edge = deg_i - num_edges_from_i
+    #     # Randomly choose add_edge clusters
+    #     candidates = np.arange(num_clusters)
+    #     weights = probs_copy[i, :] / probs_copy[i, :].sum()
+    #     u = np.random.choice(candidates, p=weights, size=add_edge)
+    #     for uu in u:
+    #         probs[i, uu] += 1
 
 # for i in range(num_clusters):
 #     print(out_degs[b == i].sum(), probs[i, :].sum())
