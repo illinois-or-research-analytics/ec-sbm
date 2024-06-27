@@ -245,6 +245,9 @@ def generate_cluster(cluster_nodes, k):
     return edges
 
 
+deg_copy = deg.copy()
+probs_copy = probs.copy()
+
 edges = set()
 for cluster_iid, cluster_nodes in clustering.items():
     # print(f'Generate cluster {cluster_iid}')
@@ -275,14 +278,16 @@ for i in range(num_clusters):
         add_deg = num_edges_from_i - deg_i
         # Randomly choose from b == i
         candidates = np.where(b == i)[0]
-        v = np.random.choice(candidates, size=add_deg)
+        weights = deg_copy[candidates] / deg_copy[candidates].sum()
+        v = np.random.choice(candidates, p=weights, size=add_deg)
         for vv in v:
             out_degs[vv] += 1
     elif deg_i > num_edges_from_i:
         add_edge = deg_i - num_edges_from_i
         # Randomly choose add_edge clusters
         candidates = np.arange(num_clusters)
-        u = np.random.choice(candidates, size=add_edge)
+        weights = probs_copy[i, :] / probs_copy[i, :].sum()
+        u = np.random.choice(candidates, p=weights, size=add_edge)
         for uu in u:
             probs[i, uu] += 1
 
