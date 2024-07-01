@@ -8,17 +8,16 @@
 
 # ===================================
 
-orig="orig_wo_outliers"
-start=1
-end=10
+start=0
+end=1
 
 for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
 do
-    for network_id in $(cat data/networks.txt) cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for network_id in discogs_label paris_transportation dnc # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
         for resolution in .001 # .0001 .001 .01
         do
-            orig_dir="data/networks/${orig}/${based_on}/${network_id}/leiden${resolution}/"
+            orig_dir="data/networks/orig_wo_outliers/${based_on}/${network_id}/leiden${resolution}/"
 
             edgelist_fn="${orig_dir}/edge.dat"
             clustering_fn="${orig_dir}/com.dat"
@@ -51,7 +50,7 @@ do
 
             echo "Computing original stats"
 
-            orig_stats_outdir="data/stats/${orig}/${based_on}/${network_id}/leiden${resolution}/"
+            orig_stats_outdir="data/stats/orig_wo_outliers/${based_on}/${network_id}/leiden${resolution}/"
 
             if [ ! -d ${orig_stats_outdir} ]; then
                 python network_evaluation/compute_stats.py \
@@ -63,7 +62,7 @@ do
             echo "============================"
             echo ""
             
-            for method in sbmmcspre #abcd abcdta4 sbm sbmmcspre
+            for method in abcdta4 sbm sbmmcspres #abcd abcdta4 sbm sbmmcspre
             do
                 reps_dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/"
                 echo $reps_dir
@@ -131,27 +130,6 @@ do
                         --network-2-folder ${dir} \
                         --output-file ${dir}/compare_output.csv \
                         --is-compare-sequence
-
-                    # if [ ! -f ${dir}/compare_output.csv ]; then
-                    #     python network_evaluation/compare_stats_pair.py \
-                    #         --network-1-folder ${orig_stats_outdir} \
-                    #         --network-2-folder ${dir} \
-                    #         --output-file ${dir}/compare_output.csv \
-                    #         --is-compare-sequence
-                    # fi
-
-                    # if [ $method = "abcdta4" ]; then
-                    #     python network_evaluation/compare_stats_pair.py \
-                    #         --network-1-folder ${orig_stats_outdir} \
-                    #         --network-2-folder ${dir} \
-                    #         --output-file ${dir}/compare_output.csv \
-                    #         --is-compare-sequence
-                    # else
-                    #     python network_evaluation/compare_stats_pair.py \
-                    #         --network-1-folder ${orig_stats_outdir} \
-                    #         --network-2-folder ${dir} \
-                    #         --output-file ${dir}/compare_output.csv
-                    # fi
                 done
                 echo "============================"
                 echo ""
