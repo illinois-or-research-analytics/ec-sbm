@@ -1,10 +1,16 @@
 from pathlib import Path
 import argparse
 import csv
+import copy
+import time
+import os
 
+import pandas as pd
 import numpy as np
 import graph_tool.all as gt
 from scipy.sparse import dok_matrix
+
+from src.constants import *
 
 
 def parse_args():
@@ -19,15 +25,19 @@ args = parse_args()
 
 orig_edgelist_fp = Path(args.orig_edgelist)
 orig_clustering_fp = Path(args.orig_clustering)
-
-# clustered_edgelist_fp = Path(
-#     'data/networks/sbmmcspres/leiden_cpm_cm/cit_hepph/leiden.001/0/edge.tsv'
-# )
-# clustered_clustering_fp = Path(
-#     'data/networks/sbmmcspres/leiden_cpm_cm/cit_hepph/leiden.001/0/com.tsv'
-# )
-
 output_dir = Path(args.output_folder)
+
+print(f'Generation of Outlier Subnetwork')
+print(f'Network: {orig_edgelist_fp}')
+print(f'Clustering: {orig_clustering_fp}')
+print(f'Output folder: {output_dir}')
+
+print('== Output == ')
+
+logs = []
+
+start = time.perf_counter()
+
 output_dir.mkdir(parents=True, exist_ok=True)
 
 node_id2iid = dict()
@@ -54,6 +64,8 @@ with open(orig_clustering_fp, 'r') as f:
 
         orig_nodeiid_clusteriid[node_iid] = cluster_iid
         orig_clusteriid_nodeiids.setdefault(cluster_iid, set()).add(node_iid)
+
+clustered_node2cluster = copy.deepcopy(orig_nodeiid_clusteriid)
 
 outliers = set()
 orig_neighbor = dict()
@@ -90,28 +102,6 @@ for outlier_iid in outliers:
         cluster_iid, set()).add(outlier_iid)
     orig_nodeiid_clusteriid[outlier_iid] = cluster_iid
 
-# clustered_clusterid_nodeids = dict()
-# clustered_nodeid_clusterid = dict()
-# with open(clustered_clustering_fp, 'r') as f:
-#     reader = csv.reader(f, delimiter='\t')
-#     for node_id, cluster_id in reader:
-#         node_iid = node_id2iid[node_id]
-#         cluster_iid = cluster_id2iid[cluster_id]
-
-#         clustered_clusterid_nodeids.setdefault(
-#             cluster_iid, set()).add(node_iid)
-#         clustered_nodeid_clusterid[node_iid] = cluster_iid
-
-# clustered_neighbor = dict()
-# with open(clustered_edgelist_fp, 'r') as f:
-#     reader = csv.reader(f, delimiter='\t')
-#     for src_id, tgt_id in reader:
-#         src_iid = node_id2iid[src_id]
-#         tgt_iid = node_id2iid[tgt_id]
-
-#         clustered_neighbor.setdefault(src_iid, set()).add(tgt_iid)
-#         clustered_neighbor.setdefault(tgt_iid, set()).add(src_iid)
-
 # Generate with SBM
 num_clusters = len(orig_clusteriid_nodeiids)
 probs = dok_matrix((num_clusters, num_clusters), dtype=int)
@@ -137,12 +127,17 @@ b = np.empty(num_nodes, dtype=int)
 for node_iid in range(num_nodes):
     b[node_iid] = orig_nodeiid_clusteriid[node_iid]
 
-print(node_id2iid)
-print(cluster_id2iid)
+elapsed = time.perf_counter() - start
+logs.append(f"Setup time: {elapsed}")
 
-print(b)
-print(probs.toarray())
-print(out_degs)
+# print(node_id2iid)
+# print(cluster_id2iid)
+
+# print(b)
+# print(probs.toarray())
+# print(out_degs)
+
+start = time.perf_counter()
 
 if out_degs.sum() > 0:
     g = gt.generate_sbm(
@@ -155,9 +150,38 @@ if out_degs.sum() > 0:
     )
 else:
     g = gt.Graph(directed=False)
+# gt.remove_parallel_edges(g)
+# gt.remove_self_loops(g)
 
-# gt.graph_draw(
-#     g,
-#     vertex_text=g.vertex_index,
-#     output=str(output_dir / 'graph.png'),
-# )
+elapsed = time.perf_counter() - start
+logs.append(f"Generation time: {elapsed}")
+
+start = time.perf_counter()
+
+with open(f'{output_dir}/{COM_OUT}', 'w') as f:
+    df = pd.DataFrame([
+        (node_iid2id[node_iid], cluster_iid2id[cluster_iid])
+        for node_iid, cluster_iid in clustered_node2cluster.items()
+    ],
+        columns=['node_id', 'cluster_id'],
+    )
+    df.to_csv(f, sep='\t', index=False, header=False)
+
+with open(f'{output_dir}/{EDGE}', 'w') as f:
+    df = pd.DataFrame([
+        (node_iid2id[src], node_iid2id[tgt])
+        for src, tgt in g.iter_edges()
+    ],
+        columns=['src_id', 'tgt_id'],
+    )
+    df.to_csv(f, sep='\t', index=False, header=False)
+
+elapsed = time.perf_counter() - start
+logs.append(f"Post-process time: {elapsed}")
+
+assert os.path.exists(output_dir)
+log_f = open(f'{output_dir}/outlier_run.log', 'w')
+for log in logs:
+    log_f.write(log)
+    log_f.write('\n')
+log_f.close()
