@@ -8,9 +8,8 @@
 
 # ===================================
 
-orig="orig_wo_outliers"
-start=1
-end=10
+start=0
+end=1
 
 for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
 do
@@ -18,7 +17,7 @@ do
     do
         for resolution in .001 # .0001 .001 .01
         do
-            orig_dir="data/networks/${orig}/${based_on}/${network_id}/leiden${resolution}/"
+            orig_dir="data/networks/orig_wo_outliers/${based_on}/${network_id}/leiden${resolution}/"
 
             edgelist_fn="${orig_dir}/edge.dat"
             clustering_fn="${orig_dir}/com.dat"
@@ -51,7 +50,7 @@ do
 
             echo "Computing original stats"
 
-            orig_stats_outdir="data/stats/${orig}/${based_on}/${network_id}/leiden${resolution}/"
+            orig_stats_outdir="data/stats/orig_wo_outliers/${based_on}/${network_id}/leiden${resolution}/"
 
             if [ ! -d ${orig_stats_outdir} ]; then
             python network_evaluation/compute_stats.py \
@@ -63,7 +62,7 @@ do
             echo "============================"
             echo ""
             
-            for method in abcd abcdta4 #abcd abcdta4 sbm sbmmcspres
+            for method in abcdta4 sbm sbmmcspres #abcd abcdta4 sbm sbmmcspre
             do
                 reps_dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/"
                 echo $reps_dir
