@@ -8,18 +8,15 @@
 
 # ===================================
 
-start=0
+start=1
 end=3
 
 for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
 do
-    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for network_id in twitter uni_email escorts discogs_label foldoc anybeat bitcoin_alpha eu_procurements paris_transportation dnc # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
         for resolution in .001 # .0001 .001 .01
         do
-            echo "${based_on} ${network_id} ${resolution}"
-            echo "============================================"
-
             orig_dir="data/networks/orig/${based_on}/${network_id}/leiden${resolution}/"
 
             edgelist_fn="${orig_dir}/edge.dat"
@@ -36,35 +33,40 @@ do
 
             echo "============================================"
 
-            outlier_dirs="data/networks/outliers/${based_on}/${network_id}/leiden${resolution}/"
+            for method in sbm sbmmcspres abcdta4 #abcd abcdta4 sbm sbmmcspre
+            do
+                reps_dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/"
+                echo $reps_dir
 
-            for method in abcdta4 sbm sbmmcspres # abcd abcdta4 sbm sbmmcspres
-            do 
-                clustered_dirs="data/networks/${method}/leiden_cpm_cm/${network_id}/leiden${resolution}/"
                 output_dirs="data/networks/${method}+o/leiden_cpm_cm/${network_id}/leiden${resolution}/"
 
                 for seed in $(seq ${start} ${end})
                 do
-                    echo "============================"
-                    clustered_dir="${clustered_dirs}/${seed}/"
-                    outlier_dir="${outlier_dirs}/0/" # always use the same clustering for all seeds
+                    dir="${reps_dir}/${seed}/"
                     output_dir="${output_dirs}/${seed}/"
 
-                    if [ ! -d ${clustered_dir} ]; then
-                        echo "Clustered directory does not exist: ${clustered_dir}"
+                    echo "============================"
+                    echo $dir
+
+                    if [ ! -f ${dir}/edge.tsv ] || [ ! -f ${dir}/com.tsv ]; then
+                        echo "[ERROR] ${dir}/edge.tsv or ${dir}/com.tsv not found"
                         continue
                     fi
 
-                    if [ ! -d ${outlier_dir} ]; then
-                        echo "Outlier directory does not exist: ${outlier_dir}"
-                        continue
-                    fi
+                    echo "Generating outlier subnetwork"
 
                     if [ ! -d ${output_dir} ]; then
+                        if [ ! -f ${dir}/outlier_edge.tsv ]; then
+                            python generate_outliers.py \
+                                --orig-edgelist ${edgelist_fn} \
+                                --orig-clustering ${clustering_fn} \
+                                --output-folder ${dir}
+                        fi
+
                         python combine_clustered_outliers.py \
-                            --clustered-edgelist ${clustered_dir}/edge.tsv \
-                            --clustered-clustering ${clustered_dir}/com.tsv \
-                            --outlier-edgelist ${outlier_dir}/outlier_edge.tsv \
+                            --clustered-edgelist ${dir}/edge.tsv \
+                            --clustered-clustering ${dir}/com.tsv \
+                            --outlier-edgelist ${dir}/outlier_edge.tsv \
                             --output-folder ${output_dir}
                     fi
 
@@ -90,8 +92,8 @@ do
                         --is-compare-sequence
                 done
             done
-            echo "============================================"
+            echo "============================"
+            echo ""
         done
     done
 done
-
