@@ -9,7 +9,7 @@
 # ===================================
 
 start=0
-end=1
+end=0
 
 for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
 do
