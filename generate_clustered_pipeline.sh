@@ -9,11 +9,11 @@
 # ===================================
 
 start=0
-end=1
+end=0
 
 for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
 do
-    for network_id in discogs_label paris_transportation dnc # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for network_id in twitter # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
         for resolution in .001 # .0001 .001 .01
         do
