@@ -158,16 +158,16 @@ logs.append(f"Generation time: {elapsed}")
 
 start = time.perf_counter()
 
-with open(f'{output_dir}/{COM_OUT}', 'w') as f:
-    df = pd.DataFrame([
-        (node_iid2id[node_iid], cluster_iid2id[cluster_iid])
-        for node_iid, cluster_iid in clustered_node2cluster.items()
-    ],
-        columns=['node_id', 'cluster_id'],
-    )
-    df.to_csv(f, sep='\t', index=False, header=False)
+# with open(f'{output_dir}/{OUTLIER_COM}', 'w') as f:
+#     df = pd.DataFrame([
+#         (node_iid2id[node_iid], cluster_iid2id[cluster_iid])
+#         for node_iid, cluster_iid in clustered_node2cluster.items()
+#     ],
+#         columns=['node_id', 'cluster_id'],
+#     )
+#     df.to_csv(f, sep='\t', index=False, header=False)
 
-with open(f'{output_dir}/{EDGE}', 'w') as f:
+with open(f'{output_dir}/{OUTLIER_EDGE}', 'w') as f:
     df = pd.DataFrame([
         (node_iid2id[src], node_iid2id[tgt])
         for src, tgt in g.iter_edges()
