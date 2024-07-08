@@ -112,19 +112,37 @@ def read_graph(edgelist_fn):
     return G
 
 
-def generate_params_file(G, clustering_fn, seed, output_dir):
+def generate_params_file(G, clustering_fn, seed, is_count_outliers, output_dir):
+    params = {'seed': seed}
+
     xi = compute_xi(G, clustering_fn)
+    params['xi'] = xi
+
+    if is_count_outliers:
+        params['n_outliers'] = count_outliers(G, clustering_fn)
 
     with open(f'{output_dir}/{PARAMS}', 'w') as f:
         json.dump(
-            {
-                'seed': seed,
-                'xi': xi,
-            },
+            params,
             f,
         )
 
     print(f'[INFO] {PARAMS} file is created.')
+
+
+def count_outliers(G, clustering_fn):
+    f = open(clustering_fn, 'r')
+    csv_reader = csv.reader(f, delimiter='\t')
+    clustered_nodes = {
+        u
+        for u, _ in csv_reader
+    }
+    f.close()
+    c = 0
+    for u in G.nodes:
+        if u not in clustered_nodes:
+            c += 1
+    return c
 
 
 def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
@@ -137,14 +155,16 @@ def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
     f = open(clustering_fn, 'r')
     csv_reader = csv.reader(f, delimiter='\t')
     for u, c in csv_reader:
-        if u in G.nodes:
-            node_degree.append((u, len(G[u])))
+        assert u in G.nodes, \
+            f'[ERROR] Node {u} is not in the graph.'
 
-            cs.setdefault(c, 0)
-            cs[c] += 1
+        node_degree.append((u, len(G[u])))
 
-            if use_existing_clustering:
-                node_comm.append((u, c))
+        cs.setdefault(c, 0)
+        cs[c] += 1
+
+        if use_existing_clustering:
+            node_comm.append((u, c))
     f.close()
 
     if use_existing_clustering:
@@ -229,7 +249,14 @@ def generate_mcs_file(G, node_relabeled, output_dir):
     print(f'[INFO] {MCS} file is created.')
 
 
-def set_up(edgelist_fn, clustering_fn, seed, output_dir, use_existing_clustering=False):
+def set_up(
+    edgelist_fn,
+    clustering_fn,
+    seed,
+    output_dir,
+    use_existing_clustering=False,
+    is_count_outliers=False,
+):
     # TODO: Refactor this function, this is so bad
     if os.path.exists(output_dir):
         print('[WARNING] Output directory already exists. It will be overwritten.')
@@ -247,7 +274,13 @@ def set_up(edgelist_fn, clustering_fn, seed, output_dir, use_existing_clustering
     G = read_graph(edgelist_fn)
 
     if not os.path.exists(f'{output_dir}/{PARAMS}'):
-        generate_params_file(G, clustering_fn, seed, output_dir)
+        generate_params_file(
+            G,
+            clustering_fn,
+            seed,
+            is_count_outliers,
+            output_dir,
+        )
 
     if is_setup_done(output_dir, use_existing_clustering):
         return
@@ -298,9 +331,16 @@ def set_up(edgelist_fn, clustering_fn, seed, output_dir, use_existing_clustering
     if is_setup_done(output_dir, use_existing_clustering):
         return
 
-    generate_com_id_file(comm_size_sorted, output_dir)
-    generate_com_inp_file(comm_size_sorted, node_comm,
-                          node_relabeled, output_dir)
+    generate_com_id_file(
+        comm_size_sorted,
+        output_dir,
+    )
+    generate_com_inp_file(
+        comm_size_sorted,
+        node_comm,
+        node_relabeled,
+        output_dir,
+    )
 
     if is_setup_done(output_dir, use_existing_clustering):
         return
