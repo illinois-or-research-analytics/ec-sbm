@@ -2,7 +2,7 @@
 #SBATCH --time=168:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/slurm-%j.out
-#SBATCH --job-name="eval_sbmmcspre_10"
+#SBATCH --job-name="001_orkut_abcdta4"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -13,7 +13,7 @@ end=0
 
 for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
 do
-    for network_id in twitter # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for network_id in orkut # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
         for resolution in .001 # .0001 .001 .01
         do
@@ -53,10 +53,10 @@ do
             orig_stats_outdir="data/stats/orig_wo_outliers/${based_on}/${network_id}/leiden${resolution}/"
 
             if [ ! -d ${orig_stats_outdir} ]; then
-                python network_evaluation/compute_stats.py \
-                    --input-network ${edgelist_fn} \
-                    --input-clustering ${clustering_fn} \
-                    --output-folder ${orig_stats_outdir}
+            python network_evaluation/compute_stats.py \
+                --input-network ${edgelist_fn} \
+                --input-clustering ${clustering_fn} \
+                --output-folder ${orig_stats_outdir}
             fi
 
             echo "============================"
@@ -94,10 +94,10 @@ do
                     echo "Computing stats"
 
                     if [ ! -f ${dir}/stats.json ]; then
-                        python network_evaluation/compute_stats.py \
-                            --input-network ${dir}/edge.tsv \
-                            --input-clustering ${dir}/com.tsv \
-                            --output-folder ${dir}
+                    python network_evaluation/compute_stats.py \
+                        --input-network ${dir}/edge.tsv \
+                        --input-clustering ${dir}/com.tsv \
+                        --output-folder ${dir}
                     fi
 
                     if [ ! -f ${dir}/deg_dist.png ]; then
@@ -106,18 +106,18 @@ do
                             --output-folder ${dir}
                     fi
 
-                    if [ $method = "abcdta4" ] || [ $method = "sbm" ] || [ $method = "sbmmcspre" ]; then
+                    if [ $method = "abcd" ]; then
+                        if [ ! -f ${dir}/mcs_dist.png ]; then
+                            python compute_cluster_stats.py \
+                                --network-folder ${dir} \
+                                --output-folder ${dir}
+                        fi
+                    else
                         if [ ! -f ${dir}/mcs_compare.png ] || [ ! -f ${dir}/mcs_dist.png ]; then
                             python compute_cluster_stats.py \
                                 --network-folder ${dir} \
                                 --output-folder ${dir} \
                                 --is-with-bijection
-                        fi
-                    else
-                        if [ ! -f ${dir}/mcs_dist.png ]; then
-                            python compute_cluster_stats.py \
-                                --network-folder ${dir} \
-                                --output-folder ${dir}
                         fi
                     fi
 
