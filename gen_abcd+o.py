@@ -7,6 +7,8 @@ import csv
 from src.utils import set_up
 from src.constants import *
 
+CS_WITH_OUTLIERS = 'cs_with_outliers.tsv'
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -57,25 +59,16 @@ with open(f'{output_dir}/params.json', 'r') as f:
 with open(f'{output_dir}/{CS}', 'r') as f:
     csv_reader = csv.reader(f, delimiter='\t')
     rows = list(csv_reader)
-    rows.insert(0, [n_outliers])
-with open(f'{output_dir}/{CS}', 'w') as f:
-    csv_writer = csv.writer(f, delimiter='\t')
-    csv_writer.writerows(rows)
-
-# add 0 n_outliers times to the end of {output_dir}/{DEG}
-# TODO: actually, not all outliers have degree 0
-with open(f'{output_dir}/{DEG}', 'r') as f:
-    csv_reader = csv.reader(f, delimiter='\t')
-    rows = list(csv_reader)
-    rows.extend([[0]] * n_outliers)
-with open(f'{output_dir}/{DEG}', 'w') as f:
+    if n_outliers > 0:
+        rows.insert(0, [n_outliers])
+with open(f'{output_dir}/{CS_WITH_OUTLIERS}', 'w') as f:
     csv_writer = csv.writer(f, delimiter='\t')
     csv_writer.writerows(rows)
 
 cmd = f'''
 julia ABCDGraphGenerator.jl/utils/graph_sampler.jl \
     {output_dir}/{EDGE} {output_dir}/{COM_OUT} \
-    {output_dir}/{DEG} {output_dir}/{CS} \
+    {output_dir}/{DEG} {output_dir}/{CS_WITH_OUTLIERS} \
     xi {xi} false false {seed} {n_outliers}
 '''
 logs.append(cmd)
@@ -107,12 +100,10 @@ if os.path.exists(f'{output_dir}/{COM_OUT}') and n_outliers > 0:
         csv_writer = csv.writer(f, delimiter='\t')
         csv_writer.writerows(rows)
 
-    # append self loop for all nodes
+    # append self loop for all nodes (so the evaluation script can run)
     with open(f'{output_dir}/{EDGE}', 'a') as f:
         for v in all_vertices:
             f.write(f'{v}\t{v}\n')
-
-# TODO: why are there edges inside the outlier cluster?
 
 assert os.path.exists(output_dir)
 log_f = open(f'{output_dir}/run.log', 'w')
