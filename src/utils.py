@@ -74,8 +74,18 @@ def compute_xi(G, comm_fn):
     in_degree = defaultdict(int)
     out_degree = defaultdict(int)
     for n1, n2 in G.edges:
-        if n1 not in node2com or n2 not in node2com:
+        # TODO: what to do with outliers' connections?
+        # if n1 not in node2com or n2 not in node2com:
+        #     continue
+        if n1 not in node2com and n2 not in node2com:
+            # in_degree[n1] += 1
+            # in_degree[n2] += 1
             continue
+        elif n1 not in node2com or n2 not in node2com:
+            out_degree[n1] += 1
+            out_degree[n2] += 1
+            continue
+
         if node2com[n1] == node2com[n2]:  # nodes are co-clustered
             in_degree[n1] += 1
             in_degree[n2] += 1
@@ -83,7 +93,8 @@ def compute_xi(G, comm_fn):
             out_degree[n1] += 1
             out_degree[n2] += 1
     outs = [out_degree[i] for i in G.nodes]
-    xi = np.sum(outs) / 2 / len(G.edges)
+    total = [in_degree[i] + out_degree[i] for i in G.nodes]
+    xi = np.sum(outs) / sum(total)
     return xi
 
 
@@ -146,9 +157,12 @@ def count_outliers(G, clustering_fn):
 
 
 def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
-    cs = {}
-    node_degree = []
+    node_degree = [
+        (u, len(G[u]))
+        for u in G.nodes
+    ]
 
+    cs = {}
     if use_existing_clustering:
         node_comm = []
 
@@ -157,8 +171,6 @@ def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
     for u, c in csv_reader:
         assert u in G.nodes, \
             f'[ERROR] Node {u} is not in the graph.'
-
-        node_degree.append((u, len(G[u])))
 
         cs.setdefault(c, 0)
         cs[c] += 1
