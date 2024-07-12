@@ -48,19 +48,9 @@ mean = df['degree'].mean()
 df = df.groupby('degree').size().reset_index(name='count')
 
 # == Compute generated degree distribution ==
-with open(f'{network_dir}/{EDGE}') as f:
-    neighbors = {}
-    for x in f.readlines():
-        u, v = x.strip().split('\t')
-
-        neighbors.setdefault(u, 0)
-        neighbors[u] += 1
-
-        neighbors.setdefault(v, 0)
-        neighbors[v] += 1
-
-degrees = [neighbors[u] for u in neighbors]
-df_gen = pd.DataFrame(degrees, columns=['degree'])
+with open(f'{network_dir}/degree.distribution') as f:
+    degrees = [int(x.strip()) for x in f.readlines()]
+    df_gen = pd.DataFrame(degrees, columns=['degree'])
 
 # Compute the quantiles
 q1_gen = df_gen['degree'].quantile(0.25)
