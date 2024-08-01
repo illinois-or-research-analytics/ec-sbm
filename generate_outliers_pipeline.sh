@@ -1,28 +1,29 @@
 #!/bin/bash
-#SBATCH --time=168:00:00
+#SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/slurm-%j.out
-#SBATCH --job-name="outliers"
-#SBATCH --partition=tallis
+#SBATCH --job-name="o110_mod_all_sbmv1"
+#SBATCH --partition=folkvangr
 #SBATCH --mem=64G
 
 # ===================================
 
 start=1
-end=3
+end=10
 
-for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
+for based_on in leiden_mod_cm #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
 do
-    for network_id in twitter uni_email escorts discogs_label foldoc anybeat bitcoin_alpha eu_procurements paris_transportation dnc # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
-        for resolution in .001 # .0001 .001 .01
+        for resolution in leidenmod # leiden.0001 leiden.001 leiden.01 k10 leidenmod
         do
-            orig_dir="data/networks/orig/${based_on}/${network_id}/leiden${resolution}/"
+            orig_dir="data/networks/orig/${based_on}/${network_id}/${resolution}/"
+            echo $orig_dir
 
             edgelist_fn="${orig_dir}/edge.dat"
             clustering_fn="${orig_dir}/com.dat"
 
-            orig_stats_outdir="data/stats/orig/${based_on}/${network_id}/leiden${resolution}/"
+            orig_stats_outdir="data/stats/orig/${based_on}/${network_id}/${resolution}/"
 
             if [ ! -d ${orig_stats_outdir} ]; then
                 python network_evaluation/compute_stats.py \
@@ -33,12 +34,12 @@ do
 
             echo "============================================"
 
-            for method in sbm sbmmcspres abcdta4 #abcd abcdta4 sbm sbmmcspre
+            for method in sbm #abcd abcdta4 sbm sbmmcspres
             do
-                reps_dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/"
+                reps_dir="data/networks/${method}/${based_on}/${network_id}/${resolution}/"
                 echo $reps_dir
 
-                output_dirs="data/networks/${method}+o/leiden_cpm_cm/${network_id}/leiden${resolution}/"
+                output_dirs="data/networks/${method}+o/${based_on}/${network_id}/${resolution}/"
 
                 for seed in $(seq ${start} ${end})
                 do
