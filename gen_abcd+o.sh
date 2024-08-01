@@ -1,23 +1,28 @@
 #!/bin/bash
-#SBATCH --time=168:00:00
+#SBATCH --time=336:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/slurm-%j.out
-#SBATCH --job-name="eval_abcd+o"
+#SBATCH --job-name="10_k10_abcd+o"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
 # ===================================
 
-start=0
-end=0
+start=1
+end=10
 
-for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
+for based_on in ikc_cm #leiden_cpm_cm leiden_cpm ikc
 do
-    for network_id in discogs_label # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
-        for resolution in .001 # .0001 .001 .01
+        # skip epinions
+        if [ ${network_id} == "epinions" ]; then
+            continue
+        fi
+        
+        for resolution in k10 # .0001 .001 .01
         do
-            orig_dir="data/networks/orig/${based_on}/${network_id}/leiden${resolution}/"
+            orig_dir="data/networks/orig/${based_on}/${network_id}/${resolution}/"
 
             edgelist_fn="${orig_dir}/edge.dat"
             clustering_fn="${orig_dir}/com.dat"
@@ -27,7 +32,7 @@ do
 
             echo "Computing original stats"
 
-            orig_stats_outdir="data/stats/orig/${based_on}/${network_id}/leiden${resolution}/"
+            orig_stats_outdir="data/stats/orig/${based_on}/${network_id}/${resolution}/"
 
             if [ ! -d ${orig_stats_outdir} ]; then
                 python network_evaluation/compute_stats.py \
@@ -41,7 +46,7 @@ do
             
             for method in abcd+o #abcd abcdta4 sbm sbmmcspre
             do
-                reps_dir="data/networks/${method}/${based_on}/${network_id}/leiden${resolution}/"
+                reps_dir="data/networks/${method}/${based_on}/${network_id}/${resolution}/"
                 echo $reps_dir
 
                 for seed in $(seq ${start} ${end})
