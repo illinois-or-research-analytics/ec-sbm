@@ -27,14 +27,20 @@ orig_edgelist_fp = Path(args.orig_edgelist)
 orig_clustering_fp = Path(args.orig_clustering)
 output_dir = Path(args.output_folder)
 
+logs = []
+
 print(f'Generation of Outlier Subnetwork')
 print(f'Network: {orig_edgelist_fp}')
 print(f'Clustering: {orig_clustering_fp}')
 print(f'Output folder: {output_dir}')
 
-print('== Output == ')
+logs.append(f'Generation of Outlier Subnetwork')
+logs.append(f'Network: {orig_edgelist_fp}')
+logs.append(f'Clustering: {orig_clustering_fp}')
+logs.append(f'Output folder: {output_dir}')
+logs.append('')
 
-logs = []
+print('== Output == ')
 
 start = time.perf_counter()
 
@@ -128,7 +134,10 @@ for node_iid in range(num_nodes):
     b[node_iid] = orig_nodeiid_clusteriid[node_iid]
 
 elapsed = time.perf_counter() - start
-logs.append(f"Setup time: {elapsed}")
+print(f"Setup: {elapsed}")
+logs.append(f"Setup: {elapsed}")
+
+# ========================
 
 # print(node_id2iid)
 # print(cluster_id2iid)
@@ -154,7 +163,10 @@ else:
 # gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
-logs.append(f"Generation time: {elapsed}")
+print(f"Generation of outlier subgraph: {elapsed}")
+logs.append(f"Generation of outlier subgraph: {elapsed}")
+
+# ========================
 
 start = time.perf_counter()
 
@@ -177,7 +189,10 @@ with open(f'{output_dir}/{OUTLIER_EDGE}', 'w') as f:
     df.to_csv(f, sep='\t', index=False, header=False)
 
 elapsed = time.perf_counter() - start
-logs.append(f"Post-process time: {elapsed}")
+print(f"Post-process: {elapsed}")
+logs.append(f"Post-process: {elapsed}")
+
+# ========================
 
 assert os.path.exists(output_dir)
 log_f = open(f'{output_dir}/outlier_run.log', 'w')
