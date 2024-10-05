@@ -30,7 +30,7 @@ clustering_fn = args.clustering
 output_dir = args.output_folder
 seed = args.seed
 
-print(f'Method: ABCD-MCS')
+print(f'Method: SBM')
 print(f'Network: {edgelist_fn}')
 print(f'Clustering: {clustering_fn}')
 print(f'Output folder: {output_dir}')
