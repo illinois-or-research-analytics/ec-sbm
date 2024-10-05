@@ -211,11 +211,16 @@ start = time.perf_counter()
 deg_copy = out_degs.copy()
 
 # Read the existing edgelist
+edges = set()
 with open(exist_edgelist_fp, 'r') as f:
     reader = csv.reader(f, delimiter='\t')
 
     # Update the parameters
     for src_id, tgt_id in reader:
+        if (src_id, tgt_id) in edges or (tgt_id, src_id) in edges:
+            continue
+        edges.add((src_id, tgt_id))
+
         # Ensure the nodes exist
         assert src_id in node_id2iid
         assert tgt_id in node_id2iid
@@ -258,8 +263,7 @@ for i in range(num_clusters - len(outliers)):
     num_edges_from_i = probs[i, :].sum()
 
     if deg_i < num_edges_from_i:
-        print(f'Cluster {i}: sum of degrees {deg_i}, #edges {num_edges_from_i}')
-        logs.append(f'Cluster {i}: sum of degrees {deg_i}, #edges {num_edges_from_i}')
+        start = time.perf_counter()
 
         add_deg = num_edges_from_i - deg_i
         # Randomly choose from b == i
@@ -268,6 +272,10 @@ for i in range(num_clusters - len(outliers)):
         v = np.random.choice(candidates, p=weights, size=add_deg)
         for vv in v:
             out_degs[vv] += 1
+
+        elapsed = time.perf_counter() - start
+        print(f"Cluster {i} ({num_edges_from_i} - {deg_i} = {add_deg}): {elapsed}")
+        logs.append(f"Cluster {i} ({num_edges_from_i} - {deg_i} = {add_deg}): {elapsed}")
 
 elapsed = time.perf_counter() - start
 print(f"Ensure consistency of SBM parameters: {elapsed}")
