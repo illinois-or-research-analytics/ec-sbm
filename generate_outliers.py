@@ -159,8 +159,8 @@ if out_degs.sum() > 0:
     )
 else:
     g = gt.Graph(directed=False)
-# gt.remove_parallel_edges(g)
-# gt.remove_self_loops(g)
+gt.remove_parallel_edges(g)
+gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
 print(f"Generation of outlier subgraph: {elapsed}")

@@ -347,8 +347,8 @@ if out_degs.sum() > 0:
 else:
     g = gt.Graph(directed=False)
 g.add_edge_list(edges)
-# gt.remove_parallel_edges(g)
-# gt.remove_self_loops(g)
+gt.remove_parallel_edges(g)
+gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
 print(f"Generation of the remaining network: {elapsed}", flush=True)
