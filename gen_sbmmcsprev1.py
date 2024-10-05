@@ -30,17 +30,25 @@ clustering_fn = args.clustering
 output_dir = args.output_folder
 seed = args.seed
 
-print(f'Method: SBM-MCS(pre)')
-print(f'Network: {edgelist_fn}')
-print(f'Clustering: {clustering_fn}')
-print(f'Output folder: {output_dir}')
-print(f'Seed: {seed}')
+logs = []
+
+print(f'Method: SBM-MCS(pre)', flush=True)
+print(f'Network: {edgelist_fn}', flush=True)
+print(f'Clustering: {clustering_fn}', flush=True)
+print(f'Output folder: {output_dir}', flush=True)
+print(f'Seed: {seed}', flush=True)
+
+logs.append(f'Method: SBM-MCS(pre)')
+logs.append(f'Network: {edgelist_fn}')
+logs.append(f'Clustering: {clustering_fn}')
+logs.append(f'Output folder: {output_dir}')
+logs.append(f'Seed: {seed}')
+logs.append('')
 
 print('== Output == ')
 
-logs = []
-
 start = time.perf_counter()
+
 set_up(
     edgelist_fn,
     clustering_fn,
@@ -48,10 +56,6 @@ set_up(
     output_dir,
     use_existing_clustering=True,
 )
-elapsed = time.perf_counter() - start
-logs.append(f"Setup time: {elapsed}")
-
-start = time.perf_counter()
 
 # Compute node and cluster mappings
 node_id2iid = dict()
@@ -129,6 +133,11 @@ for src_iid, tgt_iids in neighbor.items():
         probs[node2cluster[src_iid], node2cluster[tgt_iid]] += 1
 # probs = probs.tocsr()
 
+elapsed = time.perf_counter() - start
+print(f"Setup: {elapsed}", flush=True)
+logs.append(f"Setup: {elapsed}")
+
+# ========================
 
 def create_edge(u, v):
     return (min(u, v), max(u, v))
@@ -273,9 +282,15 @@ def generate_cluster(cluster_nodes, k):
 
     return edges
 
+start = time.perf_counter()
 
 edges = set()
 for cluster_iid, cluster_nodes in clustering.items():
+    info = f"Generation of cluster {cluster_iid} ({len(cluster_nodes)} | {deg[cluster_nodes].sum()} | {mcs[cluster_iid]})"
+    print(info, flush=True)
+    logs.append(info)
+
+    sub_start = time.perf_counter()
     # print(f'Generate cluster {cluster_iid}')
     # print(f'List of nodes: {cluster_nodes}')
     # print(f'MCS: {mcs[cluster_iid]}')
@@ -286,6 +301,18 @@ for cluster_iid, cluster_nodes in clustering.items():
 
     edges.update(local_edges)
 
+    sub_elapsed = time.perf_counter() - sub_start
+
+    print(f"Time: {sub_elapsed}", flush=True)
+    logs.append(f"Time: {sub_elapsed}")
+
+elapsed = time.perf_counter() - start
+print(f"Generation of k-edge-connected graphs: {elapsed}", flush=True)
+logs.append(f"Generation of k-edge-connected graphs: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
 
 # print(f'Edges: {edges}')
 
@@ -299,6 +326,14 @@ out_degs = deg
 # # print(b)
 # print(probs.toarray())
 # print(out_degs)
+
+elapsed = time.perf_counter() - start
+print(f"Computing the input to SBM-NG: {elapsed}", flush=True)
+logs.append(f"Computing the input to SBM-NG: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
 
 if out_degs.sum() > 0:
     g = gt.generate_sbm(
@@ -316,7 +351,10 @@ g.add_edge_list(edges)
 # gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
-logs.append(f"Generation time: {elapsed}")
+print(f"Generation of the remaining network: {elapsed}", flush=True)
+logs.append(f"Generation of the remaining network: {elapsed}")
+
+# ========================
 
 start = time.perf_counter()
 
@@ -339,7 +377,10 @@ with open(f'{output_dir}/{EDGE}', 'w') as f:
     df.to_csv(f, sep='\t', index=False, header=False)
 
 elapsed = time.perf_counter() - start
-logs.append(f"Post-process time: {elapsed}")
+print(f"Post-processing: {elapsed}", flush=True)
+logs.append(f"Post-processing: {elapsed}")
+
+# ========================
 
 assert os.path.exists(output_dir)
 log_f = open(f'{output_dir}/run.log', 'w')
