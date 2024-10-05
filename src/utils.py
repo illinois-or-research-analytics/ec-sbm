@@ -244,14 +244,10 @@ def generate_mcs_file(G, node_relabeled, output_dir):
     G = nx.relabel_nodes(G, node_relabeled)
     clusters = from_existing_clustering(f'{output_dir}/{COM_INP}')
 
-    mincut_results = {
-        int(k): viecut(cluster.realize(G))[-1]
-        for k, cluster in clusters.items()
-    }
-
     mcs = [None for _ in range(len(clusters))]
-    for k, m in mincut_results.items():
-        mcs[k - 1] = [m]
+    for k, cluster in clusters.items():
+        mincut_result = viecut(cluster.realize(G))[-1]
+        mcs[int(k) - 1] = [mincut_result]
 
     with open(f'{output_dir}/{MCS}', 'w') as f:
         csv_writer = csv.writer(f, delimiter='\t')
@@ -309,6 +305,7 @@ def set_up(
         reverse=True,
         key=lambda x: x[1],
     )
+    del node_degree
 
     node_relabeled = {
         u: i
@@ -317,6 +314,7 @@ def set_up(
 
     generate_degree_sequence_file(node_degree_sorted, output_dir)
     generate_node_id_file(node_degree_sorted, output_dir)
+    del node_degree_sorted
 
     if is_setup_done(output_dir, use_existing_clustering):
         return
@@ -331,6 +329,7 @@ def set_up(
         reverse=True,
         key=lambda x: x[1],
     )
+    del comm_size
 
     with open(f'{output_dir}/{CS}', 'w') as f:
         csv_writer = csv.writer(f, delimiter='\t')
@@ -353,14 +352,17 @@ def set_up(
         node_relabeled,
         output_dir,
     )
+    del comm_size_sorted
+    del node_comm
 
     if is_setup_done(output_dir, use_existing_clustering):
         return
 
     generate_mcs_file(G, node_relabeled, output_dir)
+    del G
+    del node_relabeled
 
     assert is_setup_done(output_dir, use_existing_clustering)
-    return
 
 
 def post_process(output_dir):
