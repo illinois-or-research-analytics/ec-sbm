@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/benchmark/slurm-%j.out
 #SBATCH --job-name="benchmark_oc"
-#SBATCH --partition=folkvangr
-#SBATCH --mem=448G
+#SBATCH --partition=tallis
+#SBATCH --mem=512G
 
 # ===================================
 
@@ -20,10 +20,10 @@ clustering_fp="data/benchmark/input/${network}/${clustering}/${resolution}/com.d
 clustered_output_dir="data/benchmark/output/${network}/${clustering}/${resolution}/${method}/"
 outlier_output_dir="data/benchmark/output/${network}/${clustering}/${resolution}/${method}+o/"
 
-python gen_${method}.py \
-    --edgelist ${edgelist_fp} \
-    --clustering ${clustering_fp} \
-    --output-folder ${clustered_output_dir}
+# python gen_${method}.py \
+#     --edgelist ${edgelist_fp} \
+#     --clustering ${clustering_fp} \
+#     --output-folder ${clustered_output_dir}
 
 python generate_outliers.py \
     --orig-edgelist ${orig_edgelist_fp} \
