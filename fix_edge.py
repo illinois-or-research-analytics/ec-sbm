@@ -45,9 +45,9 @@ logs.append('')
 
 print('== Output == ')
 
-start = time.perf_counter()
-
 output_dir.mkdir(parents=True, exist_ok=True)
+
+start = time.perf_counter()
 
 # Bijective mapping of node ID to node integer ID (two-way)
 node_id2iid = dict()
@@ -84,6 +84,14 @@ with open(orig_clustering_fp, 'r') as f:
         # Assign node to cluster
         orig_nodeiid_clusteriid[node_iid] = cluster_iid
         orig_clusteriid_nodeiids.setdefault(cluster_iid, set()).add(node_iid)
+
+elapsed = time.perf_counter() - start
+print(f"Process original clustering: {elapsed}")
+logs.append(f"Process original clustering: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
 
 # Mapping of node to its neighbors in the original network
 orig_neighbor = dict()
@@ -124,6 +132,14 @@ with open(orig_edgelist_fp, 'r') as f:
         orig_neighbor.setdefault(src_iid, set()).add(tgt_iid)
         orig_neighbor.setdefault(tgt_iid, set()).add(src_iid)
 
+elapsed = time.perf_counter() - start
+print(f"Process original edgelist: {elapsed}")
+logs.append(f"Process original edgelist: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
+
 # Create outlier clusters
 # Each outlier is a cluster
 for outlier_iid in outliers:
@@ -135,6 +151,14 @@ for outlier_iid in outliers:
     orig_clusteriid_nodeiids.setdefault(
         cluster_iid, set()).add(outlier_iid)
     orig_nodeiid_clusteriid[outlier_iid] = cluster_iid
+
+elapsed = time.perf_counter() - start
+print(f"Create outlier clusters: {elapsed}")
+logs.append(f"Create outlier clusters: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
 
 # Compute SBM parameters from the original network
 
@@ -174,7 +198,17 @@ for node_iid in range(num_nodes):
 # print(probs.toarray())
 # print(out_degs)
 
+elapsed = time.perf_counter() - start
+print(f"Compute SBM parameters from original: {elapsed}")
+logs.append(f"Compute SBM parameters from original: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
+
 # Update the parameters with the existing network
+
+deg_copy = out_degs.copy()
 
 # Read the existing edgelist
 with open(exist_edgelist_fp, 'r') as f:
@@ -194,10 +228,17 @@ with open(exist_edgelist_fp, 'r') as f:
         tgt_cluster_iid = orig_nodeiid_clusteriid[tgt_iid]
 
         # Update the parameters
-        out_degs[src_iid] -= 1
-        out_degs[tgt_iid] -= 1
-        probs[src_cluster_iid, tgt_cluster_iid] -= 1
-        probs[tgt_cluster_iid, src_cluster_iid] -= 1
+        # out_degs[src_iid] -= 1
+        # out_degs[tgt_iid] -= 1
+        # probs[src_cluster_iid, tgt_cluster_iid] -= 1
+        # probs[tgt_cluster_iid, src_cluster_iid] -= 1
+
+        out_degs[src_iid] = max(0, out_degs[src_iid] - 1)
+        out_degs[tgt_iid] = max(0, out_degs[tgt_iid] - 1)
+        probs[src_cluster_iid, tgt_cluster_iid] = max(
+            0, probs[src_cluster_iid, tgt_cluster_iid] - 1)
+        probs[tgt_cluster_iid, src_cluster_iid] = max(
+            0, probs[tgt_cluster_iid, src_cluster_iid] - 1)
 probs = probs.tocsr()
 
 # print(b)
@@ -205,8 +246,32 @@ probs = probs.tocsr()
 # print(out_degs)
 
 elapsed = time.perf_counter() - start
-print(f"Setup: {elapsed}")
-logs.append(f"Setup: {elapsed}")
+print(f"Update SBM parameters with existing: {elapsed}")
+logs.append(f"Update SBM parameters with existing: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
+
+for i in range(num_clusters - len(outliers)):
+    deg_i = out_degs[b == i].sum()
+    num_edges_from_i = probs[i, :].sum()
+
+    if deg_i < num_edges_from_i:
+        print(f'Cluster {i}: sum of degrees {deg_i}, #edges {num_edges_from_i}')
+        logs.append(f'Cluster {i}: sum of degrees {deg_i}, #edges {num_edges_from_i}')
+
+        add_deg = num_edges_from_i - deg_i
+        # Randomly choose from b == i
+        candidates = np.where(b == i)[0]
+        weights = deg_copy[candidates] / deg_copy[candidates].sum()
+        v = np.random.choice(candidates, p=weights, size=add_deg)
+        for vv in v:
+            out_degs[vv] += 1
+
+elapsed = time.perf_counter() - start
+print(f"Ensure consistency of SBM parameters: {elapsed}")
+logs.append(f"Ensure consistency of SBM parameters: {elapsed}")
 
 # ========================
 
