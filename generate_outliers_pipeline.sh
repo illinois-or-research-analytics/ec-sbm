@@ -2,18 +2,19 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/slurm-%j.out
-#SBATCH --job-name="o110_mod_all_sbmv1"
+#SBATCH --job-name="o10_mod_cen_sbmv1"
 #SBATCH --partition=folkvangr
 #SBATCH --mem=64G
+#SBATCH --dependency=afterok:12901489
 
 # ===================================
 
-start=1
+start=10
 end=10
 
 for based_on in leiden_mod_cm #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
 do
-    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for network_id in cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
         for resolution in leidenmod # leiden.0001 leiden.001 leiden.01 k10 leidenmod
         do
@@ -34,7 +35,7 @@ do
 
             echo "============================================"
 
-            for method in sbm #abcd abcdta4 sbm sbmmcspres
+            for method in sbmmcsprev1 #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
             do
                 reps_dir="data/networks/${method}/${based_on}/${network_id}/${resolution}/"
                 echo $reps_dir

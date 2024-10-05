@@ -3,15 +3,39 @@
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/compare/slurm-%j.out
 #SBATCH --job-name="compare_simulators"
-#SBATCH --partition=folkvangr
+#SBATCH --partition=secondary
 #SBATCH --mem=8G
 
-SBM_V1=true
-SBM_V2=true
-ABCD=false
+python network_evaluation/compare_simulators_2.py \
+    --names "SBM-MCS(pre)" "RECCS-V1" "RECCS-V2" \
+    --roots data/networks/sbmmcsprev1/leiden_cpm_cm data/networks/RECCSv1/leiden_cpm_cm data/networks/RECCSv2/leiden_cpm_cm \
+    --output-dir output/001_sbmmcspre_reccsv1_reccsv2/ \
+    --resolution leiden.001
 
-COMP_CL_001=true
-COMP_FU_001=true
+python network_evaluation/compare_simulators_2.py \
+    --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
+    --roots data/networks/sbmmcsprev1/leiden_cpm_cm data/networks/RECCSv1+oS1/leiden_cpm_cm data/networks/RECCSv2+oS1/leiden_cpm_cm \
+    --output-dir output/01_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
+    --resolution leiden.01
+
+python network_evaluation/compare_simulators_2.py \
+    --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
+    --roots data/networks/sbmmcsprev1/leiden_mod_cm data/networks/RECCSv1+oS1/leiden_mod_cm data/networks/RECCSv2+oS1/leiden_mod_cm \
+    --output-dir output/mod_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
+    --resolution leidenmod
+
+python network_evaluation/compare_simulators_2.py \
+    --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
+    --roots data/networks/sbmmcsprev1/ikc_cm data/networks/RECCSv1+oS1/ikc_cm data/networks/RECCSv2+oS1/ikc_cm \
+    --output-dir output/k10_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
+    --resolution k10
+
+SBM_V1=true
+SBM_V2=false
+ABCD=true
+
+COMP_CL_001=false
+COMP_FU_001=false
 
 COMP_CL_01=false
 COMP_FU_01=false
@@ -707,7 +731,7 @@ if $COMP_CL_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)-V1" "SBM" \
         --roots data/networks/sbmmcsprev1/ikc_cm data/networks/sbm/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1_sbm/ \
+        --output-dir output/k10_sbmmcsprev1_sbm/ \
         --resolution k10
     fi 
 
@@ -715,7 +739,7 @@ if $COMP_CL_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)" "SBM" \
         --roots data/networks/sbmmcspres/ikc_cm data/networks/sbm/ikc_cm \
-        --output-dir output/mod_sbmmcspre_sbm/ \
+        --output-dir output/k10_sbmmcspre_sbm/ \
         --resolution k10
     fi
 
@@ -723,7 +747,7 @@ if $COMP_CL_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)-V1" "SBM-MCS(pre)" \
         --roots data/networks/sbmmcsprev1/ikc_cm data/networks/sbmmcspres/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1_sbmmcspre/ \
+        --output-dir output/k10_sbmmcsprev1_sbmmcspre/ \
         --resolution k10
     fi
 
@@ -731,13 +755,13 @@ if $COMP_CL_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM" "ABCD" \
         --roots data/networks/sbm/ikc_cm data/networks/abcd/ikc_cm \
-        --output-dir output/mod_sbm_abcd/ \
+        --output-dir output/k10_sbm_abcd/ \
         --resolution k10
 
     python network_evaluation/compare_simulators_2.py \
         --names "ABCD-MCS(pre)" "ABCD" \
         --roots data/networks/abcdta4/ikc_cm data/networks/abcd/ikc_cm \
-        --output-dir output/mod_abcdmcspre_abcd/ \
+        --output-dir output/k10_abcdmcspre_abcd/ \
         --resolution k10
     fi
 
@@ -745,7 +769,7 @@ if $COMP_CL_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)-V1" "ABCD-MCS(pre)" \
         --roots data/networks/sbmmcsprev1/ikc_cm data/networks/abcdta4/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1_abcdmcspre/ \
+        --output-dir output/k10_sbmmcsprev1_abcdmcspre/ \
         --resolution k10
     fi
 
@@ -753,7 +777,7 @@ if $COMP_CL_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)" "ABCD-MCS(pre)" \
         --roots data/networks/sbmmcspres/ikc_cm data/networks/abcdta4/ikc_cm \
-        --output-dir output/mod_sbmmcspre_abcdmcspre/ \
+        --output-dir output/k10_sbmmcspre_abcdmcspre/ \
         --resolution k10
     fi
 
@@ -763,70 +787,70 @@ if $COMP_CL_K10; then
     python network_evaluation/compare_simulators.py \
         --names "SBM-MCS(pre)-V1" "SBM" \
         --roots data/networks/sbmmcsprev1/ikc_cm data/networks/sbm/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1_sbm/ \
+        --output-dir output/k10_sbmmcsprev1_sbm/ \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbmmcsprev1_sbm/tables \
-        --output output/mod_sbmmcsprev1_sbm/plots
+        --root output/k10_sbmmcsprev1_sbm/tables \
+        --output output/k10_sbmmcsprev1_sbm/plots
     fi
 
     if $SBM_V2; then
     python network_evaluation/compare_simulators.py \
         --names "SBM-MCS(pre)" "SBM" \
         --roots data/networks/sbmmcspres/ikc_cm data/networks/sbm/ikc_cm \
-        --output-dir output/mod_sbmmcspre_sbm/ \
+        --output-dir output/k10_sbmmcspre_sbm/ \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbmmcspre_sbm/tables \
-        --output output/mod_sbmmcspre_sbm/plots
+        --root output/k10_sbmmcspre_sbm/tables \
+        --output output/k10_sbmmcspre_sbm/plots
     fi
 
     if $ABCD; then
     python network_evaluation/compare_simulators.py \
         --names "SBM" "ABCD" \
         --roots data/networks/sbm/ikc_cm data/networks/abcd/ikc_cm \
-        --output-dir output/mod_sbm_abcd/ \
+        --output-dir output/k10_sbm_abcd/ \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbm_abcd/tables \
-        --output output/mod_sbm_abcd/plots
+        --root output/k10_sbm_abcd/tables \
+        --output output/k10_sbm_abcd/plots
 
     python network_evaluation/compare_simulators.py \
         --names "ABCD-MCS(pre)" "ABCD" \
         --roots data/networks/abcdta4/ikc_cm data/networks/abcd/ikc_cm \
-        --output-dir output/mod_abcdmcspre_abcd/ \
+        --output-dir output/k10_abcdmcspre_abcd/ \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_abcdmcspre_abcd/tables \
-        --output output/mod_abcdmcspre_abcd/plots
+        --root output/k10_abcdmcspre_abcd/tables \
+        --output output/k10_abcdmcspre_abcd/plots
     fi
 
     if $ABCD && $SBM_V1; then
     python network_evaluation/compare_simulators.py \
         --names "SBM-MCS(pre)-V1" "ABCD-MCS(pre)" \
         --roots data/networks/sbmmcsprev1/ikc_cm data/networks/abcdta4/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1_abcdmcspre/ \
+        --output-dir output/k10_sbmmcsprev1_abcdmcspre/ \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbmmcsprev1_abcdmcspre/tables \
-        --output output/mod_sbmmcsprev1_abcdmcspre/plots
+        --root output/k10_sbmmcsprev1_abcdmcspre/tables \
+        --output output/k10_sbmmcsprev1_abcdmcspre/plots
     fi
 
     if $ABCD && $SBM_V2; then
     python network_evaluation/compare_simulators.py \
         --names "SBM-MCS(pre)" "ABCD-MCS(pre)" \
         --roots data/networks/sbmmcspres/ikc_cm data/networks/abcdta4/ikc_cm \
-        --output-dir output/mod_sbmmcspre_abcdmcspre/ \
+        --output-dir output/k10_sbmmcspre_abcdmcspre/ \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbmmcspre_abcdmcspre/tables \
-        --output output/mod_sbmmcspre_abcdmcspre/plots
+        --root output/k10_sbmmcspre_abcdmcspre/tables \
+        --output output/k10_sbmmcspre_abcdmcspre/plots
     fi
 
 fi
@@ -838,7 +862,7 @@ if $COMP_FU_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)-V1+o" "SBM+o" \
         --roots data/networks/sbmmcsprev1+o/ikc_cm data/networks/sbm+o/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1+o_sbm+o/ \
+        --output-dir output/k10_sbmmcsprev1+o_sbm+o/ \
         --with-outliers \
         --resolution k10
     fi
@@ -847,7 +871,7 @@ if $COMP_FU_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)+o" "SBM+o" \
         --roots data/networks/sbmmcspres+o/ikc_cm data/networks/sbm+o/ikc_cm \
-        --output-dir output/mod_sbmmcspre+o_sbm+o/ \
+        --output-dir output/k10_sbmmcspre+o_sbm+o/ \
         --with-outliers \
         --resolution k10
     fi
@@ -856,7 +880,7 @@ if $COMP_FU_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)-V1+o" "ABCD-MCS(pre)+o" \
         --roots data/networks/sbmmcsprev1+o/ikc_cm data/networks/abcdta4+o/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1+o_abcdmcspre+o/ \
+        --output-dir output/k10_sbmmcsprev1+o_abcdmcspre+o/ \
         --with-outliers \
         --resolution k10
     fi
@@ -865,7 +889,7 @@ if $COMP_FU_K10; then
     python network_evaluation/compare_simulators_2.py \
         --names "SBM-MCS(pre)+o" "ABCD-MCS(pre)+o" \
         --roots data/networks/sbmmcspres+o/ikc_cm data/networks/abcdta4+o/ikc_cm \
-        --output-dir output/mod_sbmmcspre+o_abcdmcspre+o/ \
+        --output-dir output/k10_sbmmcspre+o_abcdmcspre+o/ \
         --with-outliers \
         --resolution k10
     fi
@@ -876,52 +900,52 @@ if $COMP_FU_K10; then
     python network_evaluation/compare_simulators.py \
         --names "SBM-MCS(pre)-V1+o" "SBM+o" \
         --roots data/networks/sbmmcsprev1+o/ikc_cm data/networks/sbm+o/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1+o_sbm+o/ \
+        --output-dir output/k10_sbmmcsprev1+o_sbm+o/ \
         --with-outliers \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbmmcsprev1+o_sbm+o/tables \
-        --output output/mod_sbmmcsprev1+o_sbm+o/plots
+        --root output/k10_sbmmcsprev1+o_sbm+o/tables \
+        --output output/k10_sbmmcsprev1+o_sbm+o/plots
     fi
 
     if $SBM_V2; then
     python network_evaluation/compare_simulators.py \
         --names "SBM-MCS(pre)+o" "SBM+o" \
         --roots data/networks/sbmmcspres+o/ikc_cm data/networks/sbm+o/ikc_cm \
-        --output-dir output/mod_sbmmcspre+o_sbm+o/ \
+        --output-dir output/k10_sbmmcspre+o_sbm+o/ \
         --with-outliers \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbmmcspre+o_sbm+o/tables \
-        --output output/mod_sbmmcspre+o_sbm+o/plots
+        --root output/k10_sbmmcspre+o_sbm+o/tables \
+        --output output/k10_sbmmcspre+o_sbm+o/plots
     fi
 
     if $ABCD && $SBM_V1; then
     python network_evaluation/compare_simulators.py \
         --names "SBM-MCS(pre)-V1+o" "ABCD-MCS(pre)+o" \
         --roots data/networks/sbmmcsprev1+o/ikc_cm data/networks/abcdta4+o/ikc_cm \
-        --output-dir output/mod_sbmmcsprev1+o_abcdmcspre+o/ \
+        --output-dir output/k10_sbmmcsprev1+o_abcdmcspre+o/ \
         --with-outliers \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbmmcsprev1+o_abcdmcspre+o/tables \
-        --output output/mod_sbmmcsprev1+o_abcdmcspre+o/plots
+        --root output/k10_sbmmcsprev1+o_abcdmcspre+o/tables \
+        --output output/k10_sbmmcsprev1+o_abcdmcspre+o/plots
     fi
 
     if $ABCD && $SBM_V2; then
     python network_evaluation/compare_simulators.py \
         --names "SBM-MCS(pre)+o" "ABCD-MCS(pre)+o" \
         --roots data/networks/sbmmcspres+o/ikc_cm data/networks/abcdta4+o/ikc_cm \
-        --output-dir output/mod_sbmmcspre+o_abcdmcspre+o/ \
+        --output-dir output/k10_sbmmcspre+o_abcdmcspre+o/ \
         --with-outliers \
         --resolution k10
 
     python network_evaluation/gen_bar_graph_with_err.py \
-        --root output/mod_sbmmcspre+o_abcdmcspre+o/tables \
-        --output output/mod_sbmmcspre+o_abcdmcspre+o/plots
+        --root output/k10_sbmmcspre+o_abcdmcspre+o/tables \
+        --output output/k10_sbmmcspre+o_abcdmcspre+o/plots
     fi
 
 fi
