@@ -1,79 +1,60 @@
 #!/bin/bash
-#SBATCH --time=5-00:00:00
+#SBATCH --time=04:00:00
 #SBATCH --nodes=1
-#SBATCH --output=slurm_output/slurm-%j.out
-#SBATCH --job-name="s010_mod_all_sbmv1"
-#SBATCH --partition=folkvangr
+#SBATCH --output=slurm_output/compute_stat/slurm-%j.out
+#SBATCH --job-name="s10_k10_all"
+#SBATCH --partition=secondary
 #SBATCH --mem=64G
-#SBATCH --dependency=afterok:12943542
 
 # ===================================
 
-start=0
+start=10
 end=10
 
-for based_on in leiden_mod_cm #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
+for seed in $(seq ${start} ${end})
 do
-    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    echo "============================="
+    echo "============================="
+    echo "Seed: ${seed}"
+    echo "============================="
+    echo "============================="
+
+    for clustering in ikc_cm # leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
     do
-        for resolution in leidenmod # leiden.0001 leiden.001 leiden.01 k10 leidenmod
+        for resolution in k10 # leiden.0001 leiden.001 leiden.01 k10 leidenmod
         do
-            orig_dir="data/networks/orig/${based_on}/${network_id}/${resolution}/"
-            echo $orig_dir
-
-            edgelist_fn="${orig_dir}/edge.dat"
-            clustering_fn="${orig_dir}/com.dat"
-
-            orig_stats_outdir="data/stats/orig/${based_on}/${network_id}/${resolution}/"
-
-            # if [ ! -d ${orig_stats_outdir} ]; then
-            # python network_evaluation/compute_stats.py \
-            #     --input-network ${edgelist_fn} \
-            #     --input-clustering ${clustering_fn} \
-            #     --output-folder ${orig_stats_outdir}
-            # fi
-
-            echo "============================================"
-
-            for method in sbmmcsprev1 #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
+            for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
             do
-                # reps_dir="data/networks/${method}/${based_on}/${network_id}/${resolution}/"
-                # echo $reps_dir
+                echo "============================="
+                echo "Network: ${network_id} | Clustering: ${clustering} | Resolution: ${resolution}"
 
-                output_dirs="data/networks/${method}+o/${based_on}/${network_id}/${resolution}/"
+                orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
+                edgelist_fn="${orig_dir}/edge.dat"
+                clustering_fn="${orig_dir}/com.dat"
 
-                for seed in $(seq ${start} ${end})
+                orig_stat_dir="data/stats/orig/${clustering}/${network_id}/${resolution}/"
+
+                echo "Computing statistics for original network"
+
+                if [ ! -f ${orig_stat_dir}/done ]; then
+                    python network_evaluation/compute_stats.py \
+                        --input-network ${edgelist_fn} \
+                        --input-clustering ${clustering_fn} \
+                        --output-folder ${orig_stat_dir}
+                else
+                    echo "Statistics already computed"
+                fi
+
+                for method in sbmmcsprev1 abcdta4 sbm abcd # sbmmcsprev1 abcdta4 sbm abcd
                 do
-                    # dir="${reps_dir}/${seed}/"
+                    echo "============================="
+                    echo "Method: ${method}"
+
+                    output_dirs="data/networks/${method}+o/${clustering}/${network_id}/${resolution}/"
+                    output_stat_dirs="data/stats/${method}+o/${clustering}/${network_id}/${resolution}/"
+
                     output_dir="${output_dirs}/${seed}/"
-                    echo $output_dir
-
-                    echo "============================"
-                    # echo $dir
-
-                    # if [ ! -f ${dir}/edge.tsv ] || [ ! -f ${dir}/com.tsv ]; then
-                    #     echo "[ERROR] ${dir}/edge.tsv or ${dir}/com.tsv not found"
-                    #     continue
-                    # fi
-
-                    # echo "Generating outlier subnetwork"
-
-                    # if [ ! -d ${output_dir} ]; then
-                    #     if [ ! -f ${dir}/outlier_edge.tsv ]; then
-                    #         python generate_outliers.py \
-                    #             --orig-edgelist ${edgelist_fn} \
-                    #             --orig-clustering ${clustering_fn} \
-                    #             --output-folder ${dir}
-                    #     fi
-
-                    #     python combine_clustered_outliers.py \
-                    #         --clustered-edgelist ${dir}/edge.tsv \
-                    #         --clustered-clustering ${dir}/com.tsv \
-                    #         --outlier-edgelist ${dir}/outlier_edge.tsv \
-                    #         --output-folder ${output_dir}
-                    # fi
-
-                    # echo "===="
+                    output_stat_dir="${output_stat_dirs}/${seed}/"
 
                     echo "Computing stats"
 
@@ -82,26 +63,32 @@ do
                         continue
                     fi
 
-                    # if [ ! -f ${output_dir}/stats.json ]; then
-                    python network_evaluation/compute_stats.py \
-                        --input-network ${output_dir}/edge.tsv \
-                        --input-clustering ${output_dir}/com.tsv \
-                        --output-folder ${output_dir}
-                    # fi
+                    if [ ! -f ${output_stat_dir}/done ]; then
+                        python network_evaluation/compute_stats.py \
+                            --input-network ${output_dir}/edge.tsv \
+                            --input-clustering ${output_dir}/com.tsv \
+                            --output-folder ${output_stat_dir}
+                    else
+                        echo "Statistics already computed"
+                    fi
 
                     echo "===="
 
                     echo "Comparing with original"
 
-                    python network_evaluation/compare_stats_pair.py \
-                        --network-1-folder ${orig_stats_outdir} \
-                        --network-2-folder ${output_dir} \
-                        --output-file ${output_dir}/compare_output.csv \
-                        --is-compare-sequence
+                    if [ ! -f ${output_stat_dir}/compare_output.csv ]; then
+                        python network_evaluation/compare_stats_pair.py \
+                            --network-1-folder ${orig_stat_dir} \
+                            --network-2-folder ${output_stat_dir} \
+                            --output-file ${output_stat_dir}/compare_output.csv \
+                            --is-compare-sequence
+                    else
+                        echo "Comparison already made"
+                    fi
                 done
             done
-            echo "============================"
-            echo ""
         done
     done
+
+    echo ""
 done
