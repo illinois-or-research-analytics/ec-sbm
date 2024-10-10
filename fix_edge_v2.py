@@ -208,8 +208,6 @@ start = time.perf_counter()
 
 # Update the parameters with the existing network
 
-deg_copy = out_degs.copy()
-
 # Read the existing edgelist
 edges = set()
 with open(exist_edgelist_fp, 'r') as f:
@@ -266,17 +264,28 @@ for i in range(num_clusters - len(outliers)):
         start = time.perf_counter()
 
         add_deg = num_edges_from_i - deg_i
-        
-        # Randomly choose from b == i
-        candidates = np.where(b == i)[0]
-        weights = deg_copy[candidates] / deg_copy[candidates].sum()
-        v = np.random.choice(candidates, p=weights, size=add_deg)
-        for vv in v:
-            out_degs[vv] += 1
+
+        t = add_deg
+        while t > 0:
+            probs_i = probs[i, :].toarray().flatten()
+            candidates = np.arange(num_clusters)
+            weights = probs_i / probs_i.sum()
+            c = np.random.choice(candidates, p=weights)
+            if c == i:
+                if probs[i, c] > 1:
+                    probs[i, c] -= 2
+                    t -= 2
+            else:
+                if probs[i, c] > 0:
+                    probs[i, c] -= 1
+                    probs[c, i] -= 1
+                    t -= 1
 
         elapsed = time.perf_counter() - start
-        print(f"Cluster {i} ({num_edges_from_i} - {deg_i} = {add_deg}): {elapsed}")
-        logs.append(f"Cluster {i} ({num_edges_from_i} - {deg_i} = {add_deg}): {elapsed}")
+        print(
+            f"Cluster {i} ({num_edges_from_i} - {deg_i} = {add_deg}): {elapsed}")
+        logs.append(
+            f"Cluster {i} ({num_edges_from_i} - {deg_i} = {add_deg}): {elapsed}")
 
 elapsed = time.perf_counter() - start
 print(f"Ensure consistency of SBM parameters: {elapsed}")
