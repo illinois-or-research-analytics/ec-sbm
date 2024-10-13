@@ -2,16 +2,21 @@
 #SBATCH --time=2-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/fix_edge/slurm-%j.out
-#SBATCH --job-name="0_001_fixedge"
-#SBATCH --partition=folkvangr
-#SBATCH --mem=128G
+#SBATCH --job-name="10_001_fixedge_L1"
+#SBATCH --partition=tallis
+#SBATCH --mem=64G
 
 # ===================================
 
-start=0
-end=0
+start=10
+end=10
+fixedge_method=L1
 
-for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
+echo "============================================"
+echo "Fixing edge with ${fixedge_method}"
+echo "============================================"
+
+for clustering in leiden_cpm_cm #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
 do
     for network_id in $(cat data/networks.txt) cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
@@ -22,13 +27,13 @@ do
         
         for resolution in leiden.001 # leiden.0001 leiden.001 leiden.01 k10 leidenmod
         do
-            orig_dir="data/networks/orig/${based_on}/${network_id}/${resolution}/"
+            orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
 
             orig_edgelist_fn="${orig_dir}/edge.dat"
             orig_clustering_fn="${orig_dir}/com.dat"
 
-            orig_stats_outdir="data/stats/orig/${based_on}/${network_id}/${resolution}/"
+            orig_stats_outdir="data/stats/orig/${clustering}/${network_id}/${resolution}/"
 
             if [ ! -f ${orig_stats_outdir}/done ]; then
                 python network_evaluation/compute_stats.py \
@@ -43,11 +48,11 @@ do
 
             for method in sbmmcsprev1 #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
             do
-                input_dirs="data/networks/${method}+o/${based_on}/${network_id}/${resolution}/"
+                input_dirs="data/networks/${method}+o/${clustering}/${network_id}/${resolution}/"
                 echo $input_dirs
 
-                output_dirs="data/networks/${method}+o+e2/${based_on}/${network_id}/${resolution}/"
-                output_stat_dirs="data/stats/${method}+o+e2/${based_on}/${network_id}/${resolution}/"
+                output_dirs="data/networks/${method}+o+e${fixedge_method}/${clustering}/${network_id}/${resolution}/"
+                output_stat_dirs="data/stats/${method}+o+e${fixedge_method}/${clustering}/${network_id}/${resolution}/"
 
                 for seed in $(seq ${start} ${end})
                 do
@@ -66,7 +71,7 @@ do
                     echo $input_dir
 
                     if [ ! -f ${output_dir}/fix_edge.tsv ]; then
-                        python fix_edge.py \
+                        python fix_degree_${fixedge_method}.py \
                             --orig-edgelist ${orig_edgelist_fn} \
                             --orig-clustering ${orig_clustering_fn} \
                             --exist-edgelist ${input_dir}/edge.tsv \
