@@ -293,7 +293,7 @@ logging.info(f"Ensure consistency of SBM parameters: {elapsed}")
 
 start = time.perf_counter()
 
-if out_degs.sum() > 0:
+if probs.sum() > 0:
     g = gt.generate_sbm(
         b,
         probs,
