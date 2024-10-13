@@ -6,29 +6,75 @@
 #SBATCH --partition=secondary
 #SBATCH --mem=8G
 
-python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)" "RECCS-V1" "RECCS-V2" \
-    --roots data/networks/sbmmcsprev1/leiden_cpm_cm data/networks/RECCSv1/leiden_cpm_cm data/networks/RECCSv2/leiden_cpm_cm \
-    --output-dir output/001_sbmmcspre_reccsv1_reccsv2/ \
-    --resolution leiden.001
+# python network_evaluation/compare_simulators_2.py \
+#     --names "SBM-MCS(pre)" "RECCS-V1" "RECCS-V2" \
+#     --roots data/networks/sbmmcsprev1/leiden_cpm_cm data/networks/RECCSv1/leiden_cpm_cm data/networks/RECCSv2/leiden_cpm_cm \
+#     --output-dir output/001_sbmmcspre_reccsv1_reccsv2/ \
+#     --resolution leiden.001
+
+# python network_evaluation/compare_simulators_2.py \
+#     --names "SBM-MCS(pre)+o+e" "SBM-MCS(pre)+o+e2" \
+#     --roots data/networks/sbmmcsprev1+o+e/leiden_cpm_cm data/networks/sbmmcsprev1+o+e2/leiden_cpm_cm \
+#     --output-dir output/001_sbmmcspre+o+e_sbmmcspre+o+e2/ \
+#     --resolution leiden.001
+
+# python network_evaluation/compare_simulators_2.py \
+#     --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
+#     --roots data/networks/sbmmcsprev1+o/leiden_cpm_cm data/networks/RECCSv1+oS1/leiden_cpm_cm data/networks/RECCSv2+oS1/leiden_cpm_cm \
+#     --output-dir output/01_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
+#     --resolution leiden.01
+
+# python network_evaluation/compare_simulators_2.py \
+#     --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
+#     --roots data/networks/sbmmcsprev1+o/leiden_mod_cm data/networks/RECCSv1+oS1/leiden_mod_cm data/networks/RECCSv2+oS1/leiden_mod_cm \
+#     --output-dir output/mod_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
+#     --resolution leidenmod
+
+# python network_evaluation/compare_simulators_2.py \
+#     --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
+#     --roots data/networks/sbmmcsprev1+o/ikc_cm data/networks/RECCSv1+oS1/ikc_cm data/networks/RECCSv2+oS1/ikc_cm \
+#     --output-dir output/k10_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
+#     --resolution k10
 
 python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-    --roots data/networks/sbmmcsprev1/leiden_cpm_cm data/networks/RECCSv1+oS1/leiden_cpm_cm data/networks/RECCSv2+oS1/leiden_cpm_cm \
-    --output-dir output/01_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
-    --resolution leiden.01
+    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL2" "SBM-MCS(pre)+o+eL1" \
+    --roots data/stats/sbmmcsprev1+o/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL2/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL1/leiden_cpm_cm \
+    --output-dir output/001_sbmmcspre+o_sbmmcspre+o+eL2_sbmmcspre+o+eL1/ \
+    --resolution leiden.001 \
+    --show-fliers
 
 python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-    --roots data/networks/sbmmcsprev1/leiden_mod_cm data/networks/RECCSv1+oS1/leiden_mod_cm data/networks/RECCSv2+oS1/leiden_mod_cm \
-    --output-dir output/mod_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
-    --resolution leidenmod
+    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL1" "SBM-MCS(pre)+o+eL2" "RECCS-V1+oS1" "RECCS-V2+oS2" \
+    --roots data/stats/sbmmcsprev1+o/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL1/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL2/leiden_cpm_cm data/networks/RECCSv1+oS1/leiden_cpm_cm data/networks/RECCSv2+oS1/leiden_cpm_cm \
+    --output-dir output/01_sbmmcspre+o_sbmmcspre+o+eL1_sbmmcspre+o+eL2_reccsv1+oS1_reccsv2+oS1/ \
+    --resolution leiden.01 \
+    --show-fliers
 
 python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-    --roots data/networks/sbmmcsprev1/ikc_cm data/networks/RECCSv1+oS1/ikc_cm data/networks/RECCSv2+oS1/ikc_cm \
-    --output-dir output/k10_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
-    --resolution k10
+    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL1" "SBM-MCS(pre)+o+eL2" "RECCS-V1+oS1" "RECCS-V2+oS2" \
+    --roots data/stats/sbmmcsprev1+o/leiden_mod_cm data/stats/sbmmcsprev1+o+eL1/leiden_mod_cm data/stats/sbmmcsprev1+o+eL2/leiden_mod_cm data/networks/RECCSv1+oS1/leiden_mod_cm data/networks/RECCSv2+oS1/leiden_mod_cm \
+    --output-dir output/mod_sbmmcspre+o_sbmmcspre+o+eL1_sbmmcspre+o+eL2_reccsv1+oS1_reccsv2+oS1/ \
+    --resolution leidenmod \
+    --show-fliers
+
+python network_evaluation/compare_simulators_2.py \
+    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL1" "SBM-MCS(pre)+o+eL2" "RECCS-V1+oS1" "RECCS-V2+oS2" \
+    --roots data/stats/sbmmcsprev1+o/ikc_cm data/stats/sbmmcsprev1+o+eL1/ikc_cm data/stats/sbmmcsprev1+o+eL2/ikc_cm data/networks/RECCSv1+oS1/ikc_cm data/networks/RECCSv2+oS1/ikc_cm \
+    --output-dir output/k10_sbmmcspre+o_sbmmcspre+o+eL1_sbmmcspre+o+eL2_reccsv1+oS1_reccsv2+oS1/ \
+    --resolution k10 \
+    --show-fliers
+
+# python network_evaluation/compare_simulators_2.py \
+#     --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+e2" "RECCS-V1+oS1" "RECCS-V2+oS1" \
+#     --roots data/networks/sbmmcsprev1+o/leiden_mod_cm data/networks/sbmmcsprev1+o+e2/leiden_mod_cm data/networks/RECCSv1+oS1/leiden_mod_cm data/networks/RECCSv2+oS1/leiden_mod_cm \
+#     --output-dir output/mod_sbmmcspre+o_sbmmcspre+o+e2_reccsv1+oS1_reccsv2+oS1/ \
+#     --resolution leidenmod
+
+# python network_evaluation/compare_simulators_2.py \
+#     --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
+#     --roots data/networks/sbmmcsprev1+o+e2/ikc_cm data/networks/RECCSv1+oS1/ikc_cm data/networks/RECCSv2+oS1/ikc_cm \
+#     --output-dir output/k10_sbmmcspre+o+e2_reccsv1+oS1_reccsv2+oS1/ \
+#     --resolution k10
 
 SBM_V1=true
 SBM_V2=false
