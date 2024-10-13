@@ -1,14 +1,15 @@
+from pathlib import Path
 import argparse
 import logging
-import heapq
 import time
 import csv
-from pathlib import Path
 
 import pandas as pd
 import numpy as np
+import graph_tool.all as gt
 from scipy.sparse import dok_matrix
-from graph_tool.all import *
+
+from src.constants import *
 
 
 def parse_args():
@@ -161,6 +162,15 @@ logging.info(f"Create outlier clusters: {elapsed}")
 
 start = time.perf_counter()
 
+# Compute SBM parameters from the original network
+
+# print(node_id2iid)
+# print(cluster_id2iid)
+# print(orig_nodeiid_clusteriid)
+# print(orig_clusteriid_nodeiids)
+# print(orig_neighbor)
+# print(outliers)
+
 # Number of clusters
 num_clusters = len(orig_clusteriid_nodeiids)
 
@@ -168,12 +178,13 @@ num_clusters = len(orig_clusteriid_nodeiids)
 num_nodes = len(node_iid2id)
 
 # Edge count matrix
-# probs = dok_matrix((num_clusters, num_clusters), dtype=int)
-# for node_iid, neighbors in orig_neighbor.items():
-#     cluster_iid = orig_nodeiid_clusteriid[node_iid]
-#     for neighbor_iid in neighbors:
-#         tgt_cluster_iid = orig_nodeiid_clusteriid[neighbor_iid]
-#         probs[cluster_iid, tgt_cluster_iid] += 1
+probs = dok_matrix((num_clusters, num_clusters), dtype=int)
+for node_iid, neighbors in orig_neighbor.items():
+    cluster_iid = orig_nodeiid_clusteriid[node_iid]
+    for neighbor_iid in neighbors:
+        tgt_cluster_iid = orig_nodeiid_clusteriid[neighbor_iid]
+        probs[cluster_iid, tgt_cluster_iid] += 1
+# probs = probs.tocsr()
 
 # Degree sequence
 out_degs = np.zeros(num_nodes, dtype=int)
@@ -181,9 +192,13 @@ for node_iid, neighbors in orig_neighbor.items():
     out_degs[node_iid] += len(neighbors)
 
 # Cluster assignment
-# b = np.empty(num_nodes, dtype=int)
-# for node_iid in range(num_nodes):
-#     b[node_iid] = orig_nodeiid_clusteriid[node_iid]
+b = np.empty(num_nodes, dtype=int)
+for node_iid in range(num_nodes):
+    b[node_iid] = orig_nodeiid_clusteriid[node_iid]
+
+# print(b)
+# print(probs.toarray())
+# print(out_degs)
 
 elapsed = time.perf_counter() - start
 logging.info(f"Compute SBM parameters from original: {elapsed}")
@@ -192,14 +207,19 @@ logging.info(f"Compute SBM parameters from original: {elapsed}")
 
 start = time.perf_counter()
 
-exist_neighbor = dict()
+# Update the parameters with the existing network
 
 # Read the existing edgelist
+edges = set()
 with open(exist_edgelist_fp, 'r') as f:
     reader = csv.reader(f, delimiter='\t')
 
     # Update the parameters
     for src_id, tgt_id in reader:
+        if (src_id, tgt_id) in edges or (tgt_id, src_id) in edges:
+            continue
+        edges.add((src_id, tgt_id))
+
         # Ensure the nodes exist
         assert src_id in node_id2iid
         assert tgt_id in node_id2iid
@@ -208,30 +228,26 @@ with open(exist_edgelist_fp, 'r') as f:
         src_iid = node_id2iid[src_id]
         tgt_iid = node_id2iid[tgt_id]
 
-        # Add to the neighbor set
-        exist_neighbor.setdefault(src_iid, set())
-        exist_neighbor.setdefault(tgt_iid, set())
-
-        # Check for duplicates
-        if tgt_iid in exist_neighbor[src_iid]:
-            assert src_iid in exist_neighbor[tgt_iid]
-            continue
-        exist_neighbor[src_iid].add(tgt_iid)
-        exist_neighbor[tgt_iid].add(src_iid)
-
-        # Get the cluster integer ID
         src_cluster_iid = orig_nodeiid_clusteriid[src_iid]
         tgt_cluster_iid = orig_nodeiid_clusteriid[tgt_iid]
 
-        # Update the degree
+        # Update the parameters
+        # out_degs[src_iid] -= 1
+        # out_degs[tgt_iid] -= 1
+        # probs[src_cluster_iid, tgt_cluster_iid] -= 1
+        # probs[tgt_cluster_iid, src_cluster_iid] -= 1
+
         out_degs[src_iid] = max(0, out_degs[src_iid] - 1)
         out_degs[tgt_iid] = max(0, out_degs[tgt_iid] - 1)
+        probs[src_cluster_iid, tgt_cluster_iid] = max(
+            0, probs[src_cluster_iid, tgt_cluster_iid] - 1)
+        probs[tgt_cluster_iid, src_cluster_iid] = max(
+            0, probs[tgt_cluster_iid, src_cluster_iid] - 1)
+probs = probs.tocsr()
 
-        # Update the edge count matrix
-        # probs[src_cluster_iid, tgt_cluster_iid] = max(
-        #     0, probs[src_cluster_iid, tgt_cluster_iid] - 1)
-        # probs[tgt_cluster_iid, src_cluster_iid] = max(
-        #     0, probs[tgt_cluster_iid, src_cluster_iid] - 1)
+# print(b)
+# print(probs.toarray())
+# print(out_degs)
 
 elapsed = time.perf_counter() - start
 logging.info(f"Update SBM parameters with existing: {elapsed}")
@@ -240,81 +256,59 @@ logging.info(f"Update SBM parameters with existing: {elapsed}")
 
 start = time.perf_counter()
 
-# Find all avaliable nodes
-available_node_set = set()
-available_node_degrees = dict()
-for node_iid, neighbors in exist_neighbor.items():
-    degree = out_degs[node_iid]
-    if degree > 0:
-        available_node_set.add(node_iid)
-        available_node_degrees[node_iid] = degree
+logging.info(f"Need to process {num_clusters - len(outliers)} clusters")
+for i in range(num_clusters - len(outliers)):
+    substart = time.perf_counter()
 
-# Convert available_node_degrees to a max-heap
-max_heap = [
-    (-degree, node)
-    for node, degree in available_node_degrees.items()
-]
-heapq.heapify(max_heap)
+    deg_i = out_degs[b == i].sum()
+    num_edges_from_i = probs[i, :].sum()
 
-degree_edges = set()
-nodes_processed = 0
-degree_corrected = 0
-logging.info(f'Need to process {len(max_heap)} nodes')
-subtime = time.perf_counter()
-while max_heap:
-    # Get the node with the highest degree
-    _, available_c_node = heapq.heappop(max_heap)
+    if deg_i < num_edges_from_i:
+        add_deg = num_edges_from_i - deg_i
 
-    # Check if the node is still available
-    if available_c_node not in available_node_degrees:
-        continue
+        t = add_deg
+        while t > 0:
+            probs_i = probs[i, :].toarray().flatten()
+            candidates = np.arange(num_clusters)
+            weights = probs_i / probs_i.sum()
+            c = np.random.choice(candidates, p=weights)
+            if c == i:
+                if probs[i, c] > 1:
+                    probs[i, c] -= 2
+                    t -= 2
+            else:
+                if probs[i, c] > 0:
+                    probs[i, c] -= 1
+                    probs[c, i] -= 1
+                    t -= 1
 
-    # Get the neighbors of the node
-    neighbors = exist_neighbor.get(available_c_node, set())
-    neighbors.add(available_c_node)
-
-    # Get the available non-neighbors
-    available_non_neighbors = available_node_set.copy()
-    for neighbor in neighbors:
-        available_non_neighbors.discard(neighbor)
-
-    # Compute the missing degree
-    avail_k = min(
-        available_node_degrees[available_c_node],
-        len(available_non_neighbors),
-    )
-
-    # Add edges to the node to correct the degree
-    for i in range(avail_k):
-        # Get a node with available degree
-        edge_end = available_non_neighbors.pop()
-
-        # Add edge between the nodes
-        degree_edges.add((available_c_node, edge_end))
-
-        # Update neighbors
-        exist_neighbor[available_c_node].add(edge_end)
-        exist_neighbor[edge_end].add(available_c_node)
-
-        # Update the degree of the chosen node
-        available_node_degrees[edge_end] -= 1
-        if available_node_degrees[edge_end] == 0:
-            available_node_set.remove(edge_end)
-            del available_node_degrees[edge_end]
-        degree_corrected += 1
-
-    del available_node_degrees[available_c_node]
-    available_node_set.remove(available_c_node)
-    nodes_processed += 1
-
-    if nodes_processed % 1000 == 0:
-        logging.info(f'Processed {nodes_processed} nodes: {
-                     time.perf_counter() - subtime}')
-        subtime = time.perf_counter()
+        elapsed = time.perf_counter() - substart
+        logging.info(
+            f"Cluster {i} ({num_edges_from_i} - {deg_i} = {add_deg}): {elapsed}")
 
 elapsed = time.perf_counter() - start
-logging.info(f'Processed {nodes_processed} nodes, adding {
-             degree_corrected} edges: {elapsed}')
+logging.info(f"Ensure consistency of SBM parameters: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
+
+if out_degs.sum() > 0:
+    g = gt.generate_sbm(
+        b,
+        probs,
+        out_degs=out_degs,
+        micro_ers=True,
+        micro_degs=True,
+        directed=False,
+    )
+else:
+    g = gt.Graph(directed=False)
+gt.remove_parallel_edges(g)
+gt.remove_self_loops(g)
+
+elapsed = time.perf_counter() - start
+logging.info(f"Generation of subgraph: {elapsed}")
 
 # ========================
 
@@ -323,7 +317,7 @@ start = time.perf_counter()
 with open(f'{output_dir}/fix_edge.tsv', 'w') as f:
     df = pd.DataFrame([
         (node_iid2id[src], node_iid2id[tgt])
-        for src, tgt in degree_edges
+        for src, tgt in g.iter_edges()
     ],
         columns=['src_id', 'tgt_id'],
     )
