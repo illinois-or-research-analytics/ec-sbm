@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --time=1:00:00
+#SBATCH --time=0:05:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/compare/slurm-%j.out
 #SBATCH --job-name="compare_simulators"
-#SBATCH --partition=secondary
+#SBATCH --partition=tallis
 #SBATCH --mem=8G
 
 # python network_evaluation/compare_simulators_2.py \
@@ -37,9 +37,9 @@
 #     --resolution k10
 
 python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL2" "SBM-MCS(pre)+o+eL1" \
-    --roots data/stats/sbmmcsprev1+o/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL2/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL1/leiden_cpm_cm \
-    --output-dir output/001_sbmmcspre+o_sbmmcspre+o+eL2_sbmmcspre+o+eL1/ \
+    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL1" "SBM-MCS(pre)+o+eL2" \
+    --roots data/stats/sbmmcsprev1+o/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL1/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL2/leiden_cpm_cm \
+    --output-dir output/001_sbmmcspre+o_sbmmcspre+o+eL1_sbmmcspre+o+eL2/ \
     --resolution leiden.001 \
     --show-fliers
 
