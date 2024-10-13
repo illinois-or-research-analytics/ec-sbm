@@ -25,13 +25,22 @@ outlier_output_dir="data/benchmark/output/${network}/${clustering}/${resolution}
 #     --clustering ${clustering_fp} \
 #     --output-folder ${clustered_output_dir}
 
-python generate_outliers.py \
+# python generate_outliers.py \
+#     --orig-edgelist ${orig_edgelist_fp} \
+#     --orig-clustering ${clustering_fp} \
+#     --output-folder ${outlier_output_dir}
+
+# python combine_clustered_outliers.py \
+#     --clustered-edgelist ${clustered_output_dir}/edge.tsv \
+#     --clustered-clustering ${clustered_output_dir}/com.tsv \
+#     --outlier-edgelist ${outlier_output_dir}/outlier_edge.tsv \
+#     --output-folder ${outlier_output_dir}
+
+fixedge_method="L1"
+fixedge_output_dir="data/benchmark/output/${network}/${clustering}/${resolution}/${method}+o+e${fixedge_method}/"
+
+python fix_degree_${fixedge_method}.py \
     --orig-edgelist ${orig_edgelist_fp} \
     --orig-clustering ${clustering_fp} \
-    --output-folder ${outlier_output_dir}
-
-python combine_clustered_outliers.py \
-    --clustered-edgelist ${clustered_output_dir}/edge.tsv \
-    --clustered-clustering ${clustered_output_dir}/com.tsv \
-    --outlier-edgelist ${outlier_output_dir}/outlier_edge.tsv \
-    --output-folder ${outlier_output_dir}
+    --exist-edgelist ${outlier_output_dir}/edge.tsv \
+    --output-folder ${fixedge_output_dir}
