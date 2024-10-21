@@ -50,10 +50,10 @@ mean = df['degree'].mean()
 df = df.groupby('degree').size().reset_index(name='count')
 
 # == Compute generated degree distribution ==
-assert os.path.exists(f'{network_dir}/degree.distribution'), \
+assert os.path.exists(f'{output_dir}/degree.distribution'), \
     f'[ERROR] degree.distribution file not found in {network_dir}. ' \
     + 'Please compute statistics first.'
-with open(f'{network_dir}/degree.distribution') as f:
+with open(f'{output_dir}/degree.distribution') as f:
     degrees = [int(x.strip()) for x in f.readlines()]
     df_gen = pd.DataFrame(degrees, columns=['degree'])
 

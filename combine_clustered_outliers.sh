@@ -11,7 +11,7 @@
 start=0
 end=3
 
-for based_on in leiden_cpm_cm #leiden_cpm_cm leiden_cpm
+for based_on in leiden_c #leiden_cpm_cm leiden_cpm
 do
     for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
     do
