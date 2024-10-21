@@ -1,7 +1,8 @@
-import os
 import csv
 import time
+import logging
 import argparse
+from pathlib import Path
 
 import numpy as np
 from scipy.sparse import dok_matrix
@@ -21,31 +22,37 @@ def parse_args():
     return parser.parse_args()
 
 
-print('Generation')
-print('== Input == ')
-
 args = parse_args()
 edgelist_fn = args.edgelist
 clustering_fn = args.clustering
 output_dir = args.output_folder
 seed = args.seed
 
-logs = []
+# ========================
 
-print(f'Method: SBM-MCS(pre)', flush=True)
-print(f'Network: {edgelist_fn}', flush=True)
-print(f'Clustering: {clustering_fn}', flush=True)
-print(f'Output folder: {output_dir}', flush=True)
-print(f'Seed: {seed}', flush=True)
+Path(output_dir).mkdir(parents=True, exist_ok=True)
+log_path = Path(output_dir) / 'run.log'
+logging.basicConfig(
+    filename=log_path,
+    filemode='w',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
 
-logs.append(f'Method: SBM-MCS(pre)')
-logs.append(f'Network: {edgelist_fn}')
-logs.append(f'Clustering: {clustering_fn}')
-logs.append(f'Output folder: {output_dir}')
-logs.append(f'Seed: {seed}')
-logs.append('')
+# ========================
 
-print('== Output == ')
+logging.info(f'Method: SBM-MCS(pre)')
+logging.info(f'Network: {edgelist_fn}')
+logging.info(f'Clustering: {clustering_fn}')
+logging.info(f'Output folder: {output_dir}')
+logging.info(f'Seed: {seed}')
+
+# ========================
 
 start = time.perf_counter()
 
@@ -134,10 +141,10 @@ for src_iid, tgt_iids in neighbor.items():
 # probs = probs.tocsr()
 
 elapsed = time.perf_counter() - start
-print(f"Setup: {elapsed}", flush=True)
-logs.append(f"Setup: {elapsed}")
+logging.info(f"Setup: {elapsed}")
 
 # ========================
+
 
 def create_edge(u, v):
     return (min(u, v), max(u, v))
@@ -282,13 +289,14 @@ def generate_cluster(cluster_nodes, k):
 
     return edges
 
+
 start = time.perf_counter()
 
 edges = set()
 for cluster_iid, cluster_nodes in clustering.items():
-    info = f"Generation of cluster {cluster_iid} ({len(cluster_nodes)} | {deg[cluster_nodes].sum()} | {mcs[cluster_iid]})"
-    print(info, flush=True)
-    logs.append(info)
+    info = f"Generation of cluster {cluster_iid} ({len(cluster_nodes)} | {
+        mcs[cluster_iid]})"
+    logging.info(info)
 
     sub_start = time.perf_counter()
     # print(f'Generate cluster {cluster_iid}')
@@ -303,12 +311,10 @@ for cluster_iid, cluster_nodes in clustering.items():
 
     sub_elapsed = time.perf_counter() - sub_start
 
-    print(f"Time: {sub_elapsed}", flush=True)
-    logs.append(f"Time: {sub_elapsed}")
+    logging.info(f"Time: {sub_elapsed}")
 
 elapsed = time.perf_counter() - start
-print(f"Generation of k-edge-connected graphs: {elapsed}", flush=True)
-logs.append(f"Generation of k-edge-connected graphs: {elapsed}")
+logging.info(f"Generation of k-edge-connected graphs: {elapsed}")
 
 # ========================
 
@@ -328,8 +334,7 @@ out_degs = deg
 # print(out_degs)
 
 elapsed = time.perf_counter() - start
-print(f"Computing the input to SBM-NG: {elapsed}", flush=True)
-logs.append(f"Computing the input to SBM-NG: {elapsed}")
+logging.info(f"Computing the input to SBM-NG: {elapsed}")
 
 # ========================
 
@@ -351,8 +356,7 @@ gt.remove_parallel_edges(g)
 gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
-print(f"Generation of the remaining network: {elapsed}", flush=True)
-logs.append(f"Generation of the remaining network: {elapsed}")
+logging.info(f"Generation of the remaining network: {elapsed}")
 
 # ========================
 
@@ -377,14 +381,4 @@ with open(f'{output_dir}/{EDGE}', 'w') as f:
     df.to_csv(f, sep='\t', index=False, header=False)
 
 elapsed = time.perf_counter() - start
-print(f"Post-processing: {elapsed}", flush=True)
-logs.append(f"Post-processing: {elapsed}")
-
-# ========================
-
-assert os.path.exists(output_dir)
-log_f = open(f'{output_dir}/run.log', 'w')
-for log in logs:
-    log_f.write(log)
-    log_f.write('\n')
-log_f.close()
+logging.info(f"Post-processing: {elapsed}")
