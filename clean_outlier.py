@@ -1,6 +1,5 @@
 import csv
 import argparse
-import shutil
 from pathlib import Path
 
 
@@ -35,24 +34,34 @@ out_dir = Path(args.output_folder)
 out_dir.mkdir(parents=True, exist_ok=True)
 
 # Compute all clustered nodes
-clustered_nodes = set()
+clustering = dict()
 with open(inp_clustering_fp) as f:
     for line in f:
-        node, _ = line.strip().split()
-        clustered_nodes.add(node)
+        node, cluster = line.strip().split()
+        clustering.setdefault(cluster, set()).add(node)
 
-# Copy clustering file to output folder
-shutil.copy(inp_clustering_fp, out_dir)
+# Save new clustering file
+clustered_nodes = set()
+out_clustering_fn = Path(inp_clustering_fp).name
+with open(out_dir / out_clustering_fn, "w") as out_f:
+    with open(inp_clustering_fp) as f:
+        csv_reader = csv.reader(f, delimiter="\t")
+        csv_writer = csv.writer(out_f, delimiter="\t")
 
-# Remove unclustered node from edgelists
-with open(inp_network_fp) as f:
-    edges = []
-    for line in f:
-        node1, node2 = line.strip().split()
-        if node1 in clustered_nodes and node2 in clustered_nodes:
-            edges.append((node1, node2))
+        for node, cluster in csv_reader:
+            assert cluster in clustering
+            assert node not in clustered_nodes
+            if len(clustering[cluster]) > 1:
+                clustered_nodes.add(node)
+                csv_writer.writerow([node, cluster])
 
+# Save new network file
 out_network_fn = Path(inp_network_fp).name
 with open(out_dir / out_network_fn, "w") as out_f:
-    csv_writer = csv.writer(out_f, delimiter="\t")
-    csv_writer.writerows(edges)
+    with open(inp_network_fp) as f:
+        csv_writer = csv.writer(out_f, delimiter="\t")
+        csv_reader = csv.reader(f, delimiter="\t")
+
+        for node1, node2 in csv_reader:
+            if node1 in clustered_nodes and node2 in clustered_nodes:
+                csv_writer.writerow([node1, node2])
