@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 import argparse
 import csv
 import copy
@@ -27,20 +28,30 @@ orig_edgelist_fp = Path(args.orig_edgelist)
 orig_clustering_fp = Path(args.orig_clustering)
 output_dir = Path(args.output_folder)
 
-logs = []
+# ========================
 
-print(f'Generation of Outlier Subnetwork')
-print(f'Network: {orig_edgelist_fp}')
-print(f'Clustering: {orig_clustering_fp}')
-print(f'Output folder: {output_dir}')
+output_dir.mkdir(parents=True, exist_ok=True)
+log_path = output_dir / 'outlier_run.log'
+logging.basicConfig(
+    filename=log_path,
+    filemode='w',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
 
-logs.append(f'Generation of Outlier Subnetwork')
-logs.append(f'Network: {orig_edgelist_fp}')
-logs.append(f'Clustering: {orig_clustering_fp}')
-logs.append(f'Output folder: {output_dir}')
-logs.append('')
+# ========================
 
-print('== Output == ')
+logging.info(f'Generation of Outlier Subnetwork')
+logging.info(f'Network: {orig_edgelist_fp}')
+logging.info(f'Clustering: {orig_clustering_fp}')
+logging.info(f'Output folder: {output_dir}')
+
+# ========================
 
 start = time.perf_counter()
 
@@ -134,8 +145,7 @@ for node_iid in range(num_nodes):
     b[node_iid] = orig_nodeiid_clusteriid[node_iid]
 
 elapsed = time.perf_counter() - start
-print(f"Setup: {elapsed}")
-logs.append(f"Setup: {elapsed}")
+logging.info(f"Setup: {elapsed}")
 
 # ========================
 
@@ -163,8 +173,7 @@ gt.remove_parallel_edges(g)
 gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
-print(f"Generation of outlier subgraph: {elapsed}")
-logs.append(f"Generation of outlier subgraph: {elapsed}")
+logging.info(f"Generation of outlier subgraph: {elapsed}")
 
 # ========================
 
@@ -189,14 +198,4 @@ with open(f'{output_dir}/{OUTLIER_EDGE}', 'w') as f:
     df.to_csv(f, sep='\t', index=False, header=False)
 
 elapsed = time.perf_counter() - start
-print(f"Post-process: {elapsed}")
-logs.append(f"Post-process: {elapsed}")
-
-# ========================
-
-assert os.path.exists(output_dir)
-log_f = open(f'{output_dir}/outlier_run.log', 'w')
-for log in logs:
-    log_f.write(log)
-    log_f.write('\n')
-log_f.close()
+logging.info(f"Post-process: {elapsed}")

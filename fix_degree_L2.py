@@ -44,6 +44,8 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)
 
+# ========================
+
 logging.info(f'Fixing degree sequence')
 logging.info(f'Network: {orig_edgelist_fp}')
 logging.info(f'Clustering: {orig_clustering_fp}')

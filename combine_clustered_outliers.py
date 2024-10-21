@@ -1,6 +1,8 @@
 import argparse
 from pathlib import Path
 import time
+import logging
+import shutil
 
 from src.constants import *
 
@@ -21,35 +23,45 @@ clustered_clustering_fp = Path(args.clustered_clustering)
 outlier_edgelist_fp = Path(args.outlier_edgelist)
 output_dir = Path(args.output_folder)
 
-logs = []
+# ========================
 
-print(f'Combine Clustered and Outlier Subnetworks')
-print(f'Clustered Network: {clustered_edgelist_fp}')
-print(f'Clustering: {clustered_clustering_fp}')
-print(f'Outlier Network: {outlier_edgelist_fp}')
-print(f'Output folder: {output_dir}')
+output_dir.mkdir(parents=True, exist_ok=True)
+log_path = output_dir / 'combine_run.log'
+logging.basicConfig(
+    filename=log_path,
+    filemode='w',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
 
-logs.append(f'Combine Clustered and Outlier Subnetworks')
-logs.append(f'Clustered Network: {clustered_edgelist_fp}')
-logs.append(f'Clustering: {clustered_clustering_fp}')
-logs.append(f'Outlier Network: {outlier_edgelist_fp}')
-logs.append(f'Output folder: {output_dir}')
-logs.append('')
+# ========================
 
-print('== Output == ')
+logging.info(f'Combine Clustered and Outlier Subnetworks')
+logging.info(f'Clustered Network: {clustered_edgelist_fp}')
+logging.info(f'Clustering: {clustered_clustering_fp}')
+logging.info(f'Outlier Network: {outlier_edgelist_fp}')
+logging.info(f'Output folder: {output_dir}')
+
+# ========================
 
 assert clustered_edgelist_fp.exists()
 assert clustered_clustering_fp.exists()
 assert outlier_edgelist_fp.exists()
 
-output_dir.mkdir(parents=True, exist_ok=True)
+start = time.perf_counter()
 
 # Copy clustering to output folder
-clustering_fp_out = output_dir / COM_OUT
-with open(clustering_fp_out, 'w') as f_out:
-    with open(clustered_clustering_fp, 'r') as f:
-        for line in f:
-            f_out.write(line)
+shutil.copy(clustered_clustering_fp, output_dir / COM_OUT)
+
+elapsed = time.perf_counter() - start
+logging.info(f"Replicate clustering: {elapsed}")
+
+# ========================
 
 start = time.perf_counter()
 
@@ -65,12 +77,4 @@ with open(edgelist_fp_out, 'w') as f_out:
             f_out.write(line)
 
 elapsed = time.perf_counter() - start
-print(f"Combine clustered and outlier subgraphs: {elapsed}")
-logs.append(f"Combine clustered and outlier subgraphs: {elapsed}")
-
-assert output_dir.exists()
-log_f = open(f'{output_dir}/combine_run.log', 'w')
-for log in logs:
-    log_f.write(log)
-    log_f.write('\n')
-log_f.close()
+logging.info(f"Combine clustered and outlier subgraphs: {elapsed}")
