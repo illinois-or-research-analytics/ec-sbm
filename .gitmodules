@@ -1,3 +1,6 @@
 [submodule "network_evaluation"]
 	path = network_evaluation
 	url = git@github.com:illinois-or-research-analytics/network_evaluation.git
+[submodule "lanne2_networks"]
+	path = lanne2_networks
+	url = git@github.com:illinois-or-research-analytics/lanne2_networks.git
