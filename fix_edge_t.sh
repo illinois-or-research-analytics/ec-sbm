@@ -1,31 +1,26 @@
 #!/bin/bash
-#SBATCH --time=2-00:00:00
+#SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/fix_edge/slurm-%j.out
-#SBATCH --job-name="10_001_fixedge_L1"
+#SBATCH --job-name="0_mod_fixedge_L1"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
 # ===================================
 
-start=10
-end=10
+start=0
+end=0
 fixedge_method=L1
 
 echo "============================================"
 echo "Fixing edge with ${fixedge_method}"
 echo "============================================"
 
-for clustering in leiden_cpm_cm #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
+for clustering in leiden_mod #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
 do
-    for network_id in $(cat data/networks.txt) cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
-    do
-        # skip jester
-        if [ ${network_id} == "jester" ]; then
-            continue
-        fi
-        
-        for resolution in leiden.001 # leiden.0001 leiden.001 leiden.01 k10 leidenmod
+    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk # $(cat data/networks.txt) cit_hepph cit_patents wiki_topcats wiki_talk orkut cen
+    do    
+        for resolution in leidenmod # leiden.0001 leiden.001 leiden.01 k10 leidenmod
         do
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir

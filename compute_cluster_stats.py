@@ -11,7 +11,7 @@ from src.utils import from_existing_clustering, viecut, Graph
 from src.constants import *
 
 
-def with_bijection(_dir):
+def with_bijection(_dir, output_dir):
     # Compute input mcs
     mcs_fn = MCS
     cs_fn = CS
@@ -112,12 +112,12 @@ def with_bijection(_dir):
     ax.set_xlabel('Input MCS')
     ax.set_ylabel('Generated MCS')
 
-    plt.savefig(f'{_dir}/mcs_compare.png')
+    plt.savefig(f'{output_dir}/mcs_compare.png')
     plt.clf()
     plt.close()
 
 
-def without_bijection(_dir):
+def without_bijection(_dir, output_dir):
     # Compute input mcs
     with open(f'{_dir}/{MCS}') as f:
         csv_reader = csv.reader(f, delimiter='\t')
@@ -153,7 +153,7 @@ def without_bijection(_dir):
     ax.legend()
     # ax.set_xscale('log')
     ax.set_yscale('log')
-    plt.savefig(f'{_dir}/mcs_dist.png')
+    plt.savefig(f'{output_dir}/mcs_dist.png')
     plt.clf()
     plt.close()
 
@@ -192,5 +192,5 @@ assert os.path.exists(network_dir)
 os.makedirs(output_dir, exist_ok=True)
 
 if args.is_with_bijection:
-    with_bijection(network_dir)
-without_bijection(network_dir)
+    with_bijection(network_dir, output_dir)
+without_bijection(network_dir, output_dir)
