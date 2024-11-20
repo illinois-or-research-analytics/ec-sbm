@@ -1,80 +1,103 @@
 #!/bin/bash
-#SBATCH --time=0:05:00
+#SBATCH --time=04:00:00
 #SBATCH --nodes=1
-#SBATCH --output=slurm_output/compare/slurm-%j.out
+#SBATCH --output=slurm_output/compare/simulators/slurm-%j.out
 #SBATCH --job-name="compare_simulators"
 #SBATCH --partition=tallis
 #SBATCH --mem=8G
 
-# python network_evaluation/compare_simulators_2.py \
-#     --names "SBM-MCS(pre)" "RECCS-V1" "RECCS-V2" \
-#     --roots data/networks/sbmmcsprev1/leiden_cpm_cm data/networks/RECCSv1/leiden_cpm_cm data/networks/RECCSv2/leiden_cpm_cm \
-#     --output-dir output/001_sbmmcspre_reccsv1_reccsv2/ \
-#     --resolution leiden.001
+for clustering in infomap_nofiltcm infomap_cc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm leiden_mod ikc_cc infomap_cc
+do
+    for resolution in leiden.1 leiden.01 leiden.001 leidenmod k10 infomap # leiden.001 leiden.01 leiden.1 k10 leidenmod infomap
+    do
+        # Matching clustering with resolution
+        if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
+            if [ ! $resolution = "leiden.001" ] && [ ! $resolution = "leiden.01" ] && [ ! $resolution = "leiden.1" ]; then
+                continue
+            fi
+        elif [ $clustering = "leiden_mod_cm" ] || [ $clustering = "leiden_mod" ] || [ $clustering = "leiden_mod_nofiltcm" ]; then
+            if [ ! $resolution = "leidenmod" ]; then
+                continue
+            fi
+        elif [ $clustering = "ikc_cm" ] || [ $clustering = "ikc_cc" ] || [ $clustering = "ikc_nofiltcm" ]; then
+            if [ ! $resolution = "k10" ]; then
+                continue
+            fi
+        elif [ $clustering = "infomap_cc" ] || [ $clustering = "infomap_nofiltcm" ]; then
+            if [ ! $resolution = "infomap" ]; then
+                continue
+            fi
+        fi
 
-# python network_evaluation/compare_simulators_2.py \
-#     --names "SBM-MCS(pre)+o+e" "SBM-MCS(pre)+o+e2" \
-#     --roots data/networks/sbmmcsprev1+o+e/leiden_cpm_cm data/networks/sbmmcsprev1+o+e2/leiden_cpm_cm \
-#     --output-dir output/001_sbmmcspre+o+e_sbmmcspre+o+e2/ \
-#     --resolution leiden.001
+        python network_evaluation/compare_simulators_2.py \
+            --names \
+                "SBM-MCS(pre)+o" \
+                "SBM-MCS(pre)+o+eL1" \
+                "SBM-MCS(pre)+o+eL2" \
+            --roots \
+                data/stats/sbmmcsprev1+o/${clustering} \
+                data/stats/sbmmcsprev1+o+eL1/${clustering} \
+                data/stats/sbmmcsprev1+o+eL2/${clustering} \
+            --output-dir output/val/${clustering}/${resolution}/sbmmcspre/ \
+            --resolution ${resolution} \
+            --network-whitelist-fp data/networks_val.txt \
+            --num-replicates 1
 
-# python network_evaluation/compare_simulators_2.py \
-#     --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-#     --roots data/networks/sbmmcsprev1+o/leiden_cpm_cm data/networks/RECCSv1+oS1/leiden_cpm_cm data/networks/RECCSv2+oS1/leiden_cpm_cm \
-#     --output-dir output/01_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
-#     --resolution leiden.01
+        # python network_evaluation/compare_simulators_2.py \
+        #     --names \
+        #         "ABCD-MCS(pre)+o" \
+        #         "ABCD-MCS(pre)+o+eL1" \
+        #         "ABCD-MCS(pre)+o+eL2" \
+        #     --roots \
+        #         data/stats/abcdta4+o/${clustering} \
+        #         data/stats/abcdta4+o+eL1/${clustering} \
+        #         data/stats/abcdta4+o+eL2/${clustering} \
+        #     --output-dir output/val/${clustering}/${resolution}/abcdmcspre/ \
+        #     --resolution ${resolution} \
+        #     --network-whitelist-fp data/networks_val.txt \
+        #     --num-replicates 1
 
-# python network_evaluation/compare_simulators_2.py \
-#     --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-#     --roots data/networks/sbmmcsprev1+o/leiden_mod_cm data/networks/RECCSv1+oS1/leiden_mod_cm data/networks/RECCSv2+oS1/leiden_mod_cm \
-#     --output-dir output/mod_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
-#     --resolution leidenmod
+        python network_evaluation/compare_simulators_2.py \
+            --names \
+                "SBM+oSBM" \
+                "SBM-MCS(pre)+oSBM+eV1" \
+                "RECCSv1+OS1" \
+            --roots \
+                data/stats/sbm+o/${clustering} \
+                data/stats/sbmmcsprev1+o+eL1/${clustering} \
+                data/stats/RECCSv1_OS1/${clustering} \
+            --output-dir output/val/${clustering}/${resolution}/sbm_sbmmcspre_reccs/ \
+            --resolution ${resolution} \
+            --network-whitelist-fp data/networks_val.txt \
+            --num-replicates 1
 
-# python network_evaluation/compare_simulators_2.py \
-#     --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-#     --roots data/networks/sbmmcsprev1+o/ikc_cm data/networks/RECCSv1+oS1/ikc_cm data/networks/RECCSv2+oS1/ikc_cm \
-#     --output-dir output/k10_sbmmcspre+o_reccsv1+oS1_reccsv2+oS1/ \
-#     --resolution k10
+        # python network_evaluation/compare_simulators_2.py \
+        #     --names \
+        #         "ABCD+o" \
+        #         "ABCD-MCS(pre)+o" \
+        #         "RECCSv1+OS1" \
+        #     --roots \
+        #         data/stats/abcd+o/${clustering} \
+        #         data/stats/abcdta4+o/${clustering} \
+        #         data/stats/RECCSv1_OS1/${clustering} \
+        #     --output-dir output/val/${clustering}/${resolution}/abcd_abcdmcspre_reccs/ \
+        #     --resolution ${resolution} \
+        #     --network-whitelist-fp data/networks_val.txt \
+        #     --num-replicates 1
 
-python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL1" "SBM-MCS(pre)+o+eL2" \
-    --roots data/stats/sbmmcsprev1+o/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL1/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL2/leiden_cpm_cm \
-    --output-dir output/001_sbmmcspre+o_sbmmcspre+o+eL1_sbmmcspre+o+eL2/ \
-    --resolution leiden.001 \
-    --show-fliers
-
-python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL1" "SBM-MCS(pre)+o+eL2" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-    --roots data/stats/sbmmcsprev1+o/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL1/leiden_cpm_cm data/stats/sbmmcsprev1+o+eL2/leiden_cpm_cm data/networks/RECCSv1+oS1/leiden_cpm_cm data/networks/RECCSv2+oS1/leiden_cpm_cm \
-    --output-dir output/01_sbmmcspre+o_sbmmcspre+o+eL1_sbmmcspre+o+eL2_reccsv1+oS1_reccsv2+oS1/ \
-    --resolution leiden.01 \
-    --show-fliers
-
-python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL1" "SBM-MCS(pre)+o+eL2" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-    --roots data/stats/sbmmcsprev1+o/leiden_mod_cm data/stats/sbmmcsprev1+o+eL1/leiden_mod_cm data/stats/sbmmcsprev1+o+eL2/leiden_mod_cm data/networks/RECCSv1+oS1/leiden_mod_cm data/networks/RECCSv2+oS1/leiden_mod_cm \
-    --output-dir output/mod_sbmmcspre+o_sbmmcspre+o+eL1_sbmmcspre+o+eL2_reccsv1+oS1_reccsv2+oS1/ \
-    --resolution leidenmod \
-    --show-fliers
-
-python network_evaluation/compare_simulators_2.py \
-    --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+eL1" "SBM-MCS(pre)+o+eL2" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-    --roots data/stats/sbmmcsprev1+o/ikc_cm data/stats/sbmmcsprev1+o+eL1/ikc_cm data/stats/sbmmcsprev1+o+eL2/ikc_cm data/networks/RECCSv1+oS1/ikc_cm data/networks/RECCSv2+oS1/ikc_cm \
-    --output-dir output/k10_sbmmcspre+o_sbmmcspre+o+eL1_sbmmcspre+o+eL2_reccsv1+oS1_reccsv2+oS1/ \
-    --resolution k10 \
-    --show-fliers
-
-# python network_evaluation/compare_simulators_2.py \
-#     --names "SBM-MCS(pre)+o" "SBM-MCS(pre)+o+e2" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-#     --roots data/networks/sbmmcsprev1+o/leiden_mod_cm data/networks/sbmmcsprev1+o+e2/leiden_mod_cm data/networks/RECCSv1+oS1/leiden_mod_cm data/networks/RECCSv2+oS1/leiden_mod_cm \
-#     --output-dir output/mod_sbmmcspre+o_sbmmcspre+o+e2_reccsv1+oS1_reccsv2+oS1/ \
-#     --resolution leidenmod
-
-# python network_evaluation/compare_simulators_2.py \
-#     --names "SBM-MCS(pre)+o" "RECCS-V1+oS1" "RECCS-V2+oS1" \
-#     --roots data/networks/sbmmcsprev1+o+e2/ikc_cm data/networks/RECCSv1+oS1/ikc_cm data/networks/RECCSv2+oS1/ikc_cm \
-#     --output-dir output/k10_sbmmcspre+o+e2_reccsv1+oS1_reccsv2+oS1/ \
-#     --resolution k10
+        # python network_evaluation/compare_simulators_2.py \
+        #     --names \
+        #         "ABCD-MCS(pre)+o" \
+        #         "RECCSv1+OS1" \
+        #     --roots \
+        #         data/stats/abcdta4+o/${clustering} \
+        #         data/stats/RECCSv1_OS1/${clustering} \
+        #     --output-dir output/val/${clustering}/${resolution}/abcdmcspre_reccs/ \
+        #     --resolution ${resolution} \
+        #     --network-whitelist-fp data/networks_val.txt \
+        #     --num-replicates 1
+    done
+done
 
 SBM_V1=true
 SBM_V2=false
