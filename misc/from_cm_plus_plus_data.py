@@ -2,12 +2,12 @@ import os
 import pathlib
 
 NETWORK_IDS = [
-    'cit_hepph',
-    'cit_patents',
-    'wiki_talk',
-    'wiki_topcats',
-    'orkut',
-    'cen',
+    # 'cit_hepph',
+    # 'cit_patents',
+    # 'wiki_talk',
+    # 'wiki_topcats',
+    # 'orkut',
+    # 'cen',
 ]
 RS = [
     # '.5',
@@ -16,7 +16,7 @@ RS = [
     # '.001',
     # '.0001',
     # '10',
-    'mod',
+    # 'mod',
 ]
 
 root = 'data/leiden_clustering/'
