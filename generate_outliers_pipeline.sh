@@ -2,8 +2,8 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/generate_outliers/slurm-%j.out
-#SBATCH --job-name="o0_nocm_mod_all_sbmmcs"
-#SBATCH --partition=folkvangr
+#SBATCH --job-name="o0_infomapcc_val_sbmmcspre"
+#SBATCH --partition=tallis
 #SBATCH --mem=64G
 
 # ===================================
@@ -11,46 +11,36 @@
 start=0
 end=0
 
-for clustering in leiden_mod #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
+for clustering in infomap_cc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_cc
 do
-    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for resolution in leiden.001 k10 leidenmod infomap # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
     do
-        for resolution in leidenmod # leiden.0001 leiden.001 leiden.01 k10 leidenmod
+        # Matching clustering with resolution
+        if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
+            if [ ! $resolution = "leiden.001" ] && [ ! $resolution = "leiden.01" ] && [ ! $resolution = "leiden.1" ]; then
+                continue
+            fi
+        elif [ $clustering = "leiden_mod_cm" ] || [ $clustering = "leiden_mod" ] || [ $clustering = "leiden_mod_nofiltcm" ]; then
+            if [ ! $resolution = "leidenmod" ]; then
+                continue
+            fi
+        elif [ $clustering = "ikc_cm" ] || [ $clustering = "ikc_cc" ] || [ $clustering = "ikc_nofiltcm" ]; then
+            if [ ! $resolution = "k10" ]; then
+                continue
+            fi
+        elif [ $clustering = "infomap_cc" ] || [ $clustering = "infomap_nofiltcm" ]; then
+            if [ ! $resolution = "infomap" ]; then
+                continue
+            fi
+        fi
+
+        for network_id in $(cat data/networks_val.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
 
             orig_edgelist_fn="${orig_dir}/edge.dat"
-            orig_clustering_fn="data/networks/orig_wo_outliers/${clustering}/${network_id}/${resolution}/com.dat"
-
-            echo "============================================"
-
-            if [ ! -f ${orig_clustering_fn} ]; then
-                raw_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
-                clean_outlier_dir="data/networks/orig_wo_outliers/${clustering}/${network_id}/${resolution}/"
-
-                raw_edgelist_fn="${raw_dir}/edge.dat"
-                raw_clustering_fn="${raw_dir}/com.dat"
-
-                if [ ! -f ${raw_edgelist_fn} ] || [ ! -f ${raw_clustering_fn} ]; then
-                    echo "Error: ${raw_edgelist_fn} or ${raw_clustering_fn} not found"
-                    continue
-                fi
-
-                echo "Cleaning outliers"
-                echo "Raw: ${raw_dir}"
-
-                python clean_outlier.py \
-                    --input-network ${raw_edgelist_fn} \
-                    --input-clustering ${raw_clustering_fn} \
-                    --output-folder ${clean_outlier_dir}
-
-                python test_clean_outlier.py \
-                    --output-network ${clean_outlier_dir}/edge.dat \
-                    --output-clustering ${clean_outlier_dir}/com.dat
-            else
-                echo "Outliers already removed"
-            fi
+            orig_clustering_fn="${orig_dir}/com.dat"
 
             echo "============================================"
 

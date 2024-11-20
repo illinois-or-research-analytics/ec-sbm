@@ -1,73 +1,94 @@
 #!/bin/bash
-#SBATCH --time=336:00:00
+#SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
-#SBATCH --output=slurm_output/slurm-%j.out
-#SBATCH --job-name="10_k10_abcd+o"
+#SBATCH --output=slurm_output/abcd+o/slurm-%j.out
+#SBATCH --job-name="0_infomap_val_abcd+o"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
 # ===================================
 
-start=1
-end=10
+start=0
+end=0
 
-for based_on in ikc_cm #leiden_cpm_cm leiden_cpm ikc
+for clustering in infomap_cc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_nofiltcm ikc_cc
 do
-    for network_id in cit_hepph cit_patents wiki_topcats wiki_talk orkut cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for resolution in leiden.1 leidenmod k10 infomap # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
     do
-        # skip epinions
-        if [ ${network_id} == "epinions" ]; then
-            continue
+        # Matching clustering with resolution
+        if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
+            if [ ! $resolution = "leiden.001" ] && [ ! $resolution = "leiden.01" ] && [ ! $resolution = "leiden.1" ]; then
+                continue
+            fi
+        elif [ $clustering = "leiden_mod_cm" ] || [ $clustering = "leiden_mod" ] || [ $clustering = "leiden_mod_nofiltcm" ]; then
+            if [ ! $resolution = "leidenmod" ]; then
+                continue
+            fi
+        elif [ $clustering = "ikc_cm" ] || [ $clustering = "ikc_cc" ] || [ $clustering = "ikc_nofiltcm" ]; then
+            if [ ! $resolution = "k10" ]; then
+                continue
+            fi
+        elif [ $clustering = "infomap_cc" ] || [ $clustering = "infomap_nofiltcm" ]; then
+            if [ ! $resolution = "infomap" ]; then
+                continue
+            fi
         fi
-        
-        for resolution in k10 # .0001 .001 .01
+
+        for network_id in $(cat data/networks_val.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
         do
-            orig_dir="data/networks/orig/${based_on}/${network_id}/${resolution}/"
+            orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
 
-            edgelist_fn="${orig_dir}/edge.dat"
-            clustering_fn="${orig_dir}/com.dat"
+            orig_edgelist_fn="${orig_dir}/edge.dat"
+            orig_clustering_fn="${orig_dir}/com.dat"
 
-            echo ${orig_dir}
             echo "============================================"
+
+            if [ ! -f ${orig_edgelist_fn} ] || [ ! -f ${orig_clustering_fn} ]; then
+                echo "Error: ${orig_edgelist_fn} or ${orig_clustering_fn} not found"
+                continue
+            fi
 
             echo "Computing original stats"
 
-            orig_stats_outdir="data/stats/orig/${based_on}/${network_id}/${resolution}/"
+            orig_stat_dir="data/stats/orig/${clustering}/${network_id}/${resolution}/"
 
-            if [ ! -d ${orig_stats_outdir} ]; then
+            if [ ! -f ${orig_stat_dir}/done ]; then
                 python network_evaluation/compute_stats.py \
-                    --input-network ${edgelist_fn} \
-                    --input-clustering ${clustering_fn} \
-                    --output-folder ${orig_stats_outdir}
+                    --input-network ${orig_edgelist_fn} \
+                    --input-clustering ${orig_clustering_fn} \
+                    --output-folder ${orig_stat_dir}
+            else
+                echo "Already computed"
             fi
 
-            echo "============================"
-            echo ""
+            echo "============================================"
             
             for method in abcd+o #abcd abcdta4 sbm sbmmcspre
             do
-                reps_dir="data/networks/${method}/${based_on}/${network_id}/${resolution}/"
-                echo $reps_dir
+                output_dirs="data/networks/${method}/${clustering}/${network_id}/${resolution}/"
+                output_stat_dirs="data/stats/${method}/${clustering}/${network_id}/${resolution}/"
+                echo $output_dirs
 
                 for seed in $(seq ${start} ${end})
                 do
-                    dir="${reps_dir}/${seed}/"
+                    output_dir="${output_dirs}/${seed}/"
+                    output_stat_dir="${output_stat_dirs}/${seed}/"
 
                     echo "============================"
-                    echo $dir
+                    echo $output_dir
 
                     echo "Generating network"
 
-                    if [ ! -d ${dir} ]; then
+                    if [ ! -f ${output_dir}/edge.tsv ] || [ ! -f ${output_dir}/com.tsv ]; then
                         python gen_${method}.py \
-                            --edgelist ${edgelist_fn} \
-                            --clustering ${clustering_fn} \
-                            --output-folder ${dir} \
+                            --edgelist ${orig_edgelist_fn} \
+                            --clustering ${orig_clustering_fn} \
+                            --output-folder ${output_dir} \
                             --seed ${seed}
                     fi
 
-                    if [ ! -f ${dir}/edge.tsv ] || [ ! -f ${dir}/com.tsv ]; then
-                        echo "Error: ${dir}/edge.tsv or ${dir}/com.tsv not found"
+                    if [ ! -f ${output_dir}/edge.tsv ] || [ ! -f ${output_dir}/com.tsv ]; then
+                        echo "Error: ${output_dir}/edge.tsv or ${output_dir}/com.tsv not found"
                         continue
                     fi
 
@@ -75,33 +96,41 @@ do
 
                     echo "Computing stats"
 
-                    if [ ! -f ${dir}/stats.json ]; then
+                    if [ ! -f ${output_stat_dir}/done ]; then
                         python network_evaluation/compute_stats.py \
-                            --input-network ${dir}/edge.tsv \
-                            --input-clustering ${dir}/com.tsv \
-                            --output-folder ${dir}
+                            --input-network ${output_dir}/edge.tsv \
+                            --input-clustering ${output_dir}/com.tsv \
+                            --output-folder ${output_stat_dir}
                     fi
 
-                    if [ ! -f ${dir}/deg_dist.png ]; then
+                    if [ ! -f ${output_stat_dir}/deg_dist.png ]; then
                         python compute_degree_dist.py \
-                            --network-folder ${dir} \
-                            --output-folder ${dir}
+                            --network-folder ${output_dir} \
+                            --output-folder ${output_stat_dir}
+                    else 
+                        echo "Already computed"
                     fi
 
-                    if [ ! -f ${dir}/mcs_dist.png ]; then
+                    if [ ! -f ${output_stat_dir}/mcs_dist.png ]; then
                         python compute_cluster_stats.py \
-                            --network-folder ${dir} \
-                            --output-folder ${dir}
+                            --network-folder ${output_dir} \
+                            --output-folder ${output_stat_dir}
+                    else 
+                        echo "Already computed"
                     fi
 
                     echo "============================"
 
                     echo "Comparing with original"
 
-                    python network_evaluation/compare_stats_pair.py \
-                        --network-1-folder ${orig_stats_outdir} \
-                        --network-2-folder ${dir} \
-                        --output-file ${dir}/compare_output.csv
+                    if [ ! -f ${output_stat_dir}/compare_output.csv ]; then
+                        python network_evaluation/compare_stats_pair.py \
+                            --network-1-folder ${orig_stat_dir} \
+                            --network-2-folder ${output_stat_dir} \
+                            --output-file ${output_stat_dir}/compare_output.csv
+                    else
+                        echo "Already compared"
+                    fi
                 done
                 echo "============================"
                 echo ""

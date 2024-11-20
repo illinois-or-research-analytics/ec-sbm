@@ -2,8 +2,8 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/generate_clustered/slurm-%j.out
-#SBATCH --job-name="0_mod_nocm_cen_sbmmcs"
-#SBATCH --partition=folkvangr
+#SBATCH --job-name="0_infomapcc_val_sbmmcspre"
+#SBATCH --partition=tallis
 #SBATCH --mem=64G
 
 # ===================================
@@ -11,11 +11,30 @@
 start=0
 end=0
 
-for clustering in leiden_mod #leiden_cpm_cm leiden_cpm ikc_cm leiden_mod_cm
+for clustering in infomap_cc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_nofiltcm ikc_cc
 do
-    for network_id in cen # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt)
+    for resolution in leiden.001 leidenmod k10 infomap # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
     do
-        for resolution in leidenmod # leiden.0001 leiden.001 leiden.01 k10 leidenmod
+        # Matching clustering with resolution
+        if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
+            if [ ! $resolution = "leiden.001" ] && [ ! $resolution = "leiden.01" ] && [ ! $resolution = "leiden.1" ]; then
+                continue
+            fi
+        elif [ $clustering = "leiden_mod_cm" ] || [ $clustering = "leiden_mod" ] || [ $clustering = "leiden_mod_nofiltcm" ]; then
+            if [ ! $resolution = "leidenmod" ]; then
+                continue
+            fi
+        elif [ $clustering = "ikc_cm" ] || [ $clustering = "ikc_cc" ] || [ $clustering = "ikc_nofiltcm" ]; then
+            if [ ! $resolution = "k10" ]; then
+                continue
+            fi
+        elif [ $clustering = "infomap_cc" ] || [ $clustering = "infomap_nofiltcm" ]; then
+            if [ ! $resolution = "infomap" ]; then
+                continue
+            fi
+        fi
+        
+        for network_id in $(cat data/networks_val.txt) # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig_wo_outliers/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
