@@ -1,7 +1,8 @@
-import os
 import csv
 import time
+import logging
 import argparse
+from pathlib import Path
 
 import pandas as pd
 import numpy as np
@@ -21,24 +22,37 @@ def parse_args():
     return parser.parse_args()
 
 
-print('Generation')
-print('== Input == ')
-
 args = parse_args()
 edgelist_fn = args.edgelist
 clustering_fn = args.clustering
 output_dir = args.output_folder
 seed = args.seed
 
-print(f'Method: SBM')
-print(f'Network: {edgelist_fn}')
-print(f'Clustering: {clustering_fn}')
-print(f'Output folder: {output_dir}')
-print(f'Seed: {seed}')
+# ========================
 
-print('== Output == ')
+Path(output_dir).mkdir(parents=True, exist_ok=True)
+log_path = Path(output_dir) / 'run.log'
+logging.basicConfig(
+    filename=log_path,
+    filemode='w',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
 
-logs = []
+# ========================
+
+logging.info(f'Method: SBM')
+logging.info(f'Network: {edgelist_fn}')
+logging.info(f'Clustering: {clustering_fn}')
+logging.info(f'Output folder: {output_dir}')
+logging.info(f'Seed: {seed}')
+
+# ========================
 
 start = time.perf_counter()
 set_up(
@@ -48,8 +62,13 @@ set_up(
     output_dir,
     use_existing_clustering=True,
 )
+
 elapsed = time.perf_counter() - start
-logs.append(f"Setup time: {elapsed}")
+logging.info(f"Setup time: {elapsed}")
+
+# ========================
+
+start = time.perf_counter()
 
 # Compute node and cluster mappings
 node_id2iid = dict()
@@ -127,25 +146,33 @@ out_degs = np.array([
 ])
 
 elapsed = time.perf_counter() - start
-logs.append(f"Setup time: {elapsed}")
+logging.info(f"Compute SBM parameters: {elapsed}")
+
+# ========================
 
 start = time.perf_counter()
 
 # Generate SBM
 start = time.perf_counter()
-g = gt.generate_sbm(
-    b,
-    probs,
-    out_degs=out_degs,
-    micro_ers=True,
-    micro_degs=True,
-    directed=False,
-)
+
+if out_degs.sum() > 0:
+    g = gt.generate_sbm(
+        b,
+        probs,
+        out_degs=out_degs,
+        micro_ers=True,
+        micro_degs=True,
+        directed=False,
+    )
+else:
+    g = gt.Graph(directed=False)
 # gt.remove_parallel_edges(g)
 # gt.remove_self_loops(g)
 
 elapsed = time.perf_counter() - start
-logs.append(f"Generation time: {elapsed}")
+logging.info(f"Generation time: {elapsed}")
+
+# ========================
 
 start = time.perf_counter()
 
@@ -170,11 +197,4 @@ with open(f'{output_dir}/{EDGE}', 'w') as f:
     df.to_csv(f, sep='\t', index=False, header=False)
 
 elapsed = time.perf_counter() - start
-logs.append(f"Post-process time: {elapsed}")
-
-assert os.path.exists(output_dir)
-log_f = open(f'{output_dir}/run.log', 'w')
-for log in logs:
-    log_f.write(log)
-    log_f.write('\n')
-log_f.close()
+logging.info(f"Post-process time: {elapsed}")
