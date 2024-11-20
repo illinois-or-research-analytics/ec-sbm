@@ -1,7 +1,9 @@
 import os
 import time
 import json
+import logging
 import argparse
+from pathlib import Path
 
 from src.utils import set_up, post_process
 from src.constants import *
@@ -16,24 +18,37 @@ def parse_args():
     return parser.parse_args()
 
 
-print('Generation')
-print('== Input == ')
-
 args = parse_args()
 edgelist_fn = args.edgelist
 clustering_fn = args.clustering
 output_dir = args.output_folder
 seed = args.seed
 
-print(f'Method: ABCD-MCS')
-print(f'Network: {edgelist_fn}')
-print(f'Clustering: {clustering_fn}')
-print(f'Output folder: {output_dir}')
-print(f'Seed: {seed}')
+# ========================
 
-print('== Output == ')
+Path(output_dir).mkdir(parents=True, exist_ok=True)
+log_path = Path(output_dir) / 'run.log'
+logging.basicConfig(
+    filename=log_path,
+    filemode='w',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
 
-logs = []
+# ========================
+
+logging.info(f'Method: ABCD-MCS(pre)')
+logging.info(f'Network: {edgelist_fn}')
+logging.info(f'Clustering: {clustering_fn}')
+logging.info(f'Output folder: {output_dir}')
+logging.info(f'Seed: {seed}')
+
+# ========================
 
 start = time.perf_counter()
 set_up(
@@ -43,13 +58,32 @@ set_up(
     output_dir,
     use_existing_clustering=True,
 )
-elapsed = time.perf_counter() - start
-logs.append(f"Setup time: {elapsed}")
 
 with open(f'{output_dir}/params.json', 'r') as f:
     params = json.load(f)
     seed = params['seed']
     xi = params['xi']
+
+elapsed = time.perf_counter() - start
+logging.info(f"Setup time: {elapsed}")
+
+# ========================
+
+is_run_cmd = True
+
+# Check if DEG is empty
+with open(f'{output_dir}/{DEG}', 'r') as f:
+    if len(f.readlines()) == 0:
+        is_run_cmd = False
+
+# Check if CS is empty
+with open(f'{output_dir}/{CS}', 'r') as f:
+    if len(f.readlines()) == 0:
+        is_run_cmd = False
+
+# ========================
+
+start = time.perf_counter()
 
 cmd = f'''
 julia ABCDGraphGenerator.jl/utils/graph_sampler_abcdta4.jl \\
@@ -58,24 +92,29 @@ julia ABCDGraphGenerator.jl/utils/graph_sampler_abcdta4.jl \\
     xi {xi} false false {seed} 0 \\
     {output_dir}/{COM_INP} {output_dir}/{MCS}
 '''
-logs.append(cmd)
+logging.info(cmd)
 
-start = time.perf_counter()
-os.system(cmd)
+if is_run_cmd:
+    os.system(cmd)
+else:
+    # Create empty {EDGE} and {COM_OUT}
+    with open(f'{output_dir}/{EDGE}', 'w') as f:
+        f.write('')
+    with open(f'{output_dir}/{COM_OUT}', 'w') as f:
+        f.write('')
+    logging.info("Skip due to empty input files.")
+
 elapsed = time.perf_counter() - start
-logs.append(f"Generation time: {elapsed}")
+logging.info(f"Generation time: {elapsed}")
+
+# ========================
 
 start = time.perf_counter()
+
 try:
     post_process(output_dir)
 except Exception as e:
-    logs.append(f"Post-process error: {e}")
-elapsed = time.perf_counter() - start
-logs.append(f"Post-process time: {elapsed}")
+    logging.info(f"Post-process error: {e}")
 
-assert os.path.exists(output_dir)
-log_f = open(f'{output_dir}/run.log', 'w')
-for log in logs:
-    log_f.write(log)
-    log_f.write('\n')
-log_f.close()
+elapsed = time.perf_counter() - start
+logging.info(f"Post-process time: {elapsed}")
