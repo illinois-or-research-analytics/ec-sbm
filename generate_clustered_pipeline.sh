@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/generate_clustered/slurm-%j.out
-#SBATCH --job-name="0_infomapcc_val_sbmmcspre"
+#SBATCH --job-name="0_sbm_val_sbmmcs"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -11,9 +11,9 @@
 start=0
 end=0
 
-for clustering in infomap_cc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_nofiltcm ikc_cc
+for clustering in sbm # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_nofiltcm ikc_cc
 do
-    for resolution in leiden.001 leidenmod k10 infomap # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
+    for resolution in sbm # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
@@ -30,6 +30,10 @@ do
             fi
         elif [ $clustering = "infomap_cc" ] || [ $clustering = "infomap_nofiltcm" ]; then
             if [ ! $resolution = "infomap" ]; then
+                continue
+            fi
+        elif [ $clustering = "sbm_cc" ] || [ $clustering = "sbm_wcc" ] || [ $clustering = "sbm" ]; then
+            if [ ! $resolution = "sbm" ]; then
                 continue
             fi
         fi

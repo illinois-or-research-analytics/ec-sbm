@@ -6,7 +6,7 @@
 #SBATCH --partition=tallis
 #SBATCH --mem=8G
 
-for clustering in infomap_nofiltcm infomap_cc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm leiden_mod ikc_cc infomap_cc
+for clustering in leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm leiden_mod ikc_cc infomap_cc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm leiden_mod ikc_cc infomap_cc
 do
     for resolution in leiden.1 leiden.01 leiden.001 leidenmod k10 infomap # leiden.001 leiden.01 leiden.1 k10 leidenmod infomap
     do
@@ -31,6 +31,18 @@ do
 
         python network_evaluation/compare_simulators_2.py \
             --names \
+                "ABCD+o" \
+                "SBM+o" \
+            --roots \
+                data/stats/abcd+o/${clustering} \
+                data/stats/sbm+o/${clustering} \
+            --output-dir output/val/${clustering}/${resolution}/abcd_sbm/ \
+            --resolution ${resolution} \
+            --network-whitelist-fp data/networks_val.txt \
+            --num-replicates 1
+
+        python network_evaluation/compare_simulators_2.py \
+            --names \
                 "SBM-MCS(pre)+o" \
                 "SBM-MCS(pre)+o+eL1" \
                 "SBM-MCS(pre)+o+eL2" \
@@ -43,19 +55,19 @@ do
             --network-whitelist-fp data/networks_val.txt \
             --num-replicates 1
 
-        # python network_evaluation/compare_simulators_2.py \
-        #     --names \
-        #         "ABCD-MCS(pre)+o" \
-        #         "ABCD-MCS(pre)+o+eL1" \
-        #         "ABCD-MCS(pre)+o+eL2" \
-        #     --roots \
-        #         data/stats/abcdta4+o/${clustering} \
-        #         data/stats/abcdta4+o+eL1/${clustering} \
-        #         data/stats/abcdta4+o+eL2/${clustering} \
-        #     --output-dir output/val/${clustering}/${resolution}/abcdmcspre/ \
-        #     --resolution ${resolution} \
-        #     --network-whitelist-fp data/networks_val.txt \
-        #     --num-replicates 1
+        python network_evaluation/compare_simulators_2.py \
+            --names \
+                "ABCD-MCS(pre)+o" \
+                "ABCD-MCS(pre)+o+eL1" \
+                "ABCD-MCS(pre)+o+eL2" \
+            --roots \
+                data/stats/abcdta4+o/${clustering} \
+                data/stats/abcdta4+o+eL1/${clustering} \
+                data/stats/abcdta4+o+eL2/${clustering} \
+            --output-dir output/val/${clustering}/${resolution}/abcdmcspre/ \
+            --resolution ${resolution} \
+            --network-whitelist-fp data/networks_val.txt \
+            --num-replicates 1
 
         python network_evaluation/compare_simulators_2.py \
             --names \
@@ -71,31 +83,45 @@ do
             --network-whitelist-fp data/networks_val.txt \
             --num-replicates 1
 
-        # python network_evaluation/compare_simulators_2.py \
-        #     --names \
-        #         "ABCD+o" \
-        #         "ABCD-MCS(pre)+o" \
-        #         "RECCSv1+OS1" \
-        #     --roots \
-        #         data/stats/abcd+o/${clustering} \
-        #         data/stats/abcdta4+o/${clustering} \
-        #         data/stats/RECCSv1_OS1/${clustering} \
-        #     --output-dir output/val/${clustering}/${resolution}/abcd_abcdmcspre_reccs/ \
-        #     --resolution ${resolution} \
-        #     --network-whitelist-fp data/networks_val.txt \
-        #     --num-replicates 1
+        python network_evaluation/compare_simulators_2.py \
+            --names \
+                "ABCD+o" \
+                "ABCD-MCS(pre)+o" \
+                "RECCSv1+OS1" \
+            --roots \
+                data/stats/abcd+o/${clustering} \
+                data/stats/abcdta4+o/${clustering} \
+                data/stats/RECCSv1_OS1/${clustering} \
+            --output-dir output/val/${clustering}/${resolution}/abcd_abcdmcspre_reccs/ \
+            --resolution ${resolution} \
+            --network-whitelist-fp data/networks_val.txt \
+            --num-replicates 1
 
-        # python network_evaluation/compare_simulators_2.py \
-        #     --names \
-        #         "ABCD-MCS(pre)+o" \
-        #         "RECCSv1+OS1" \
-        #     --roots \
-        #         data/stats/abcdta4+o/${clustering} \
-        #         data/stats/RECCSv1_OS1/${clustering} \
-        #     --output-dir output/val/${clustering}/${resolution}/abcdmcspre_reccs/ \
-        #     --resolution ${resolution} \
-        #     --network-whitelist-fp data/networks_val.txt \
-        #     --num-replicates 1
+        python network_evaluation/compare_simulators_2.py \
+            --names \
+                "ABCD-MCS(pre)+o" \
+                "RECCSv1+OS1" \
+            --roots \
+                data/stats/abcdta4+o/${clustering} \
+                data/stats/RECCSv1_OS1/${clustering} \
+            --output-dir output/val/${clustering}/${resolution}/abcdmcspre_reccs/ \
+            --resolution ${resolution} \
+            --network-whitelist-fp data/networks_val.txt \
+            --num-replicates 1
+
+        python network_evaluation/compare_simulators_2.py \
+            --names \
+                "ABCD-MCS(pre)+o" \
+                "SBM-MCS(pre)+o+eL1" \
+                "RECCSv1+OS1" \
+            --roots \
+                data/stats/abcdta4+o/${clustering} \
+                data/stats/sbmmcsprev1+o+eL1/${clustering} \
+                data/stats/RECCSv1_OS1/${clustering} \
+            --output-dir output/val/${clustering}/${resolution}/abcdmcspre_sbmmcspre_reccs/ \
+            --resolution ${resolution} \
+            --network-whitelist-fp data/networks_val.txt \
+            --num-replicates 1
     done
 done
 
