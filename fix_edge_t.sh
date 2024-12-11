@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/fix_edge/slurm-%j.out
-#SBATCH --job-name="e0_L2_infomapcm_val_sbmmcspre"
+#SBATCH --job-name="e0_L2_sbm_val_sbmmcs"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -16,9 +16,9 @@ echo "============================================"
 echo "Fixing edge with ${fixedge_method}"
 echo "============================================"
 
-for clustering in infomap_cc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_cc
+for clustering in sbm # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_cc
 do
-    for resolution in leiden.1 k10 leidenmod infomap # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
+    for resolution in sbm # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
@@ -37,15 +37,14 @@ do
             if [ ! $resolution = "infomap" ]; then
                 continue
             fi
+        elif [ $clustering = "sbm_cc" ] || [ $clustering = "sbm_wcc" ] || [ $clustering = "sbm" ]; then
+            if [ ! $resolution = "sbm" ]; then
+                continue
+            fi
         fi
 
         for network_id in $(cat data/networks_val.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
         do
-            # Skip petster and berkstan_web
-            if [ $network_id = "petster" ] || [ $network_id = "berkstan_web" ]; then
-                continue
-            fi
-
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
 
