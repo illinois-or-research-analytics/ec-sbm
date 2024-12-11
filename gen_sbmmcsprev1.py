@@ -151,6 +151,9 @@ def create_edge(u, v):
 
 
 def generate_cluster(cluster_nodes, k):
+    if k == 0:
+        return set()
+
     global deg
     global probs
 

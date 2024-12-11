@@ -221,6 +221,10 @@ function config_model_ta4(clusters, params)
         k = params.mcs[cluster_id]
 
         for i in cluster_sorted
+            if k == 0
+                break
+            end
+            
             if length(pool) < k
                 for j in pool
                     if w_internal[j] == 0
