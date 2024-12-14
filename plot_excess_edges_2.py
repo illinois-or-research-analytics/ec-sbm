@@ -80,6 +80,9 @@ df = pd.DataFrame(network_data, columns=[
 # Create a new column combining clustering and resolution for easier plotting
 df['clustering_resolution'] = df['clustering'] + '_' + df['resolution']
 
+# Create directory if it does not exist
+output_fp.mkdir(parents=True, exist_ok=True)
+
 # Set up the matplotlib figure for normal edges
 plt.figure(figsize=(15, 10))
 sns.boxplot(x='clustering_resolution',
