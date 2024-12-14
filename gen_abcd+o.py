@@ -124,11 +124,11 @@ if os.path.exists(f'{output_dir}/{COM_OUT}') and n_outliers > 0:
         csv_writer = csv.writer(f, delimiter='\t')
         csv_writer.writerows(rows)
 
-    # append self loop for all nodes (so the evaluation script can run)
-    # TODO: is this necessary?
-    with open(f'{output_dir}/{EDGE}', 'a') as f:
-        for v in all_vertices:
-            f.write(f'{v}\t{v}\n')
+    # # append self loop for all nodes (so the evaluation script can run)
+    # # TODO: is this necessary?
+    # with open(f'{output_dir}/{EDGE}', 'a') as f:
+    #     for v in all_vertices:
+    #         f.write(f'{v}\t{v}\n')
 
 elapsed = time.perf_counter() - start
 logging.info(f"Post-processing time: {elapsed}")
