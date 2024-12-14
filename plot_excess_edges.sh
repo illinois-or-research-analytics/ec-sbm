@@ -35,7 +35,7 @@ do
             fi
         fi
         
-        for method in sbm #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
+        for method in abcd+o #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
         do
             python plot_excess_edges.py \
                 --root data/stats/${method}/ \

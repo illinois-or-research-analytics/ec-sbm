@@ -70,7 +70,7 @@ all_normal_edges = np.array(all_normal_edges)
 all_parallel_edges = np.array(all_parallel_edges)
 all_self_loops = np.array(all_self_loops)
 
-output_fp.parent.mkdir(parents=True, exist_ok=True)
+output_fp.mkdir(parents=True, exist_ok=True)
 
 # Plot area chart
 plt.figure(figsize=(10, 6), dpi=200, tight_layout=True)
