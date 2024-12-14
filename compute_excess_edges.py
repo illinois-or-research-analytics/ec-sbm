@@ -29,8 +29,10 @@ assert network_fp.is_file(), f'Not a file: {network_fp}'
 assert output_fp.parent.exists(), f'Directory not found: {output_fp.parent}'
 assert output_fp.parent.is_dir(), f'Not a directory: {output_fp.parent}'
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger()
 
 logger.info(f'Input: {network_fp}')
