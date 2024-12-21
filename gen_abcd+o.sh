@@ -11,9 +11,9 @@
 start=0
 end=0
 
-for clustering in sbm_wcc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_nofiltcm ikc_cc
+for clustering in sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
 do
-    for resolution in sbm # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
+    for resolution in sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then

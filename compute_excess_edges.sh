@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/excess_edges/slurm-%j.out
-#SBATCH --job-name="excess_sbm"
+#SBATCH --job-name="excess_abcd"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -40,7 +40,7 @@ do
         
         for network_id in $(cat data/networks_val.txt) # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
         do  
-            for method in sbm #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
+            for method in abcd+o
             do
                 input_dirs="data/networks/${method}/${clustering}/${network_id}/${resolution}/"
                 output_stat_dirs="data/stats/${method}/${clustering}/${network_id}/${resolution}/"
@@ -62,13 +62,13 @@ do
                         continue
                     fi
 
-                    if [ ! -f ${output_stat_dir}/excess_edges.json ]; then
+                    # if [ ! -f ${output_stat_dir}/excess_edges.json ]; then
                         python compute_excess_edges.py \
                             --input ${input_dir}/edge.tsv \
                             --output ${output_stat_dir}/excess_edges.json
-                    else
-                        echo "Already computed."
-                    fi
+                    # else
+                        # echo "Already computed."
+                    # fi
                 done
                 echo "============================"
                 echo ""

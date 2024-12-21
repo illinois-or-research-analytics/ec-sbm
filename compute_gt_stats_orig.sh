@@ -20,7 +20,7 @@ do
         continue
     fi
 
-    python network_evaluation/compute_gt_stats.py \
+    python network_evaluation/compute_gt_stats_2.py \
         --input ${input_dir}/edge.dat \
         --output ${output_stat_dir}
 done

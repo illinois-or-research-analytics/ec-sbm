@@ -2,8 +2,8 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/generate_outliers/slurm-%j.out
-#SBATCH --job-name="o0_sbm_val_sbm"
-#SBATCH --partition=tallis
+#SBATCH --job-name="o0_all_val_sbm"
+#SBATCH --partition=folkvangr
 #SBATCH --mem=64G
 
 # ===================================
@@ -11,9 +11,9 @@
 start=0
 end=0
 
-for clustering in sbm # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_cc
+for clustering in sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
 do
-    for resolution in sbm # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
+    for resolution in sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
@@ -71,8 +71,8 @@ do
                 clustered_dirs="data/networks/${method}/${clustering}/${network_id}/${resolution}/"
                 echo $clustered_dirs
 
-                output_dirs="data/networks/${method}+o/${clustering}/${network_id}/${resolution}/"
-                output_stat_dirs="data/stats/${method}+o/${clustering}/${network_id}/${resolution}/"
+                output_dirs="data/networks/${method}+o_/${clustering}/${network_id}/${resolution}/"
+                output_stat_dirs="data/stats/${method}+o_/${clustering}/${network_id}/${resolution}/"
 
                 for seed in $(seq ${start} ${end})
                 do
