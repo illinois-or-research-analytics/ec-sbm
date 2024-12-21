@@ -143,6 +143,7 @@ probs = probs.tocsr()
 out_degs = np.array([
     len(neighbor[node_iid])
     for node_iid in all_nodes
+    if node_iid in neighbor
 ])
 
 elapsed = time.perf_counter() - start
