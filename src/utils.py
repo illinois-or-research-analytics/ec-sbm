@@ -94,7 +94,9 @@ def compute_xi(G, comm_fn):
             out_degree[n2] += 1
     outs = [out_degree[i] for i in G.nodes]
     total = [in_degree[i] + out_degree[i] for i in G.nodes]
-    xi = np.sum(outs) / sum(total)
+    outs_sum = np.sum(outs)
+    total_sum = np.sum(total)
+    xi = outs_sum / total_sum if total_sum > 0 else 0
     return xi
 
 
@@ -169,8 +171,12 @@ def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
     f = open(clustering_fn, 'r')
     csv_reader = csv.reader(f, delimiter='\t')
     for u, c in csv_reader:
-        assert u in G.nodes, \
-            f'[ERROR] Node {u} is not in the graph.'
+        # assert u in G.nodes, \
+        #   f'[ERROR] Node {u} is not in the graph.'
+        if not u in G.nodes:
+            # node_degree.append((u, 0))
+            print(f'[ERROR] Node {u} is not in the graph.')
+            continue
 
         cs.setdefault(c, 0)
         cs[c] += 1
