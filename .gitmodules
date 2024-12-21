@@ -4,3 +4,6 @@
 [submodule "lanne2_networks"]
 	path = lanne2_networks
 	url = git@github.com:illinois-or-research-analytics/lanne2_networks.git
+[submodule "ABCDGraphGenerator.jl"]
+	path = ABCDGraphGenerator.jl
+	url = git@github.com:vltanh/ABCDGraphGenerator.jl.git
