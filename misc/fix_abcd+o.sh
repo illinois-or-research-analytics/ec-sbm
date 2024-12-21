@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --time=04:00:00
+#SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/excess_edges/slurm-%j.out
-#SBATCH --job-name="plot"
-#SBATCH --partition=secondary
-#SBATCH --mem=8G
+#SBATCH --job-name="fix_abcd+o"
+#SBATCH --partition=tallis
+#SBATCH --mem=64G
 
 # ===================================
 
@@ -35,13 +35,15 @@ do
             fi
         fi
         
-        for method in sbm+o_ #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
+        for network_id in $(cat data/networks_val.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
         do
-            python plot_excess_edges.py \
-                --root data/stats/${method}/ \
-                --clustering ${clustering} \
-                --resolution ${resolution} \
-                --output output/excess_edges/${method}/${clustering}/${resolution}/
+            echo ${clustering} ${resolution} ${network_id}
+
+            rm data/networks/abcd+o/${clustering}/${network_id}/${resolution}/0/edge.bak.tsv
+            # python fix_abcd+o.py \
+            #     --clustering ${clustering} \
+            #     --resolution ${resolution} \
+            #     --network_id ${network_id}
         done
     done
 done

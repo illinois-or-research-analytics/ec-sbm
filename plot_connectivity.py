@@ -8,17 +8,17 @@ import pandas as pd
 
 plt.rcParams.update({'font.size': 15})
 
-name = 'sbmmcspre'
-root = Path('data/networks/abcdta4/leiden_cpm_cm')
+name = 'sbm+o'
+root = Path(f'data/stats/{name}/leiden_cpm')
 resolution = 'leiden.001'
 
 data_dict = []
 for fp in root.iterdir():
     if not fp.is_dir():
         continue
-    
+
     network_id = fp.name
-    net_res_fp = fp / resolution 
+    net_res_fp = fp / resolution
     if not net_res_fp.exists():
         continue
 
@@ -65,7 +65,8 @@ plt.grid()
 plt.tight_layout()
 plt.savefig(f'{name}_disconnected_clusters.pdf')
 
-df = df_raw.groupby(['network_id', 'n_clusters'])['n_wellconnected_clusters'].min()
+df = df_raw.groupby(['network_id', 'n_clusters'])[
+    'n_wellconnected_clusters'].min()
 df = df.reset_index()
 df.sort_values('n_clusters', inplace=True)
 print(df)
@@ -89,4 +90,4 @@ ax.set_xticks([])
 ax.set_xlim(0, len(df) - 1)
 plt.grid()
 plt.tight_layout()
-plt.savefig(f'{name}_wellconnected_clusters.pdf')
+plt.savefig(f'{name}_wellconnected_clusters_{resolution}.pdf')
