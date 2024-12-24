@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/abcd+o/slurm-%j.out
-#SBATCH --job-name="0_sbmwcc_val_abcd+o"
+#SBATCH --job-name="0_k10cm_val_abcd+o"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -11,9 +11,9 @@
 start=0
 end=0
 
-for clustering in sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
+for clustering in ikc_nofiltcm # sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
 do
-    for resolution in sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
+    for resolution in sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap # sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
@@ -38,7 +38,7 @@ do
             fi
         fi
 
-        for network_id in $(cat data/networks_val.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
+        for network_id in $(cat data/networks_val.txt) # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
 

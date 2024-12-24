@@ -4,7 +4,7 @@
 #SBATCH --output=slurm_output/compute_gt_stats/slurm-%j.out
 #SBATCH --job-name="gtstats_orig"
 #SBATCH --partition=tallis
-#SBATCH --mem=64G
+#SBATCH --mem=256G
 
 # ===================================
         

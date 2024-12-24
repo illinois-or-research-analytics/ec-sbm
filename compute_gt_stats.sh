@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/compute_gt_stats/slurm-%j.out
-#SBATCH --job-name="gtstats_sbm_k10cm"
+#SBATCH --job-name="gt_infomap_sbm"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -11,9 +11,9 @@
 start=0
 end=0
 
-for clustering in ikc_nofiltcm # sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
+for clustering in infomap_cc # sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
 do
-    for resolution in k10 # sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
+    for resolution in sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap # sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
@@ -48,7 +48,7 @@ do
                 continue
             fi
 
-            for method in sbm+o_ # sbmmcsprev1+o+eL1 abcdta4+o sbm+o sbmmcsprev1+o abcdta4+o+eL1 abcd+o RECCSv1_OS1
+            for method in sbm+o sbmmcsprev1+o sbmmcsprev1+o+eL1 RECCSv1_OS1 # sbm+o sbmmcsprev1+o sbmmcsprev1+o+eL1 RECCSv1_OS1 abcd+o abcdta4+o abcdta4+o+eL1 
             do
                 input_dirs="data/networks/${method}/${clustering}/${network_id}/${resolution}/"
                 output_stat_dirs="data/stats/${method}/${clustering}/${network_id}/${resolution}/"
@@ -65,7 +65,7 @@ do
                         continue
                     fi
 
-                    python network_evaluation/compute_gt_stats_2.py \
+                    python network_evaluation/compute_gt_stats.py \
                         --input ${input_dir}/edge.tsv \
                         --output ${output_stat_dir}
 

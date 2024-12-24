@@ -7,3 +7,6 @@
 [submodule "ABCDGraphGenerator.jl"]
 	path = ABCDGraphGenerator.jl
 	url = git@github.com:vltanh/ABCDGraphGenerator.jl.git
+[submodule "cm_pipeline"]
+	path = cm_pipeline
+	url = git@github.com:illinois-or-research-analytics/cm_pipeline.git
