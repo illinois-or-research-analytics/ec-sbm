@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/generate_clustered/slurm-%j.out
-#SBATCH --job-name="0_sbm_val_sbmmcs"
+#SBATCH --job-name="0_sbm_bibsonomy_sbmmcs"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -38,7 +38,7 @@ do
             fi
         fi
         
-        for network_id in $(cat data/networks_val.txt) # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
+        for network_id in bibsonomy dblp_coauthor_snap google google_web wordnet # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig_wo_outliers/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
@@ -92,7 +92,7 @@ do
             echo "============================"
             echo ""
             
-            for method in sbmmcsprev1 #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
+            for method in sbm sbmmcsprev1 abcdta4 #abcd abcdta4 sbm sbmmcsprev1
             do
                 output_dirs="data/networks/${method}/${clustering}/${network_id}/${resolution}/"
                 output_stat_dirs="data/stats/${method}/${clustering}/${network_id}/${resolution}/"

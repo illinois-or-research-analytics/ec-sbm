@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/fix_edge/slurm-%j.out
-#SBATCH --job-name="e0_L2_sbm_val_sbmmcs"
+#SBATCH --job-name="e0_L2_sbm_fix_all"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -43,7 +43,7 @@ do
             fi
         fi
 
-        for network_id in $(cat data/networks_val.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
+        for network_id in bibsonomy dblp_coauthor_snap google google_web wordnet # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
@@ -64,7 +64,7 @@ do
 
             echo "============================================"
 
-            for method in sbmmcsprev1 #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
+            for method in sbm sbmmcsprev1 abcdta4 #abcd abcdta4 sbm sbmmcsprev1
             do
                 input_dirs="data/networks/${method}+o/${clustering}/${network_id}/${resolution}/"
                 echo $input_dirs

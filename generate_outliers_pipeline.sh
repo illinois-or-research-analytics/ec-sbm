@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/generate_outliers/slurm-%j.out
-#SBATCH --job-name="o0_all_val_sbm"
+#SBATCH --job-name="o0_sbm_fix_all"
 #SBATCH --partition=folkvangr
 #SBATCH --mem=64G
 
@@ -11,9 +11,9 @@
 start=0
 end=0
 
-for clustering in sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
+for clustering in sbm # sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
 do
-    for resolution in sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
+    for resolution in sbm # sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
@@ -38,7 +38,7 @@ do
             fi
         fi
 
-        for network_id in $(cat data/networks_val.txt) # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
+        for network_id in bibsonomy dblp_coauthor_snap google google_web wordnet # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
@@ -66,13 +66,13 @@ do
 
             echo "============================================"
 
-            for method in sbm #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
+            for method in sbm sbmmcsprev1 abcdta4 #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
             do
                 clustered_dirs="data/networks/${method}/${clustering}/${network_id}/${resolution}/"
                 echo $clustered_dirs
 
-                output_dirs="data/networks/${method}+o_/${clustering}/${network_id}/${resolution}/"
-                output_stat_dirs="data/stats/${method}+o_/${clustering}/${network_id}/${resolution}/"
+                output_dirs="data/networks/${method}+o/${clustering}/${network_id}/${resolution}/"
+                output_stat_dirs="data/stats/${method}+o/${clustering}/${network_id}/${resolution}/"
 
                 for seed in $(seq ${start} ${end})
                 do
