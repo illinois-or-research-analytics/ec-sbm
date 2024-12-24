@@ -3,6 +3,7 @@ import csv
 import json
 from collections import defaultdict
 from typing import Dict, List
+import logging
 
 import numpy as np
 import networkx as nx
@@ -100,6 +101,43 @@ def compute_xi(G, comm_fn):
     return xi
 
 
+def compute_xi_abcd(G, comm_fn):
+    node2com = {}
+    for line in open(comm_fn).readlines():
+        node, comm = line.strip().split('\t')
+        node2com[node] = comm
+
+    in_degree = defaultdict(int)
+    out_degree = defaultdict(int)
+    for n1, n2 in G.edges:
+        # TODO: what to do with outliers' connections?
+        # if n1 not in node2com or n2 not in node2com:
+        #     continue
+        if n1 not in node2com and n2 not in node2com:
+            # n1 and n2 are outliers
+            out_degree[n1] += 1
+            out_degree[n2] += 1
+            continue
+        elif n1 not in node2com or n2 not in node2com:
+            # one of n1 and n2 is an outlier
+            out_degree[n1] += 1
+            out_degree[n2] += 1
+            continue
+
+        if node2com[n1] == node2com[n2]:  # nodes are co-clustered
+            in_degree[n1] += 1
+            in_degree[n2] += 1
+        else:
+            out_degree[n1] += 1
+            out_degree[n2] += 1
+    outs = [out_degree[i] for i in G.nodes]
+    total = [in_degree[i] + out_degree[i] for i in G.nodes]
+    outs_sum = np.sum(outs)
+    total_sum = np.sum(total)
+    xi = outs_sum / total_sum if total_sum > 0 else 0
+    return xi
+
+
 def is_setup_done(output_dir, use_existing_clustering):
     return os.path.exists(f'{output_dir}/{DEG}') \
         and os.path.exists(f'{output_dir}/{NODE_ID}') \
@@ -125,10 +163,13 @@ def read_graph(edgelist_fn):
     return G
 
 
-def generate_params_file(G, clustering_fn, seed, is_count_outliers, output_dir):
+def generate_params_file(G, clustering_fn, seed, is_count_outliers, output_dir, for_abcd=False):
     params = {'seed': seed}
 
-    xi = compute_xi(G, clustering_fn)
+    if not for_abcd:
+        xi = compute_xi(G, clustering_fn)
+    else:
+        xi = compute_xi_abcd(G, clustering_fn)
     params['xi'] = xi
 
     if is_count_outliers:
@@ -159,11 +200,6 @@ def count_outliers(G, clustering_fn):
 
 
 def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
-    node_degree = [
-        (u, len(G[u]))
-        for u in G.nodes
-    ]
-
     cs = {}
     if use_existing_clustering:
         node_comm = []
@@ -174,9 +210,9 @@ def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
         # assert u in G.nodes, \
         #   f'[ERROR] Node {u} is not in the graph.'
         if not u in G.nodes:
-            # node_degree.append((u, 0))
-            print(f'[ERROR] Node {u} is not in the graph.')
-            continue
+            G.add_node(u)
+            logging.info(f'[ERROR] Node {u} is not in the graph.')
+            # continue
 
         cs.setdefault(c, 0)
         cs[c] += 1
@@ -184,6 +220,11 @@ def compute_degree_and_cs(G, clustering_fn, use_existing_clustering):
         if use_existing_clustering:
             node_comm.append((u, c))
     f.close()
+
+    node_degree = [
+        (u, len(G[u]))
+        for u in G.nodes
+    ]
 
     if use_existing_clustering:
         return node_degree, cs, node_comm
@@ -270,6 +311,7 @@ def set_up(
     output_dir,
     use_existing_clustering=False,
     is_count_outliers=False,
+    for_abcd=False,
 ):
     # TODO: Refactor this function, this is so bad
     if os.path.exists(output_dir):
@@ -294,6 +336,7 @@ def set_up(
             seed,
             is_count_outliers,
             output_dir,
+            for_abcd=for_abcd,
         )
 
     if is_setup_done(output_dir, use_existing_clustering):
