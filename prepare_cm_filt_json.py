@@ -1,0 +1,122 @@
+from pathlib import Path
+import json
+
+ref_root = Path(
+    'data/leiden_clustering/110-networks-cm-no-filtering/json_files')
+input_root = Path('data/networks')
+output_root = Path('data/community_detection_filtcm')
+networks_list = 'data/networks_val.txt'
+cm_pipeline_root = Path('cm_pipeline')
+
+network_ids = [
+    line.strip() for line in open(networks_list)
+]
+
+method = 'sbmmcsprev1+o+eL1'
+clustering = 'sbm_wcc'
+resolution = 'sbm'
+
+cd_clids = [
+    'leiden0.1',
+    'leiden0.01',
+    'leiden0.001',
+    'leiden0.0001',
+    'leidenmod',
+    'infomap'
+]
+
+for cd_clid in cd_clids:
+    for network_id in network_ids:
+        if 'leiden0.' in cd_clid:
+            ref_json_fp = ref_root / f'{network_id}_pipeline_leiden0.1.json'
+        else:
+            ref_json_fp = ref_root / f'{network_id}_pipeline_{cd_clid}.json'
+
+        if not ref_json_fp.exists():
+            print(f'{ref_json_fp} does not exist')
+            continue
+
+        with open(ref_json_fp) as f:
+            ref_json = json.load(f)
+
+        if cd_clid == 'leiden0.1':
+            cd_clustering = 'leiden_cpm'
+            cd_resolution = 'leiden.1'
+        elif cd_clid == 'leiden0.01':
+            cd_clustering = 'leiden_cpm'
+            cd_resolution = 'leiden.01'
+        elif cd_clid == 'leiden0.001':
+            cd_clustering = 'leiden_cpm'
+            cd_resolution = 'leiden.001'
+        elif cd_clid == 'leiden0.0001':
+            cd_clustering = 'leiden_cpm'
+            cd_resolution = 'leiden.0001'
+        elif cd_clid == 'leidenmod':
+            cd_clustering = 'leiden_mod'
+            cd_resolution = 'leidenmod'
+        elif cd_clid == 'infomap':
+            cd_clustering = 'infomap'
+            cd_resolution = 'infomap'
+        else:
+            raise ValueError(f'cd_clid {cd_clid} not recognized')
+
+        out_dir = output_root / method / \
+            clustering / network_id / resolution / '0' / cd_clustering / cd_resolution
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        cm_json = ref_json.copy()
+        cm_json['title'] = f'{network_id}_{
+            method}_{clustering}_0_{cd_resolution}'
+        cm_json['input_file'] = str((input_root / method /
+                                    clustering / network_id / resolution / '0' / 'edge.tsv').absolute())
+        cm_json['output_dir'] = '.'
+        cm_json['stages'] = [
+            stage
+            for stage in cm_json['stages']
+            if stage['name'] != 'stats'
+        ]
+        cm_json['stages'].insert(
+            2,
+            {
+                "name": "filtering",
+                "scripts": [
+                    str((cm_pipeline_root /
+                        'scripts/subset_graph_nonetworkit_treestar.R').absolute()),
+                    str((cm_pipeline_root / 'scripts/make_cm_ready.R').absolute())
+                ]
+            },
+        )
+        cm_json['stages'].insert(
+            4,
+            {
+                "name": "filtering",
+                "scripts": [
+                    str((cm_pipeline_root / 'scripts/post_cm_filter.R').absolute())
+                ]
+            },
+        )
+
+        if cd_clid == 'leiden0.1':
+            cm_json['params'][0]['res'] = 0.1
+        elif cd_clid == 'leiden0.01':
+            cm_json['params'][0]['res'] = 0.01
+        elif cd_clid == 'leiden0.001':
+            cm_json['params'][0]['res'] = 0.001
+        elif cd_clid == 'leiden0.0001':
+            cm_json['params'][0]['res'] = 0.0001
+        elif cd_clid == 'leidenmod':
+            pass
+        elif cd_clid == 'infomap':
+            found = False
+            for i, stage in enumerate(cm_json['stages']):
+                if stage['name'] == 'connectivity_modifier':
+                    cm_json['stages'][i]['cfile'] = str(
+                        (cm_pipeline_root / 'hm01/clusterers/external_clusterers/infomap_wrapper.py').absolute())
+                    found = True
+                    break
+            assert found, 'cm stage not found'
+        else:
+            raise ValueError(f'cd_clid {cd_clid} not recognized')
+
+        with open(out_dir / 'pipeline.json', 'w') as f:
+            json.dump(cm_json, f, indent=4)
