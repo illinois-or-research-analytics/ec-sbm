@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse
+import logging
 
 import pandas as pd
 
@@ -18,12 +19,18 @@ output_root.mkdir(parents=True, exist_ok=True)
 # Load the mapping file
 mapping = pd.read_csv(mapping_fp)
 
-# Iterate over the rows of the mapping file
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
 for i, row in mapping.iterrows():
     print(f'Processing row {i+1}/{len(mapping)}')
 
     if row['gt_clustering'] == 'infomap':
         row['gt_clustering'] = 'infomap_cc'
+
+    logging.info(f'Processing {row["method"]} {row["gt_clustering"]} {
+                 row["network"]} {row["gt_resolution"]}')
 
     clustering_types = {
         'sbm': 'comm_sbm',
@@ -45,12 +52,21 @@ for i, row in mapping.iterrows():
         # If dummy done file exists
         done_file = output_file.parent / 'done'
         if done_file.exists():
+            logging.info(f'({clustering_key}) Skipping as done file exists...')
             continue
 
         # Run the min_accuracy function
-        compute_cd_accuracy.min_accuracy(
-            input_edgelist, groundtruth_clustering,
-            estimated_clustering, output_file)
+        logging.info(f'({clustering_key}) Running min_accuracy...')
+        try:
+            compute_cd_accuracy.min_accuracy(
+                input_edgelist, groundtruth_clustering,
+                estimated_clustering, output_file)
+        except Exception as e:
+            logging.error(f'({clustering_key}) Error: {e}')
+            continue
 
         # Make a done file
+        logging.info(f'({clustering_key}) Making done file...')
         done_file.touch()
+
+        logging.info(f'({clustering_key}) Done')

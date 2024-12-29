@@ -1,21 +1,39 @@
+import argparse
 from pathlib import Path
 
 import pandas as pd
 
-split = 'test'
-cd_root = Path('data/community_detection')
-gt_root = Path('data/networks')
-networks_list = f'data/networks_{split}.txt'
+parser = argparse.ArgumentParser(
+    description='Generate mapping for accuracy computation')
+parser.add_argument('--split', type=str, default='test',
+                    help='Data split to use')
+parser.add_argument('--method', type=str, default='sbmmcsprev1+o+eL1',
+                    help='Method to use')
+parser.add_argument('--clustering', type=str, default='sbm_wcc',
+                    help='Clustering to use')
+parser.add_argument('--resolution', type=str, default='sbm',
+                    help='Resolution to use')
+parser.add_argument('--cd-root', type=str, default='data/community_detection',
+                    help='Community detection root directory')
+parser.add_argument('--gt-root', type=str, default='data/networks',
+                    help='Ground truth root directory')
+args = parser.parse_args()
 
+split = args.split
+cd_root = Path(args.cd_root)
+gt_root = Path(args.gt_root)
+
+method = args.method
+clustering = args.clustering
+resolution = args.resolution
+
+networks_list = f'data/networks_{split}.txt'
 network_ids = [
     line.strip() for line in open(networks_list)
 ]
 
-method = 'sbmmcsprev1+o+eL1'
-clustering = 'sbm_wcc'
-resolution = 'sbm'
-
-out_fp = Path(f'data/comdet_acc/cd_acc_{split}/mapping_{split}.csv')
+out_fp = Path(
+    f'data/comdet_acc/cd_acc_{split}/mapping_{split}_{clustering}_{resolution}.csv')
 out_fp.parent.mkdir(parents=True, exist_ok=True)
 
 cd_clusterings_resolutions = [

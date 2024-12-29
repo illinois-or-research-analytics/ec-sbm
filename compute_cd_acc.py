@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse
+import logging
 
 import pandas as pd
 
@@ -28,7 +29,10 @@ whitelist = [
     for item in args.whitelist.split(';')
 ]
 
-# Iterate over the rows of the mapping file
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
 for i, row in mapping.iterrows():
     if row['gt_clustering'] == 'infomap':
         row['gt_clustering'] = 'infomap_cc'
@@ -41,6 +45,9 @@ for i, row in mapping.iterrows():
     groundtruth_clustering = row['comm_gt']
     estimated_clustering = row['comm_cd']
 
+    logging.info(f'Processing {row["method"]} {row["gt_clustering"]} {row["network"]} {
+                 row["gt_resolution"]} {row["cd_clustering"]} {row["cd_resolution"]}')
+
     output_file = output_root / row['method'] / row['gt_clustering'] / row['network'] / \
         row['gt_resolution'] / '0' / row['cd_clustering'] / \
         row['cd_resolution'] / 'accuracy.txt'
@@ -49,15 +56,23 @@ for i, row in mapping.iterrows():
     # If dummy done file exists
     done_file = output_file.parent / 'done'
     if done_file.exists():
+        logging.info(f'(without CM) Skipping as done file exists...')
         continue
 
     # Run the min_accuracy function
-    compute_cd_accuracy.min_accuracy(
-        input_edgelist, groundtruth_clustering,
-        estimated_clustering, output_file)
+    logging.info(f'(without CM) Computing accuracy...')
+    try:
+        compute_cd_accuracy.min_accuracy(
+            input_edgelist, groundtruth_clustering,
+            estimated_clustering, output_file)
+    except Exception as e:
+        logging.error(f'Error: {e}')
 
     # Make a done file
+    logging.info(f'(without CM) Creating done file...')
     done_file.touch()
+
+    logging.info(f'(without CM) Done')
 
     # Get the parameters from the mapping file
     input_edgelist = row['network_fp']
@@ -72,11 +87,16 @@ for i, row in mapping.iterrows():
     # If dummy done file exists
     done_file = output_file.parent / 'done'
     if done_file.exists():
+        logging.info(f'(with CM) Skipping as done file exists...')
         continue
 
     # Run the min_accuracy function
+    logging.info(f'(with CM) Computing accuracy...')
     compute_cd_accuracy.min_accuracy(input_edgelist, groundtruth_clustering,
                                      estimated_clustering, output_file)
 
+    logging.info(f'(with CM) Creating done file...')
     # Make a done file
     done_file.touch()
+
+    logging.info(f'(with CM) Done')
