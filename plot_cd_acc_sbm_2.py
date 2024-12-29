@@ -1,0 +1,139 @@
+import matplotlib.pyplot as plt
+from pathlib import Path
+
+import pandas as pd
+import seaborn as sns
+
+method = 'sbmmcsprev1+o+eL1'
+gt_clustering = 'sbm_wcc'
+gt_resolution = 'sbm'
+
+cd_clusterings_resolutions = [
+    ('sbm', 'sbm')
+]
+
+names = [
+    'SBM',
+]
+
+
+def load_cd_acc_data(root, method, gt_clustering, gt_resolution, cd_clusterings_resolutions, networks_list):
+    network_ids = [line.strip() for line in open(networks_list)]
+    cd_acc = []
+
+    for network_id in network_ids:
+        for cd_clustering, cd_resolution in cd_clusterings_resolutions:
+            mapping = {
+                'sbm': 'SBM',
+                'sbm_cc': 'SBM+CC',
+                'sbm_wcc': 'SBM+WCC',
+            }
+
+            acc_root = root / method / gt_clustering / network_id / \
+                gt_resolution / '0'
+
+            for suffix, stage in mapping.items():
+                done_fp = acc_root / suffix / 'sbm' / 'done'
+                acc_fp = acc_root / suffix / 'sbm' / 'accuracy.txt'
+                if not done_fp.exists():
+                    print(f'{done_fp} does not exist')
+                    continue
+
+                with open(acc_fp) as f:
+                    lines = list(f.readlines())
+                    node_coverage = float(lines[1].split(':')[1].strip())
+                    nmi = float(lines[2].split(':')[1].strip())
+                    ari = float(lines[3].split(':')[1].strip())
+
+                cd_acc.append({
+                    'network_id': network_id,
+                    'order': cd_clusterings_resolutions.index((cd_clustering, cd_resolution)),
+                    'gt_clustering': gt_clustering,
+                    'gt_resolution': gt_resolution,
+                    'cd_clustering': cd_clustering,
+                    'cd_resolution': cd_resolution,
+                    'stage': stage,
+                    'node_coverage': node_coverage,
+                    'nmi': nmi,
+                    'ari': ari,
+                })
+
+    cd_acc_df = pd.DataFrame(cd_acc)
+    return cd_acc_df
+
+
+for split in ['val_large', 'val_medium', 'val_small']:
+    networks_list = f'data/networks_{split}.txt'
+    root = Path(
+        f'data/comdet_acc/cd_acc_{'val' if 'val' in split else split}_sbm')
+
+    output_root = Path(f'output/comdet_acc/{split}/sbm')
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    cd_acc_df = load_cd_acc_data(root, method, gt_clustering,
+                                 gt_resolution, cd_clusterings_resolutions, networks_list)
+    cd_acc_df.to_csv(output_root / f'cd_acc_{split}_both.csv', index=False)
+
+    # Make box plots of NMIs with both CM and non-CM
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8), dpi=150)
+
+    sns.boxplot(
+        x='order',
+        y='nmi',
+        hue='stage',
+        data=cd_acc_df,
+        notch=True,
+        bootstrap=10000,
+        ax=axes[0],
+    )
+    axes[0].set_xticks([])
+    axes[0].set_xlabel('')
+    axes[0].set_ylabel('NMI')
+    axes[0].set_ylim(0., 1.)
+    axes[0].legend_.remove()
+
+    sns.boxplot(
+        x='order',
+        y='ari',
+        hue='stage',
+        data=cd_acc_df,
+        notch=True,
+        bootstrap=10000,
+        ax=axes[1],
+    )
+    axes[1].set_xticks([])
+    axes[1].set_xlabel('')
+    axes[1].set_ylabel('ARI')
+    axes[1].set_ylim(0., 1.)
+    axes[1].legend_.remove()
+
+    sns.boxplot(
+        x='order',
+        y='node_coverage',
+        hue='stage',
+        data=cd_acc_df,
+        notch=True,
+        bootstrap=10000,
+        ax=axes[2],
+    )
+    axes[2].set_xticks(
+        range(len(cd_clusterings_resolutions)),
+        names,
+        # rotation=90,
+    )
+    axes[2].set_xlabel('')
+    axes[2].set_ylabel('Node Coverage')
+    axes[2].set_ylim(0., 1.)
+    axes[2].legend_.remove()
+
+    handles, labels = axes.flatten()[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc='upper center',
+        ncols=4,
+        bbox_to_anchor=(0.5, 1.05),
+        fancybox=True,
+    )
+    fig.tight_layout()
+    fig.savefig(output_root / 'all_both_boxplot.pdf', bbox_inches='tight')
