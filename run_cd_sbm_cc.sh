@@ -9,10 +9,11 @@
 
 start=0
 end=0
-
-for clustering in sbm_wcc # leiden_cpm leiden_mod ikc infomap
+# module load gcc/11.2.0
+# module load cmake/3.26.3
+for clustering in leiden_cpm_nofiltcm # leiden_cpm leiden_mod ikc infomap
 do
-    for resolution in sbm # leiden.0001 leiden.001 leiden.01 leiden.1 k10 leidenmod infomap
+    for resolution in leiden.1 # leiden.0001 leiden.001 leiden.01 leiden.1 k10 leidenmod infomap
     do
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
             if [ ! $resolution = "leiden.0001" ] && [ ! $resolution = "leiden.001" ] && [ ! $resolution = "leiden.01" ] && [ ! $resolution = "leiden.1" ]; then
@@ -56,7 +57,13 @@ do
                     inp_edgelist_fp="${inp_dir}/edge.tsv"
                     if [ ! -f ${inp_edgelist_fp} ]; then
                         echo "Edgelist ${inp_edgelist_fp} does not exist"
-                        continue
+                        infomap_dir=$(ls -d ${inp_dir}/../../infomap/infomap/*/)
+                        infomap_fp=$(ls ${infomap_dir}/S1_*.tsv)
+                        if [ ! -f ${infomap_fp} ]; then
+                            echo "Infomap clustering ${infomap_fp} does not exist"
+                            continue
+                        fi
+                        cp "${infomap_fp}" "${inp_edgelist_fp}"
                     fi
 
                     out_dir="data/community_detection/${method}/${clustering}/${network_id}/${resolution}/0/sbm_cc/sbm/"

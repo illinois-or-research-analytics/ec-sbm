@@ -1,12 +1,22 @@
 import matplotlib.pyplot as plt
 from pathlib import Path
+import argparse
 
 import pandas as pd
 import seaborn as sns
 
-method = 'sbmmcsprev1+o+eL1'
-gt_clustering = 'sbm_wcc'
-gt_resolution = 'sbm'
+parser = argparse.ArgumentParser(description='Plot CD accuracy results.')
+parser.add_argument('--method', type=str,
+                    default='sbmmcsprev1+o+eL1', help='Method name')
+parser.add_argument('--gt_clustering', type=str,
+                    default='sbm_wcc', help='Ground truth clustering')
+parser.add_argument('--gt_resolution', type=str,
+                    default='sbm', help='Ground truth resolution')
+args = parser.parse_args()
+
+method = args.method
+gt_clustering = args.gt_clustering
+gt_resolution = args.gt_resolution
 
 cd_clusterings_resolutions = [
     ('sbm', 'sbm')
@@ -67,7 +77,8 @@ for split in ['val_large', 'val_medium', 'val_small']:
     root = Path(
         f'data/comdet_acc/cd_acc_{'val' if 'val' in split else split}_sbm')
 
-    output_root = Path(f'output/comdet_acc/{split}/sbm')
+    output_root = Path(
+        f'output/comdet_acc/{split}/{method}/{gt_clustering}/{gt_resolution}/sbm')
     output_root.mkdir(parents=True, exist_ok=True)
 
     cd_acc_df = load_cd_acc_data(root, method, gt_clustering,
