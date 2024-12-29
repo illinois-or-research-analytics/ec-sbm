@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/fix_edge/slurm-%j.out
-#SBATCH --job-name="e0_L2_sbm_fix_all"
+#SBATCH --job-name="e0_L1_sbmwcc_cen_sbmmcs"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -10,13 +10,13 @@
 
 start=0
 end=0
-fixedge_method=L2
+fixedge_method=L1
 
 echo "============================================"
 echo "Fixing edge with ${fixedge_method}"
 echo "============================================"
 
-for clustering in sbm # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_cc
+for clustering in sbm_wcc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_cc
 do
     for resolution in sbm # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
     do
@@ -43,7 +43,7 @@ do
             fi
         fi
 
-        for network_id in bibsonomy dblp_coauthor_snap google google_web wordnet # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
+        for network_id in livejournal # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
@@ -64,7 +64,7 @@ do
 
             echo "============================================"
 
-            for method in sbm sbmmcsprev1 abcdta4 #abcd abcdta4 sbm sbmmcsprev1
+            for method in sbmmcsprev1 #abcd abcdta4 sbm sbmmcsprev1
             do
                 input_dirs="data/networks/${method}+o/${clustering}/${network_id}/${resolution}/"
                 echo $input_dirs

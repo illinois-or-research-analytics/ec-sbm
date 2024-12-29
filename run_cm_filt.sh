@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --time=5-00:00:00
+#SBATCH --time=3-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/cm/filt/slurm-%j.out
-#SBATCH --job-name="cm_mod"
+#SBATCH --job-name="cmfilt_1cm_val"
 #SBATCH --partition=tallis
-#SBATCH --mem=128G
+#SBATCH --mem=64G
 
 # ===================================
 
@@ -12,6 +12,8 @@ start=0
 end=0
 
 cur_dir=$(pwd)
+gt_clustering="leiden_cpm_nofiltcm"
+gt_resolution="leiden.1"
 
 for clustering in leiden_cpm leiden_mod infomap # leiden_cpm leiden_mod ikc infomap
 do
@@ -40,7 +42,7 @@ do
         fi
 
         cd ${cur_dir}
-        for network_id in paris_transportation discogs_label # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)  
+        for network_id in $(cat data/networks_val.txt)  # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)  
         do  
             cd ${cur_dir}
             for method in sbmmcsprev1+o+eL1
@@ -51,7 +53,7 @@ do
                     echo "============================"
                     echo ${network_id} ${method} ${clustering} ${resolution} ${seed}
                     cd ${cur_dir}
-                    cd data/community_detection_filtcm/${method}/sbm_wcc/${network_id}/sbm/0/${clustering}/${resolution}/
+                    cd data/community_detection_filtcm/${method}/${gt_clustering}/${network_id}/${gt_resolution}/${seed}/${clustering}/${resolution}/
                     if [ -f done ]; then
                         cd ${cur_dir}
                         continue

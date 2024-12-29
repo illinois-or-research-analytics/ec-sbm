@@ -2,9 +2,10 @@ from pathlib import Path
 
 import pandas as pd
 
+split = 'test'
 cd_root = Path('data/community_detection_filtcm')
 gt_root = Path('data/networks')
-networks_list = 'data/networks_val.txt'
+networks_list = f'data/networks_{split}.txt'
 
 network_ids = [
     line.strip() for line in open(networks_list)
@@ -14,7 +15,7 @@ method = 'sbmmcsprev1+o+eL1'
 clustering = 'sbm_wcc'
 resolution = 'sbm'
 
-out_fp = Path(f'output/cd_acc_filt/mapping.csv')
+out_fp = Path(f'data/comdet_acc/cd_acc_{split}_filt/mapping_{split}.csv')
 out_fp.parent.mkdir(parents=True, exist_ok=True)
 
 cd_clusterings_resolutions = [
