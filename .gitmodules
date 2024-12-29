@@ -10,3 +10,6 @@
 [submodule "cm_pipeline"]
 	path = cm_pipeline
 	url = git@github.com:illinois-or-research-analytics/cm_pipeline.git
+[submodule "constrained-clustering"]
+	path = constrained-clustering
+	url = git@github.com:MinhyukPark/constrained-clustering.git
