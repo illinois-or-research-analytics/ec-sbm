@@ -2,9 +2,10 @@ from pathlib import Path
 
 import pandas as pd
 
+split = 'test'
 cd_root = Path('data/community_detection')
 gt_root = Path('data/networks')
-networks_list = 'data/networks_val.txt'
+networks_list = f'data/networks_{split}.txt'
 
 network_ids = [
     line.strip() for line in open(networks_list)
@@ -14,7 +15,7 @@ method = 'sbmmcsprev1+o+eL1'
 clustering = 'sbm_wcc'
 resolution = 'sbm'
 
-out_fp = Path(f'output/cd_acc/mapping.csv')
+out_fp = Path(f'data/comdet_acc/cd_acc_{split}/mapping_{split}.csv')
 out_fp.parent.mkdir(parents=True, exist_ok=True)
 
 cd_clusterings_resolutions = [
@@ -26,20 +27,8 @@ cd_clusterings_resolutions = [
     ('infomap', 'infomap'),
 ]
 
-headers = [
-    'network',
-    'method',
-    'gt_clustering',
-    'gt_resolution',
-    'cd_clustering',
-    'cd_resolution',
-    'network_fp'
-    'comm_gt',
-    'comm_cd',
-    'comm_cdcm',
-]
-
 lines = []
+
 for network_id in network_ids:
     for cd_clustering, cd_resolution in cd_clusterings_resolutions:
         gt_comm = gt_root / method / clustering / \
@@ -87,6 +76,24 @@ for network_id in network_ids:
         }
 
         lines.append(line)
+
+for network_id in network_ids:
+    # line = {
+    #     'network': network_id,
+    #     'method': method,
+    #     'gt_clustering': clustering,
+    #     'gt_resolution': resolution,
+    #     'cd_clustering': 'sbm',
+    #     'cd_resolution': 'sbm',
+    #     'network_fp': '',
+    #     'comm_gt': gt_root / method / clustering /
+    #     network_id / resolution / '0' / 'com.tsv',
+    #     'comm_cd': cd_root / method / clustering /
+    #     network_id / resolution / '0' / 'sbm' / 'sbm' / 'com.tsv',
+    #     'comm_cdcm': cd_root / method / clustering /
+    #     network_id / resolution / '0' / 'sbm_nofiltcm' / 'sbm' / 'sbm' / 'com.tsv',
+    # }
+    pass
 
 df = pd.DataFrame(lines)
 df.to_csv(out_fp, index=False)

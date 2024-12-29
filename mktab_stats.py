@@ -11,12 +11,11 @@ network_ids = [
     line.strip() for line in open(networks_list)
 ]
 
-method = 'sbmmcsprev1'
 clustering = 'sbm_wcc'
 resolution = 'sbm'
 
 out_fp = Path(
-    f'output/stats/time_{split}_{method}_{clustering}_{resolution}.csv')
+    f'output/stats/stats_{split}_{clustering}_{resolution}.csv')
 out_fp.parent.mkdir(parents=True, exist_ok=True)
 
 all_stats = []

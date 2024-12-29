@@ -1,19 +1,19 @@
 #!/bin/bash
-#SBATCH --time=5-00:00:00
+#SBATCH --time=3-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/generate_clustered/slurm-%j.out
-#SBATCH --job-name="0_sbm_bibsonomy_sbmmcs"
+#SBATCH --job-name="0_0001cm_cen_sbmmcs"
 #SBATCH --partition=tallis
-#SBATCH --mem=64G
+#SBATCH --mem=128G
 
 # ===================================
 
 start=0
 end=0
 
-for clustering in sbm # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_nofiltcm ikc_cc
+for clustering in leiden_cpm_nofiltcm # leiden_mod_nofiltcm leiden_cpm leiden_mod  # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_nofiltcm ikc_cc
 do
-    for resolution in sbm # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
+    for resolution in leiden.0001 leidenmod # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
@@ -38,7 +38,7 @@ do
             fi
         fi
         
-        for network_id in bibsonomy dblp_coauthor_snap google google_web wordnet # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
+        for network_id in cen # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig_wo_outliers/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
@@ -92,7 +92,7 @@ do
             echo "============================"
             echo ""
             
-            for method in sbm sbmmcsprev1 abcdta4 #abcd abcdta4 sbm sbmmcsprev1
+            for method in sbm sbmmcsprev1 #abcd abcdta4 sbm sbmmcsprev1
             do
                 output_dirs="data/networks/${method}/${clustering}/${network_id}/${resolution}/"
                 output_stat_dirs="data/stats/${method}/${clustering}/${network_id}/${resolution}/"

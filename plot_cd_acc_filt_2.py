@@ -4,8 +4,6 @@ from pathlib import Path
 import pandas as pd
 import seaborn as sns
 
-root = Path('output/cd_acc_filt')
-
 method = 'sbmmcsprev1+o+eL1'
 gt_clustering = 'sbm_wcc'
 gt_resolution = 'sbm'
@@ -74,69 +72,78 @@ def load_cd_acc_data(root, method, gt_clustering, gt_resolution, cd_clusterings_
     return cd_acc_df
 
 
-networks_list = 'data/networks_val.txt'
-cd_acc_df = load_cd_acc_data(root, method, gt_clustering,
-                             gt_resolution, cd_clusterings_resolutions, networks_list)
-cd_acc_df.to_csv(root / 'cd_acc_both.csv', index=False)
+for split in ['val_large', 'val_medium', 'val_small']:
+    networks_list = f'data/networks_{split}.txt'
+    root = Path(
+        f'data/comdet_acc/cd_acc_{'val' if 'val' in split else split}_filt')
 
-# Make box plots of NMIs with both CM and non-CM
-fig, axes = plt.subplots(3, 1, figsize=(10, 8), dpi=150)
-plt.rcParams.update({'font.size': 15})
+    output_root = Path(f'output/comdet_acc/{split}/filt')
+    output_root.mkdir(parents=True, exist_ok=True)
 
-sns.boxplot(
-    x='order',
-    y='nmi',
-    hue='stage',
-    data=cd_acc_df,
-    notch=True,
-    bootstrap=10000,
-    ax=axes[0],
-)
-axes[0].set_xticks([])
-axes[0].set_xlabel('')
-axes[0].set_ylabel('NMI')
-axes[0].legend_.remove()
+    cd_acc_df = load_cd_acc_data(root, method, gt_clustering,
+                                 gt_resolution, cd_clusterings_resolutions, networks_list)
+    cd_acc_df.to_csv(output_root / f'cd_acc_{split}_both.csv', index=False)
 
-sns.boxplot(
-    x='order',
-    y='ari',
-    hue='stage',
-    data=cd_acc_df,
-    notch=True,
-    bootstrap=10000,
-    ax=axes[1],
-)
-axes[1].set_xticks([])
-axes[1].set_xlabel('')
-axes[1].set_ylabel('ARI')
-axes[1].legend_.remove()
+    # Make box plots of NMIs with both CM and non-CM
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8), dpi=150)
 
-sns.boxplot(
-    x='order',
-    y='node_coverage',
-    hue='stage',
-    data=cd_acc_df,
-    notch=True,
-    bootstrap=10000,
-    ax=axes[2],
-)
-axes[2].set_xticks(
-    range(len(cd_clusterings_resolutions)),
-    names,
-    # rotation=90,
-)
-axes[2].set_xlabel('')
-axes[2].set_ylabel('Node Coverage')
-axes[2].legend_.remove()
+    sns.boxplot(
+        x='order',
+        y='nmi',
+        hue='stage',
+        data=cd_acc_df,
+        notch=True,
+        bootstrap=10000,
+        ax=axes[0],
+    )
+    axes[0].set_xticks([])
+    axes[0].set_xlabel('')
+    axes[0].set_ylabel('NMI')
+    axes[0].set_ylim(0., 1.)
+    axes[0].legend_.remove()
 
-handles, labels = axes.flatten()[0].get_legend_handles_labels()
-fig.legend(
-    handles,
-    labels,
-    loc='upper center',
-    ncols=4,
-    bbox_to_anchor=(0.5, 1.05),
-    fancybox=True,
-)
-fig.tight_layout()
-fig.savefig(root / 'all_both_boxplot.pdf', bbox_inches='tight')
+    sns.boxplot(
+        x='order',
+        y='ari',
+        hue='stage',
+        data=cd_acc_df,
+        notch=True,
+        bootstrap=10000,
+        ax=axes[1],
+    )
+    axes[1].set_xticks([])
+    axes[1].set_xlabel('')
+    axes[1].set_ylabel('ARI')
+    axes[1].set_ylim(0., 1.)
+    axes[1].legend_.remove()
+
+    sns.boxplot(
+        x='order',
+        y='node_coverage',
+        hue='stage',
+        data=cd_acc_df,
+        notch=True,
+        bootstrap=10000,
+        ax=axes[2],
+    )
+    axes[2].set_xticks(
+        range(len(cd_clusterings_resolutions)),
+        names,
+        # rotation=90,
+    )
+    axes[2].set_xlabel('')
+    axes[2].set_ylabel('Node Coverage')
+    axes[2].set_ylim(0., 1.)
+    axes[2].legend_.remove()
+
+    handles, labels = axes.flatten()[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc='upper center',
+        ncols=4,
+        bbox_to_anchor=(0.5, 1.05),
+        fancybox=True,
+    )
+    fig.tight_layout()
+    fig.savefig(output_root / 'all_both_boxplot.pdf', bbox_inches='tight')

@@ -2,7 +2,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/compute_gt_stats/slurm-%j.out
-#SBATCH --job-name="gt_infomap_sbm"
+#SBATCH --job-name="gt_sbmwcc_lj_sbmmcs+e"
 #SBATCH --partition=tallis
 #SBATCH --mem=64G
 
@@ -11,7 +11,7 @@
 start=0
 end=0
 
-for clustering in infomap_cc # sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
+for clustering in sbm_wcc # sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
 do
     for resolution in sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap # sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
     do
@@ -38,7 +38,7 @@ do
             fi
         fi
         
-        for network_id in $(cat data/networks_val.txt) # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
+        for network_id in livejournal # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
         do  
             orig_stat_dir="data/stats/orig/network_only/${network_id}/"
             echo $orig_stat_dir
@@ -48,7 +48,7 @@ do
                 continue
             fi
 
-            for method in sbm+o sbmmcsprev1+o sbmmcsprev1+o+eL1 RECCSv1_OS1 # sbm+o sbmmcsprev1+o sbmmcsprev1+o+eL1 RECCSv1_OS1 abcd+o abcdta4+o abcdta4+o+eL1 
+            for method in sbmmcsprev1+o+eL1 # sbm+o sbmmcsprev1+o sbmmcsprev1+o+eL1 RECCSv1_OS1 abcd+o abcdta4+o abcdta4+o+eL1 
             do
                 input_dirs="data/networks/${method}/${clustering}/${network_id}/${resolution}/"
                 output_stat_dirs="data/stats/${method}/${clustering}/${network_id}/${resolution}/"

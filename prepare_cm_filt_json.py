@@ -1,11 +1,12 @@
 from pathlib import Path
 import json
 
+split = 'val'
 ref_root = Path(
     'data/leiden_clustering/110-networks-cm-no-filtering/json_files')
 input_root = Path('data/networks')
 output_root = Path('data/community_detection_filtcm')
-networks_list = 'data/networks_val.txt'
+networks_list = f'data/networks_{split}.txt'
 cm_pipeline_root = Path('cm_pipeline')
 
 network_ids = [
@@ -13,8 +14,8 @@ network_ids = [
 ]
 
 method = 'sbmmcsprev1+o+eL1'
-clustering = 'sbm_wcc'
-resolution = 'sbm'
+clustering = 'leiden_cpm_nofiltcm'
+resolution = 'leiden.1'
 
 cd_clids = [
     'leiden0.1',
@@ -34,7 +35,10 @@ for cd_clid in cd_clids:
 
         if not ref_json_fp.exists():
             print(f'{ref_json_fp} does not exist')
-            continue
+            if 'leiden0.' in cd_clid:
+                ref_json_fp = ref_root / f'cen_pipeline_leiden0.1.json'
+            else:
+                ref_json_fp = ref_root / f'cen_pipeline_{cd_clid}.json'
 
         with open(ref_json_fp) as f:
             ref_json = json.load(f)
@@ -67,6 +71,7 @@ for cd_clid in cd_clids:
         cm_json = ref_json.copy()
         cm_json['title'] = f'{network_id}_{
             method}_{clustering}_0_{cd_resolution}'
+        cm_json['name'] = network_id
         cm_json['input_file'] = str((input_root / method /
                                     clustering / network_id / resolution / '0' / 'edge.tsv').absolute())
         cm_json['output_dir'] = '.'
