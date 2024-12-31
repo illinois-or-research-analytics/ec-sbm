@@ -27,3 +27,9 @@ To generate network:
 ```
 sh gen_network.sh
 ```
+
+### Plot excess edges
+
+```
+python plot_excess_edges_2.py --root data/stats/abcd+o --output output/excess_edges/abcd
+```

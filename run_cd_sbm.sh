@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=3-00:00:00
+#SBATCH --time=1-12:00:00
 #SBATCH --output=slurm_output/cd/slurm-%j.out
 #SBATCH --job-name="cdsbm_modcm_vallarge"
 #SBATCH --partition=tallis
@@ -36,7 +36,7 @@ do
             fi
         fi
 
-        for network_id in $(cat data/networks_val_large.txt) # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)  
+        for network_id in $(cat data/networks_val.txt) # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)  
         do
             for method in sbmmcsprev1+o+eL1
             do
