@@ -64,6 +64,10 @@ do
                 echo "Already computed"
             fi
 
+            python network_evaluation/compute_gt_stats.py \
+                --input ${orig_edgelist_fn} \
+                --output data/stats/orig/network_only/${network_id}/
+
             echo "============================================"
 
             for method in sbm #abcd abcdta4 sbm sbmmcspres sbmmcsprev1
@@ -122,6 +126,10 @@ do
                         echo "Stats already computed"
                     fi
 
+                    python network_evaluation/compute_gt_stats.py \
+                        --input ${output_dir}/syn_o_un.tsv \
+                        --output ${output_stat_dir}
+
                     echo "===="
 
                     echo "Comparing with original"
@@ -142,6 +150,11 @@ do
                     else
                         echo "Already compared"
                     fi
+
+                    python network_evaluation/compare_gt_stats_pair.py \
+                        --network-1-folder data/stats/orig/network_only/${network_id}/ \
+                        --network-2-folder ${output_stat_dir} \
+                        --output-file ${output_stat_dir}/compare_gt_stats.csv
                 done
             done
             echo "============================"
