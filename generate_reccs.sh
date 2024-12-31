@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --time=3-00:00:00
+#SBATCH --time=1-12:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/reccs/slurm-%j.out
-#SBATCH --job-name="0_sbmwcc_orkut_reccs"
+#SBATCH --job-name="0_modcm_orkutcen_reccs"
 #SBATCH --partition=tallis
 #SBATCH --mem=128G
 
@@ -11,7 +11,7 @@
 start=0
 end=0
 
-for clustering in sbm_wcc # sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
+for clustering in leiden_mod_nofiltcm sbm_wcc # sbm sbm_cc sbm_wcc leiden_cpm leiden_cpm_nofiltcm leiden_mod leiden_mod_nofiltcm ikc_cc ikc_nofiltcm infomap_cc infomap_nofiltcm
 do
     for resolution in sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap # sbm leiden.001 leiden.01 leiden.1 leidenmod k10 infomap
     do
@@ -38,7 +38,7 @@ do
             fi
         fi
 
-        for network_id in orkut # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
+        for network_id in orkut cen livejournal # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             orig_edgelist_fn="${orig_dir}/edge.dat"
@@ -168,7 +168,7 @@ do
                     fi
 
                     python network_evaluation/compute_gt_stats.py \
-                        --input ${orig_edgelist_fn} \
+                        --input ${output_dir}/syn_o_un.tsv \
                         --output ${output_stat_dir}
 
                     if [ ! -f ${output_stat_dir}/deg_dist.png ]; then
