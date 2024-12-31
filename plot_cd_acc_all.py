@@ -18,37 +18,45 @@ method = args.method
 gt_clustering = args.gt_clustering
 gt_resolution = args.gt_resolution
 
+splits = [
+    # 'val_large',
+    'val_medium',
+    'val_small',
+]
+
 cd_clusterings_resolutions = [
-    ('leiden_cpm', 'leiden.1'),
+    # ('leiden_cpm', 'leiden.1'),
     ('leiden_cpm_nofiltcm', 'leiden.1'),
-    ('leiden_cpm', 'leiden.01'),
+    # ('leiden_cpm', 'leiden.01'),
     ('leiden_cpm_nofiltcm', 'leiden.01'),
-    ('leiden_cpm', 'leiden.001'),
+    # ('leiden_cpm', 'leiden.001'),
     ('leiden_cpm_nofiltcm', 'leiden.001'),
-    ('leiden_cpm', 'leiden.0001'),
+    # ('leiden_cpm', 'leiden.0001'),
     ('leiden_cpm_nofiltcm', 'leiden.0001'),
-    ('leiden_mod', 'leidenmod'),
+    # ('leiden_mod', 'leidenmod'),
     ('leiden_mod_nofiltcm', 'leidenmod'),
-    ('infomap', 'infomap'),
+    # ('infomap', 'infomap'),
     ('infomap_nofiltcm', 'infomap'),
-    ('sbm', 'sbm'),
+    # ('sbm', 'sbm'),
+    # ('sbm_cc', 'sbm'),
     ('sbm_wcc', 'sbm'),
 ]
 
 names = [
-    'Leiden-CPM(0.1)',
+    # 'Leiden-CPM(0.1)',
     'Leiden-CPM(0.1)+CM',
-    'Leiden-CPM(0.01)',
+    # 'Leiden-CPM(0.01)',
     'Leiden-CPM(0.01)+CM',
-    'Leiden-CPM(0.001)',
+    # 'Leiden-CPM(0.001)',
     'Leiden-CPM(0.001)+CM',
-    'Leiden-CPM(0.0001)',
+    # 'Leiden-CPM(0.0001)',
     'Leiden-CPM(0.0001)+CM',
-    'Leiden-Mod',
+    # 'Leiden-Mod',
     'Leiden-Mod+CM',
-    'InfoMap',
+    # 'InfoMap',
     'InfoMap+CM',
-    'SBM',
+    # 'SBM',
+    # 'SBM-CC',
     'SBM-WCC',
 ]
 
@@ -99,13 +107,15 @@ def load_cd_acc_data(root, split, method, gt_clustering, gt_resolution, cd_clust
     return cd_acc_df
 
 
-for split in ['val_medium', 'val_small']:
+for split in splits:
     root = Path(f'data/comdet_acc/')
     networks_list = f'data/networks_{split}.txt'
 
     output_root = Path(
         f'output/comdet_acc/{split}/{method}/{gt_clustering}/{gt_resolution}/all')
     output_root.mkdir(parents=True, exist_ok=True)
+
+    output_prefix = f'treated'
 
     cd_acc_df = load_cd_acc_data(
         root,
@@ -116,7 +126,6 @@ for split in ['val_medium', 'val_small']:
         cd_clusterings_resolutions,
         networks_list,
     )
-    cd_acc_df.to_csv(output_root / f'cd_acc_{split}_both.csv', index=False)
 
     # Make box plots of NMIs with both CM and non-CM
     fig, axes = plt.subplots(3, 1, figsize=(10, 12), dpi=150)
@@ -132,7 +141,7 @@ for split in ['val_medium', 'val_small']:
     axes[0].set_xticks([])
     axes[0].set_xlabel('')
     axes[0].set_ylabel('NMI')
-    axes[0].set_ylim(-0.1, 1.1)
+    # axes[0].set_ylim(-0.1, 1.1)
     # axes[0].legend_.remove()
 
     sns.boxplot(
@@ -146,7 +155,7 @@ for split in ['val_medium', 'val_small']:
     axes[1].set_xticks([])
     axes[1].set_xlabel('')
     axes[1].set_ylabel('ARI')
-    axes[1].set_ylim(-0.1, 1.1)
+    # axes[1].set_ylim(-0.1, 1.1)
     # axes[1].legend_.remove()
 
     sns.boxplot(
@@ -164,7 +173,7 @@ for split in ['val_medium', 'val_small']:
     )
     axes[2].set_xlabel('')
     axes[2].set_ylabel('Node Coverage')
-    axes[2].set_ylim(-0.1, 1.1)
+    # axes[2].set_ylim(-0.1, 1.1)
     # axes[2].legend_.remove()
 
     # handles, labels = axes.flatten()[0].get_legend_handles_labels()
@@ -177,4 +186,7 @@ for split in ['val_medium', 'val_small']:
     #     fancybox=True,
     # )
     fig.tight_layout()
-    fig.savefig(output_root / 'all_both_boxplot.pdf', bbox_inches='tight')
+    fig.savefig(
+        output_root / f'{output_prefix}_boxplot.pdf', bbox_inches='tight')
+
+    cd_acc_df.to_csv(output_root / f'{output_prefix}_table.csv', index=False)

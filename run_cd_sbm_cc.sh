@@ -11,9 +11,9 @@ start=0
 end=0
 # module load gcc/11.2.0
 # module load cmake/3.26.3
-for clustering in leiden_cpm_nofiltcm # leiden_cpm leiden_mod ikc infomap
+for clustering in leiden_mod_nofiltcm # leiden_cpm leiden_mod ikc infomap
 do
-    for resolution in leiden.1 # leiden.0001 leiden.001 leiden.01 leiden.1 k10 leidenmod infomap
+    for resolution in leidenmod # leiden.0001 leiden.001 leiden.01 leiden.1 k10 leidenmod infomap
     do
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
             if [ ! $resolution = "leiden.0001" ] && [ ! $resolution = "leiden.001" ] && [ ! $resolution = "leiden.01" ] && [ ! $resolution = "leiden.1" ]; then
