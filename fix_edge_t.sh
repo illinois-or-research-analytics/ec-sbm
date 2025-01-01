@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --time=5-00:00:00
+#SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/fix_edge/slurm-%j.out
-#SBATCH --job-name="e0_L1_sbmwcc_cen_sbmmcs"
+#SBATCH --job-name="e0_L1_modcm_test_sbmmcs"
 #SBATCH --partition=tallis
-#SBATCH --mem=64G
+#SBATCH --mem=128G
 
 # ===================================
 
@@ -16,9 +16,9 @@ echo "============================================"
 echo "Fixing edge with ${fixedge_method}"
 echo "============================================"
 
-for clustering in sbm_wcc # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_cc
+for clustering in leiden_mod_nofiltcm # leiden_cpm_nofiltcm leiden_mod_nofiltcm ikc_nofiltcm infomap_nofiltcm leiden_cpm ikc_cc
 do
-    for resolution in sbm # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
+    for resolution in leidenmod # leiden.0001 leiden.001 leiden.01 k10 leidenmod infomap
     do
         # Matching clustering with resolution
         if [ $clustering = "leiden_cpm_cm" ] || [ $clustering = "leiden_cpm" ] || [ $clustering = "leiden_cpm_nofiltcm" ]; then
@@ -43,7 +43,7 @@ do
             fi
         fi
 
-        for network_id in livejournal # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
+        for network_id in cen orkut hyves # cit_hepph cit_patents wiki_topcats wiki_talk orkut cen $(cat data/networks.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir

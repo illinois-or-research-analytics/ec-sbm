@@ -19,7 +19,8 @@ gt_clustering = args.gt_clustering
 gt_resolution = args.gt_resolution
 
 splits = [
-    # 'val_large',
+    'val',
+    'val_large',
     'val_medium',
     'val_small',
 ]

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=1-12:00:00
+#SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --output=slurm_output/generate_clustered/slurm-%j.out
 #SBATCH --job-name="0_all_test_sbmmcs"
@@ -38,7 +38,7 @@ do
             fi
         fi
         
-        for network_id in cen orkut hyves # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
+        for network_id in orkut hyves # $(cat data/networks_train.txt) $(cat data/networks_val.txt) $(cat data/networks_test.txt)
         do
             orig_dir="data/networks/orig_wo_outliers/${clustering}/${network_id}/${resolution}/"
             echo $orig_dir
