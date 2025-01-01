@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=1-12:00:00
+#SBATCH --time=1-8:00:00
 #SBATCH --output=slurm_output/cd/slurm-%j.out
 #SBATCH --job-name="cdsbm_modcm_vallarge"
 #SBATCH --partition=tallis
@@ -10,7 +10,7 @@
 start=0
 end=0
 
-for clustering in leiden_mod_nofiltcm # leiden_cpm leiden_mod ikc infomap
+for clustering in leiden_cpm_nofiltcm # leiden_cpm leiden_mod ikc infomap
 do
     for resolution in leiden.1 leidenmod # leiden.0001 leiden.001 leiden.01 leiden.1 k10 leidenmod infomap
     do
