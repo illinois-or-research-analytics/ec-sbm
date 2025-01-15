@@ -6,21 +6,16 @@
 #SBATCH --partition=tallis
 #SBATCH --mem=8G
 
-# SBM-MCS
 for method in sbmmcsprev1+o+eL1 abcdta4+o sbm+o abcd+o
 do 
     if [ $method == "sbmmcsprev1+o+eL1" ]; then
         method_name="SBM-MCS"
-        folder_name="sbmmcs"
     elif [ $method == "abcdta4+o" ]; then
         method_name="ABCD-MCS"
-        folder_name="abcdmcs"
     elif [ $method == "sbm+o" ]; then
         method_name="SBM"
-        folder_name="sbm"
     elif [ $method == "abcd+o" ]; then
         method_name="ABCD"
-        folder_name="abcd"
     fi
 
     python network_evaluation/compare_simulators_3.py \
@@ -36,7 +31,7 @@ do
             sbm \
             sbm \
             sbm \
-        --output-dir output/val_cl/${folder_name}/sbm/ \
+        --output-dir output/val_cl/${method}/sbm/ \
         --network-whitelist-fp data/networks_val.txt \
         --num-replicates 1
 
@@ -53,7 +48,7 @@ do
             leiden.1 \
             leiden.01 \
             leiden.001 \
-        --output-dir output/val_cl/${folder_name}/cpm/ \
+        --output-dir output/val_cl/${method}/cpm/ \
         --network-whitelist-fp data/networks_val.txt \
         --num-replicates 1
 
@@ -70,7 +65,7 @@ do
             leiden.1 \
             leiden.01 \
             leiden.001 \
-        --output-dir output/val_cl/${folder_name}/cpmcm/ \
+        --output-dir output/val_cl/${method}/cpmcm/ \
         --network-whitelist-fp data/networks_val.txt \
         --num-replicates 1
 
@@ -111,7 +106,7 @@ do
             sbm \
             sbm \
             sbm \
-        --output-dir output/val_cl/${folder_name}/cpm_cpmcm_sbm_mod/ \
+        --output-dir output/val_cl/${method}/cpm_cpmcm_sbm_mod/ \
         --network-whitelist-fp data/networks_val.txt \
         --num-replicates 1
 done

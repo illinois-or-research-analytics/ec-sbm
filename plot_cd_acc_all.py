@@ -20,44 +20,44 @@ gt_resolution = args.gt_resolution
 
 splits = [
     'val',
-    'val_large',
-    'val_medium',
-    'val_small',
+    # 'val_large',
+    # 'val_medium',
+    # 'val_small',
 ]
 
 cd_clusterings_resolutions = [
-    # ('leiden_cpm', 'leiden.1'),
+    ('leiden_cpm', 'leiden.1'),
     ('leiden_cpm_nofiltcm', 'leiden.1'),
-    # ('leiden_cpm', 'leiden.01'),
+    ('leiden_cpm', 'leiden.01'),
     ('leiden_cpm_nofiltcm', 'leiden.01'),
-    # ('leiden_cpm', 'leiden.001'),
+    ('leiden_cpm', 'leiden.001'),
     ('leiden_cpm_nofiltcm', 'leiden.001'),
-    # ('leiden_cpm', 'leiden.0001'),
+    ('leiden_cpm', 'leiden.0001'),
     ('leiden_cpm_nofiltcm', 'leiden.0001'),
-    # ('leiden_mod', 'leidenmod'),
+    ('leiden_mod', 'leidenmod'),
     ('leiden_mod_nofiltcm', 'leidenmod'),
-    # ('infomap', 'infomap'),
+    ('infomap', 'infomap'),
     ('infomap_nofiltcm', 'infomap'),
-    # ('sbm', 'sbm'),
-    # ('sbm_cc', 'sbm'),
+    ('sbm', 'sbm'),
+    ('sbm_cc', 'sbm'),
     ('sbm_wcc', 'sbm'),
 ]
 
 names = [
-    # 'Leiden-CPM(0.1)',
+    'Leiden-CPM(0.1)',
     'Leiden-CPM(0.1)+CM',
-    # 'Leiden-CPM(0.01)',
+    'Leiden-CPM(0.01)',
     'Leiden-CPM(0.01)+CM',
-    # 'Leiden-CPM(0.001)',
+    'Leiden-CPM(0.001)',
     'Leiden-CPM(0.001)+CM',
-    # 'Leiden-CPM(0.0001)',
+    'Leiden-CPM(0.0001)',
     'Leiden-CPM(0.0001)+CM',
-    # 'Leiden-Mod',
+    'Leiden-Mod',
     'Leiden-Mod+CM',
-    # 'InfoMap',
+    'InfoMap',
     'InfoMap+CM',
-    # 'SBM',
-    # 'SBM-CC',
+    'SBM',
+    'SBM-CC',
     'SBM-WCC',
 ]
 
@@ -116,7 +116,7 @@ for split in splits:
         f'output/comdet_acc/{split}/{method}/{gt_clustering}/{gt_resolution}/all')
     output_root.mkdir(parents=True, exist_ok=True)
 
-    output_prefix = f'treated'
+    output_prefix = 'all'  # f'treated'
 
     cd_acc_df = load_cd_acc_data(
         root,
