@@ -98,7 +98,7 @@ def load_cd_acc_data(root, method, gt_clustering, gt_resolution, cd_clusterings_
     return cd_acc_df
 
 
-for split in ['val_large', 'val_medium', 'val_small']:
+for split in ['val']:
     root = Path(f'data/comdet_acc/cd_acc_{'val' if 'val' in split else split}')
     networks_list = f'data/networks_{split}.txt'
 

@@ -8,21 +8,35 @@ import numpy as np
 import pandas as pd
 
 CLUSTERING_RESOLUTION = [
-    ('ikc_cc', 'k10'),
-    ('ikc_nofiltcm', 'k10'),
-    ('infomap_cc', 'infomap'),
-    ('infomap_nofiltcm', 'infomap'),
+    # ('ikc_cc', 'k10'),
+    # ('ikc_nofiltcm', 'k10'),
+    # ('infomap_cc', 'infomap'),
+    # ('infomap_nofiltcm', 'infomap'),
     ('leiden_cpm', 'leiden.1'),
-    ('leiden_cpm', 'leiden.01'),
-    ('leiden_cpm', 'leiden.001'),
     ('leiden_cpm_nofiltcm', 'leiden.1'),
+    ('leiden_cpm', 'leiden.01'),
     ('leiden_cpm_nofiltcm', 'leiden.01'),
+    ('leiden_cpm', 'leiden.001'),
     ('leiden_cpm_nofiltcm', 'leiden.001'),
     ('leiden_mod', 'leidenmod'),
     ('leiden_mod_nofiltcm', 'leidenmod'),
     ('sbm', 'sbm'),
     ('sbm_cc', 'sbm'),
     ('sbm_wcc', 'sbm'),
+]
+
+names = [
+    'Leiden-CPM(0.1)',
+    'Leiden-CPM(0.1)+CM',
+    'Leiden-CPM(0.01)',
+    'Leiden-CPM(0.01)+CM',
+    'Leiden-CPM(0.001)',
+    'Leiden-CPM(0.001)+CM',
+    'Leiden-Mod',
+    'Leiden-Mod+CM',
+    'SBM',
+    'SBM-CC',
+    'SBM-WCC',
 ]
 
 parser = argparse.ArgumentParser(description='Plot excess edges for networks.')
@@ -86,7 +100,7 @@ output_fp.mkdir(parents=True, exist_ok=True)
 # Set up the matplotlib figure for normal edges
 plt.figure(figsize=(15, 10))
 sns.boxplot(x='clustering_resolution',
-            y='normal_edges', data=df, palette="Set3")
+            y='normal_edges', data=df)
 plt.xticks(rotation=90)
 plt.xlabel('Clustering-Resolution')
 plt.ylabel('Proportion of Normal Edges')
@@ -98,7 +112,7 @@ plt.close()
 # Set up the matplotlib figure for parallel edges
 plt.figure(figsize=(15, 10))
 sns.boxplot(x='clustering_resolution',
-            y='parallel_edges', data=df, palette="Set2")
+            y='parallel_edges', data=df)
 plt.xticks(rotation=90)
 plt.xlabel('Clustering-Resolution')
 plt.ylabel('Proportion of Parallel Edges')
@@ -109,7 +123,7 @@ plt.close()
 
 # Set up the matplotlib figure for self loops
 plt.figure(figsize=(15, 10))
-sns.boxplot(x='clustering_resolution', y='self_loops', data=df, palette="Set1")
+sns.boxplot(x='clustering_resolution', y='self_loops', data=df)
 plt.xticks(rotation=90)
 plt.xlabel('Clustering-Resolution')
 plt.ylabel('Proportion of Self Loops')
@@ -120,13 +134,17 @@ plt.close()
 
 # Set up the matplotlib figure for sum of parallel edges + self loops
 df['parallel_self'] = df['parallel_edges'] + df['self_loops']
-plt.figure(figsize=(15, 10))
+plt.figure(figsize=(9, 6), dpi=150)
 sns.boxplot(x='clustering_resolution',
-            y='parallel_self', data=df, palette="Set1")
-plt.xticks(rotation=90)
-plt.xlabel('Clustering-Resolution')
-plt.ylabel('Proportion of Parallel Edges + Self Loops')
-plt.title(
-    'Box Plot of Parallel Edges + Self Loops for Different Clustering-Resolution Pairs')
+            y='parallel_self', data=df)
+plt.xticks(
+    range(len(CLUSTERING_RESOLUTION)),
+    names,
+    rotation=90,
+)
+plt.xlabel('Clustering method')
+plt.ylabel('Proportion of parallel edges and self-loops')
+# plt.title(
+# 'Box Plot of Parallel Edges + Self Loops for Different Clustering-Resolution Pairs')
 plt.tight_layout()
 plt.savefig(output_fp / 'parallel_self_boxplot.pdf')

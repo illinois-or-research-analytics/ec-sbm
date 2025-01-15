@@ -9,16 +9,13 @@
 python network_evaluation/compare_simulators_gt.py \
     --names \
         "SBM / SBM-WCC" \
-        "SBM-MCS / SBM-WCC" \
-        "SBM-MCS+e / SBM-WCC" \
         "RECCS / SBM-WCC" \
+        "Chambana / SBM-WCC" \
     --roots \
         data/stats/sbm+o/sbm_wcc \
-        data/stats/sbmmcsprev1+o/sbm_wcc \
-        data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
         data/stats/RECCSv1_OS1/sbm_wcc \
+        data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
     --resolution \
-        sbm \
         sbm \
         sbm \
         sbm \
@@ -27,60 +24,31 @@ python network_evaluation/compare_simulators_gt.py \
         local_ccoeff \
         global_ccoeff \
         char_time \
-    --output-dir output/compare/val_small/per_clustering/sbm_sbmmcs_sbmmcs+e_reccs/best \
-    --network-whitelist-fp data/networks_val_small.txt \
-    --num-replicates 1 \
-    --ncols 2
-
-python network_evaluation/compare_simulators_gt.py \
-    --names \
-        "SBM / SBM-CC" \
-        "SBM / SBM-WCC" \
-        "SBM-MCS / SBM-WCC" \
-        "SBM-MCS+e / SBM-WCC" \
-        "RECCS / SBM-WCC" \
-    --roots \
-        data/stats/sbm+o/sbm_cc \
-        data/stats/sbm+o/sbm_wcc \
-        data/stats/sbmmcsprev1+o/sbm_wcc \
-        data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
-        data/stats/RECCSv1_OS1/sbm_wcc \
-    --resolution \
-        sbm \
-        sbm \
-        sbm \
-        sbm \
-        sbm \
-    --stats \
-        pseudo_diameter \
-        local_ccoeff \
-        global_ccoeff \
-        char_time \
-    --output-dir output/compare/val_medium/per_clustering/sbm_sbmmcs_sbmmcs+e_reccs/best/ \
-    --network-whitelist-fp data/networks_val_medium.txt \
+    --output-dir output/compare/val/per_clustering/sbm_reccs_sbmmcs+e/best \
+    --network-whitelist-fp data/networks_val.txt \
     --num-replicates 1 \
     --ncols 3
 
 python network_evaluation/compare_simulators_gt.py \
     --names \
+        "SBM / SBM-WCC" \
         "SBM / Leiden-Mod+CM" \
-        "SBM / SBM-WCC" \
-        "SBM-MCS / Leiden-Mod+CM" \
-        "SBM-MCS / SBM-WCC" \
-        "SBM-MCS+e / SBM-WCC" \
+        "RECCS / SBM-WCC" \
         "RECCS / Leiden-Mod+CM" \
+        "Chambana / SBM-WCC" \
+        "Chambana / Leiden-Mod+CM" \
     --roots \
-        data/stats/sbm+o/leiden_mod_nofiltcm \
         data/stats/sbm+o/sbm_wcc \
-        data/stats/sbmmcsprev1+o/leiden_mod_nofiltcm \
-        data/stats/sbmmcsprev1+o/sbm_wcc \
-        data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
+        data/stats/sbm+o/leiden_mod_nofiltcm \
+        data/stats/RECCSv1_OS1/sbm_wcc \
         data/stats/RECCSv1_OS1/leiden_mod_nofiltcm \
+        data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
+        data/stats/sbmmcsprev1+o+eL1/leiden_mod_nofiltcm \
     --resolution \
-        leidenmod \
         sbm \
         leidenmod \
         sbm \
+        leidenmod \
         sbm \
         leidenmod \
     --stats \
@@ -88,12 +56,99 @@ python network_evaluation/compare_simulators_gt.py \
         local_ccoeff \
         global_ccoeff \
         char_time \
-    --output-dir output/compare/val_large/per_clustering/sbm_sbmmcs_sbmmcs+e_reccs/best/ \
-    --network-whitelist-fp data/networks_val_large.txt \
+    --output-dir output/compare/val/per_clustering/sbm_reccs_sbmmcs+e/best_2ndbest \
+    --network-whitelist-fp data/networks_val.txt \
     --num-replicates 1 \
     --ncols 3
 
-for split in val_small val_medium val_large
+# python network_evaluation/compare_simulators_gt.py \
+#     --names \
+#         "SBM / SBM-WCC" \
+#         "SBM-MCS / SBM-WCC" \
+#         "SBM-MCS+e / SBM-WCC" \
+#         "RECCS / SBM-WCC" \
+#     --roots \
+#         data/stats/sbm+o/sbm_wcc \
+#         data/stats/sbmmcsprev1+o/sbm_wcc \
+#         data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
+#         data/stats/RECCSv1_OS1/sbm_wcc \
+#     --resolution \
+#         sbm \
+#         sbm \
+#         sbm \
+#         sbm \
+#     --stats \
+#         pseudo_diameter \
+#         local_ccoeff \
+#         global_ccoeff \
+#         char_time \
+#     --output-dir output/compare/val_small/per_clustering/sbm_sbmmcs_sbmmcs+e_reccs/best \
+#     --network-whitelist-fp data/networks_val_small.txt \
+#     --num-replicates 1 \
+#     --ncols 2
+
+# python network_evaluation/compare_simulators_gt.py \
+#     --names \
+#         "SBM / SBM-CC" \
+#         "SBM / SBM-WCC" \
+#         "SBM-MCS / SBM-WCC" \
+#         "SBM-MCS+e / SBM-WCC" \
+#         "RECCS / SBM-WCC" \
+#     --roots \
+#         data/stats/sbm+o/sbm_cc \
+#         data/stats/sbm+o/sbm_wcc \
+#         data/stats/sbmmcsprev1+o/sbm_wcc \
+#         data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
+#         data/stats/RECCSv1_OS1/sbm_wcc \
+#     --resolution \
+#         sbm \
+#         sbm \
+#         sbm \
+#         sbm \
+#         sbm \
+#     --stats \
+#         pseudo_diameter \
+#         local_ccoeff \
+#         global_ccoeff \
+#         char_time \
+#     --output-dir output/compare/val_medium/per_clustering/sbm_sbmmcs_sbmmcs+e_reccs/best/ \
+#     --network-whitelist-fp data/networks_val_medium.txt \
+#     --num-replicates 1 \
+#     --ncols 3
+
+# python network_evaluation/compare_simulators_gt.py \
+#     --names \
+#         "SBM / Leiden-Mod+CM" \
+#         "SBM / SBM-WCC" \
+#         "SBM-MCS / Leiden-Mod+CM" \
+#         "SBM-MCS / SBM-WCC" \
+#         "SBM-MCS+e / SBM-WCC" \
+#         "RECCS / Leiden-Mod+CM" \
+#     --roots \
+#         data/stats/sbm+o/leiden_mod_nofiltcm \
+#         data/stats/sbm+o/sbm_wcc \
+#         data/stats/sbmmcsprev1+o/leiden_mod_nofiltcm \
+#         data/stats/sbmmcsprev1+o/sbm_wcc \
+#         data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
+#         data/stats/RECCSv1_OS1/leiden_mod_nofiltcm \
+#     --resolution \
+#         leidenmod \
+#         sbm \
+#         leidenmod \
+#         sbm \
+#         sbm \
+#         leidenmod \
+#     --stats \
+#         pseudo_diameter \
+#         local_ccoeff \
+#         global_ccoeff \
+#         char_time \
+#     --output-dir output/compare/val_large/per_clustering/sbm_sbmmcs_sbmmcs+e_reccs/best/ \
+#     --network-whitelist-fp data/networks_val_large.txt \
+#     --num-replicates 1 \
+#     --ncols 3
+
+for split in val
 do
     for method in sbm+o sbmmcsprev1+o sbmmcsprev1+o+eL1 RECCSv1_OS1 # abcd+o abcdta4+o abcdta4+o+eL1
     do 
