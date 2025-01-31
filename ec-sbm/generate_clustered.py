@@ -46,7 +46,6 @@ logging.getLogger('').addHandler(console)
 
 # ========================
 
-logging.info(f'Method: SBM-MCS(pre)')
 logging.info(f'Network: {edgelist_fn}')
 logging.info(f'Clustering: {clustering_fn}')
 logging.info(f'Output folder: {output_dir}')
