@@ -1,4 +1,4 @@
-# **Edge Connectivity Stochastic Block Model (EC-SBM)**
+# **Edge-Connected Stochastic Block Model (EC-SBM)**
 
 ## **Table of Contents**
 
@@ -14,7 +14,7 @@
 
 ## **Overview**
 
-This repository contains the implementation of the Edge Connectivity Stochastic Block Model (EC-SBM) for generating synthetic networks based on the empirical network and the empirical clustering.
+This repository contains the implementation of the Edge-Connected Stochastic Block Model (EC-SBM) for generating synthetic networks based on the empirical network and the empirical clustering.
 
 ## **Usage**
 
