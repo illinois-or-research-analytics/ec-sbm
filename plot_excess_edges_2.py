@@ -20,7 +20,7 @@ CLUSTERING_RESOLUTION = [
     ('leiden_cpm_nofiltcm', 'leiden.001'),
     ('leiden_mod', 'leidenmod'),
     ('leiden_mod_nofiltcm', 'leidenmod'),
-    ('sbm', 'sbm'),
+    # ('sbm', 'sbm'),
     ('sbm_cc', 'sbm'),
     ('sbm_wcc', 'sbm'),
 ]
@@ -34,7 +34,7 @@ names = [
     'Leiden-CPM(0.001)+CM',
     'Leiden-Mod',
     'Leiden-Mod+CM',
-    'SBM',
+    # 'SBM',
     'SBM-CC',
     'SBM-WCC',
 ]

@@ -12,8 +12,8 @@ python network_evaluation/compare_simulators_all.py \
         "SBM / Leiden-Mod+CM" \
         "RECCS / SBM-WCC" \
         "RECCS / Leiden-Mod+CM" \
-        "Chambana / SBM-WCC" \
-        "Chambana / Leiden-Mod+CM" \
+        "EC-SBM / SBM-WCC" \
+        "EC-SBM / Leiden-Mod+CM" \
     --roots \
         data/stats/sbm+o/sbm_wcc \
         data/stats/sbm+o/leiden_mod_nofiltcm \
@@ -41,51 +41,9 @@ python network_evaluation/compare_simulators_all.py \
 
 python network_evaluation/compare_simulators_all.py \
     --names \
-        "SBM / SBM" \
-        "SBM / SBM-WCC" \
-        "SBM / Leiden-Mod+CM" \
-        "RECCS / SBM" \
-        "RECCS / SBM-WCC" \
-        "RECCS / Leiden-Mod+CM" \
-        "Chambana / SBM" \
-        "Chambana / SBM-WCC" \
-        "Chambana / Leiden-Mod+CM" \
-    --roots \
-        data/stats/sbm+o/sbm \
-        data/stats/sbm+o/sbm_wcc \
-        data/stats/sbm+o/leiden_mod_nofiltcm \
-        data/stats/RECCSv1_OS1/sbm \
-        data/stats/RECCSv1_OS1/sbm_wcc \
-        data/stats/RECCSv1_OS1/leiden_mod_nofiltcm \
-        data/stats/sbmmcsprev1+o+eL1/sbm \
-        data/stats/sbmmcsprev1+o+eL1/sbm_wcc \
-        data/stats/sbmmcsprev1+o+eL1/leiden_mod_nofiltcm \
-    --resolution \
-        sbm \
-        sbm \
-        leidenmod \
-        sbm \
-        sbm \
-        leidenmod \
-        sbm \
-        sbm \
-        leidenmod \
-    --stats \
-        pseudo_diameter \
-        global_ccoeff \
-        char_time \
-        degree \
-    --output-dir output/compare/val/per_clustering/sbm_reccs_sbmmcs+e/best_2ndbest_sbm \
-    --prefix network \
-    --network-whitelist-fp data/networks_val.txt \
-    --num-replicates 1 \
-    --ncols 3
-
-python network_evaluation/compare_simulators_all.py \
-    --names \
         "SBM / SBM-WCC" \
         "RECCS / SBM-WCC" \
-        "Chambana / SBM-WCC" \
+        "EC-SBM / SBM-WCC" \
     --roots \
         data/stats/sbm+o/sbm_wcc \
         data/stats/RECCSv1_OS1/sbm_wcc \
@@ -109,7 +67,7 @@ python network_evaluation/compare_simulators_all.py \
     --names \
         "SBM / Leiden-Mod+CM" \
         "RECCS / Leiden-Mod+CM" \
-        "Chambana / Leiden-Mod+CM" \
+        "EC-SBM / Leiden-Mod+CM" \
     --roots \
         data/stats/sbm+o/leiden_mod_nofiltcm \
         data/stats/RECCSv1_OS1/leiden_mod_nofiltcm \
@@ -124,30 +82,6 @@ python network_evaluation/compare_simulators_all.py \
         mixing_mus \
         o_deg \
     --output-dir output/compare/val/per_clustering/sbm_reccs_sbmmcs+e/2ndbest \
-    --prefix cluster \
-    --network-whitelist-fp data/networks_val.txt \
-    --num-replicates 1 \
-    --ncols 3
-
-python network_evaluation/compare_simulators_all.py \
-    --names \
-        "SBM / SBM" \
-        "RECCS / SBM" \
-        "Chambana / SBM" \
-    --roots \
-        data/stats/sbm+o/sbm \
-        data/stats/RECCSv1_OS1/sbm \
-        data/stats/sbmmcsprev1+o+eL1/sbm \
-    --resolution \
-        sbm \
-        sbm \
-        sbm \
-    --stats \
-        mincuts \
-        c_edges \
-        mixing_mus \
-        o_deg \
-    --output-dir output/compare/val/per_clustering/sbm_reccs_sbmmcs+e/sbm \
     --prefix cluster \
     --network-whitelist-fp data/networks_val.txt \
     --num-replicates 1 \
@@ -186,7 +120,6 @@ do
                 "Leiden-CPM(0.01)+CM" \
                 "Leiden-CPM(0.001)+CM" \
                 "Leiden-Mod+CM" \
-                "SBM" \
                 "SBM-CC" \
                 "SBM-WCC" \
             --roots \
@@ -198,7 +131,6 @@ do
                 data/stats/${method}/leiden_cpm_nofiltcm \
                 data/stats/${method}/leiden_cpm_nofiltcm \
                 data/stats/${method}/leiden_mod_nofiltcm \
-                data/stats/${method}/sbm \
                 data/stats/${method}/sbm_cc \
                 data/stats/${method}/sbm_wcc \
             --resolution \
@@ -210,7 +142,6 @@ do
                 leiden.01 \
                 leiden.001 \
                 leidenmod \
-                sbm \
                 sbm \
                 sbm \
             --stats \
