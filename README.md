@@ -202,4 +202,31 @@ python ec-sbm/combine_networks.py \
 
 ## Installation Guide
 
-Follow the steps in [`scripts/install.sh`](scripts/install.sh) to install the necessary dependencies.
+### Using conda with the environment file
+
+Create a new conda environment by running the following command:
+
+```bash
+conda env create -f env.yml -n ec-sbm
+```
+
+Remember to activate the environment before running the scripts by running the following command:
+
+```bash
+conda activate ec-sbm
+```
+
+### Using conda
+
+Create a new conda environment and activate it by running the following commands:
+
+```bash
+conda create -n ec-sbm python=3.12
+conda activate ec-sbm
+```
+
+Install the required packages by running the following commands:
+
+```bash
+bash scripts/install.sh
+```
