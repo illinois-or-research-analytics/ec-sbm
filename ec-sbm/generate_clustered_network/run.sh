@@ -167,4 +167,3 @@ log "Edgelist index created."
 
 update_status "combining" "completed"
 log "Pipeline finished successfully."
-
