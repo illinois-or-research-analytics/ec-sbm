@@ -2,6 +2,10 @@
 
 # This script orchestrates the entire graph generation pipeline.
 # It calls C++ and Python scripts in sequence and manages state via a JSON file.
+#
+# IMPORTANT: This script assumes you have already run './build.sh'
+# to compile the C++ binaries ('setup', 'generate_graphs')
+# into the 'bin/' directory.
 
 # --- Config ---
 set -e # Exit immediately if a command exits with a non-zero status.
@@ -58,11 +62,13 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-# --- 1. Build C++ ---
-log "Building C++ executables (setup, generate_graphs)..."
-cmake .
-make setup generate_graphs
-log "Build complete."
+# --- 1. Check for Binaries ---
+if [ ! -f "./bin/setup" ] || [ ! -f "./bin/generate_graphs" ]; then
+    log "ERROR: C++ binaries not found in 'bin/' directory."
+    log "Please run './build.sh' first."
+    exit 1
+fi
+log "Found C++ binaries."
 
 # --- 2. Run C++ Setup ---
 if [ -f "$PROGRESS_FILE" ] && check_status "cpp_setup"; then
@@ -70,17 +76,20 @@ if [ -f "$PROGRESS_FILE" ] && check_status "cpp_setup"; then
 else
     log "Running C++ setup..."
     
-    # FIX: Create an empty JSON file if it doesn't exist, so jq doesn't fail
+    # Create an empty JSON file if it doesn't exist, so jq doesn't fail
     if [ ! -f "$PROGRESS_FILE" ]; then
         log "Creating new progress file: $PROGRESS_FILE"
         echo "{ \"status\": {} }" > "$PROGRESS_FILE"
     fi
     
     update_status "cpp_setup" "running"
-    ./setup --input-edgelist "$INPUT_EDGELIST" \
-            --input-clustering "$INPUT_CLUSTERING" \
-            --output-folder "$OUTPUT_DIR" \
-            --seed "$SEED"
+    
+    # FIX: Reverted to the correct C++ argument names
+    ./bin/setup --input-edgelist "$INPUT_EDGELIST" \
+                  --input-clustering "$INPUT_CLUSTERING" \
+                  --output-folder "$OUTPUT_DIR" \
+                  --seed "$SEED"
+            
     check_fail "cpp_setup"
     log "C++ setup finished."
 fi
@@ -103,7 +112,10 @@ else
     log "Running C++ to generate k-connected subgraphs..."
     mkdir -p "$OUTPUT_DIR/edge_parts" # Ensure dir exists
     update_status "cpp_graph_gen" "running"
-    ./generate_graphs --output-folder "$OUTPUT_DIR" --seed "$SEED"
+    
+    # FIX: Reverted to the correct C++ argument names
+    ./bin/generate_graphs --output-folder "$OUTPUT_DIR" --seed "$SEED"
+    
     check_fail "cpp_graph_gen"
     log "C++ graph generation finished."
 fi
@@ -167,3 +179,4 @@ log "Edgelist index created."
 
 update_status "combining" "completed"
 log "Pipeline finished successfully."
+
