@@ -4,6 +4,9 @@ project(GraphGenerator CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# FIX: Set the output directory for binaries to ${PROJECT_SOURCE_DIR}/bin
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+
 # --- Add nlohmann/json for JSON support ---
 include(FetchContent)
 FetchContent_Declare(
@@ -52,5 +55,3 @@ target_include_directories(generate_graphs
     ${SPDLOG_INCLUDE_DIRS}
     ${nlohmann_json_SOURCE_DIR}/include
 )
-
-
