@@ -7,226 +7,168 @@
   - [Short version](#short-version)
   - [Long version](#long-version)
     - [Preprocessing: Cleaning the outliers](#preprocessing-cleaning-the-outliers)
+    - [Profiling: Extracting empirical statistics](#profiling-extracting-empirical-statistics)
     - [Stage 1: Generation of the synthetic clustered subnetwork](#stage-1-generation-of-the-synthetic-clustered-subnetwork)
     - [Stage 2: Generation of the synthetic outlier subnetwork](#stage-2-generation-of-the-synthetic-outlier-subnetwork)
-    - [Stage 3: Degree correction](#stage-3-degree-correction)
+    - [Stage 3: Degree matching](#stage-3-degree-matching)
+    - [Combining edgelists](#combining-edgelists)
 - [Installation Guide](#installation-guide)
 
 ## **Overview**
 
-This repository contains the implementation of the Edge-Connected Stochastic Block Model (EC-SBM) for generating synthetic networks based on the empirical network and the empirical clustering.
+This repository contains the implementation of the Edge-Connected Stochastic Block Model (EC-SBM) for generating synthetic networks based on an empirical network and its reference clustering.
 
 ## **Usage**
 
-### **Input** 
+### **Input**
 
-We are given 
-* an empirical network `<path/to/empirical>/edge.tsv` 
-* an empirical clustering `<path/to/empirical>/com.tsv`.
+We are given
+* an empirical network `<path/to/empirical>/edge.csv` (CSV with header `source,target`)
+* a reference clustering `<path/to/empirical>/com.csv` (CSV with header `node_id,cluster_id`)
 
 ### **Short version**
 
-**Command** We generate the synthetic network with EC-SBM by running the following command:
+**Command** We generate the synthetic network with EC-SBM by running:
 
 ```bash
-bash scripts/run_ecsbm.sh <path/to/empirical>/edge.tsv <path/to/empirical>/com.tsv <path/to/output/folder>
+bash scripts/run_ecsbm.sh \
+    --input-edgelist <path/to/empirical>/edge.csv \
+    --input-clustering <path/to/empirical>/com.csv \
+    --output-dir <path/to/output>
 ```
 
-**Output** 
+**Optional flags:**
+* `--timeout <duration>` — per-stage timeout (default `3d`).
+* `--existing-clustered` — reuse an existing `<output-dir>/clustered/edge.csv` and skip Stage 1.
+* `--existing-outlier` — additionally reuse `<output-dir>/outlier/edge.csv` and skip Stages 1 and 2.
 
-The generated synthetic network is stored in `<path/to/output/folder>/ecsbm+o+e/edge.tsv`. 
+**Output**
 
-There are other intermediate results stored in `<path/to/output/folder>`, which is described in [the long version](#long-version).
+The final synthetic network is `<output-dir>/edge.csv`. Intermediate results are organized as follows:
+
+```
+<output-dir>/
+├── clustered/
+│   ├── clean/          # Cleaned inputs (no singleton clusters)
+│   ├── setup/          # Profiled statistics (node_id, cluster_id, assignment, degree, mincut, edge_counts)
+│   └── edge.csv        # Stage 1 synthetic clustered subnetwork
+├── outlier/
+│   ├── edges/          # Stage 2 synthetic outlier subnetwork
+│   └── edge.csv        # Clustered + outlier merged
+├── match_degree/       # Stage 3 additional edges to match empirical degree
+├── edge.csv            # Final synthetic network
+└── sources.json        # Provenance map: which rows came from which stage
+```
 
 **Example**
 
-```
-bash scripts/run_ecsbm.sh test/input/cit_hepph/edge.tsv test/input/cit_hepph/com.tsv test/output/cit_hepph
+```bash
+bash scripts/run_ecsbm.sh \
+    --input-edgelist examples/input/cit_hepph/edge.csv \
+    --input-clustering examples/input/cit_hepph/com.csv \
+    --output-dir examples/output/cit_hepph
 ```
 
 ### **Long version**
 
-The full pipeline to generate EC-SBM synthetic networks is as followed.
+The full pipeline consists of preprocessing, profiling, and three main stages. All scripts consume and produce CSV files with headers.
 
-<!-- Note: In this implementation, a network (or subnetwork) is always stored along with the corresponding clustering in a folder with two TSV files `edge.tsv` and `com.tsv`. -->
+#### **Preprocessing: Cleaning the outliers**
 
-#### **Preprocessing: Cleaning the outliers** 
-
-**Command** We obtain the clustered subnetwork which does not contain outliers from the input network by running the following command:
-
-```bash
-python clean_outlier.py \
-    --input-network <path/to/empirical>/edge.tsv \
-    --input-clustering <path/to/empirical>/com.tsv \
-    --output-folder <path/to/empirical_clustered>
-```
-
-**Output**
-
-Important files in `path/to/empirical_clustered`:
-* `edge.tsv`: same as `path/to/empirical/edge.tsv` but without the edges with at least 1 outlier as its endpoint
-* `com.tsv`: same as `path/to/empirical/com.tsv`
-
-**Example**
+Removes singleton clusters and edges incident to them.
 
 ```bash
 python ec-sbm/clean_outlier.py \
-    --input-edgelist test/input/cit_hepph/edge.tsv \
-    --input-clustering test/input/cit_hepph/com.tsv \
-    --output-folder test/output/cit_hepph/emp_wo_o/
+    --edgelist <path/to/empirical>/edge.csv \
+    --clustering <path/to/empirical>/com.csv \
+    --output-folder <path/to/clean>
 ```
 
-#### **Stage 1: Generation of the synthetic clustered subnetwork** 
+**Output:** `<clean>/edge.csv`, `<clean>/com.csv`.
 
-**Command** We generate the EC-SBM synthetic clustered subnetwork by running the following command:
+#### **Profiling: Extracting empirical statistics**
+
+Computes the inputs needed by Stage 1: node/cluster iid mappings, cluster assignment, degree sequence, per-cluster min-cut, and inter-cluster edge counts.
 
 ```bash
-python gen_ecsbm.py \
-    --input-network <path/to/empirical_clustered>/edge.tsv \
-    --input-clustering <path/to/empirical_clustered>/com.tsv \
-    --output-folder <path/to/synthetic_clustered>
+python ec-sbm/profile.py \
+    --edgelist <path/to/clean>/edge.csv \
+    --clustering <path/to/clean>/com.csv \
+    --output-folder <path/to/setup> \
+    --generator ecsbm
 ```
 
-**Output**
+**Output:** `node_id.csv`, `cluster_id.csv`, `assignment.csv`, `degree.csv`, `mincut.csv`, `edge_counts.csv`.
 
-Important files in `path/to/synthetic_clustered`:
-* `edge.tsv`: edge list of the synthetic network
-* `com.tsv`: same as `path/to/empirical_clustered/com.tsv`
+#### **Stage 1: Generation of the synthetic clustered subnetwork**
 
-Other files in `path/to/synthetic_clustered`:
-* `run.log`: log file for the generation of the synthetic clustered subnetwork
-* `node_id.tsv`: the i-th line contains the node id of the i-th node in the synthetic network (0-based indexing)
-* `com_id.tsv`: the i-th line contains the community id of the i-th node in the synthetic network (0-based indexing)
-* `deg.tsv`, `cs.tsv`, `mcs.tsv`, `params.json`: network statistics (degree sequence, community size sequence, minimum cut size sequence, random seed, mixing parameter, etc.)
-
-**Example**
+Generates the k-edge-connected clustered subnetwork from the profiled inputs.
 
 ```bash
-python ec-sbm/gen_ecsbm.py \
-    --input-edgelist test/output/cit_hepph/emp_wo_o/edge.tsv \
-    --input-clustering test/output/cit_hepph/emp_wo_o/com.tsv \
-    --output-folder test/output/cit_hepph/ecsbm/
+python ec-sbm/gen_clustered.py \
+    --node-id <setup>/node_id.csv \
+    --cluster-id <setup>/cluster_id.csv \
+    --assignment <setup>/assignment.csv \
+    --degree <setup>/degree.csv \
+    --mincut <setup>/mincut.csv \
+    --edge-counts <setup>/edge_counts.csv \
+    --output-folder <path/to/clustered>
 ```
+
+**Output:** `<clustered>/edge.csv`.
 
 #### **Stage 2: Generation of the synthetic outlier subnetwork**
 
-**Command**: We generate the synthetic outlier subnetwork by running the following commands:
+Generates the outlier subnetwork (edges touching at least one outlier) via SBM.
 
 ```bash
-python ec-sbm/generate_outliers.py \
-    --input-edgelist <path/to/empirical>/edge.tsv \
-    --input-clustering <path/to/empirical>/com.tsv \
-    --output-folder <path/to/synthetic>
-
-python ec-sbm/combine_networks.py \
-    --input-edgelist-1 <path/to/synthetic>/edge.tsv \
-    --input-edgelist-2 <path/to/synthetic_clustered>/outlier_edge.tsv \
-    --input-clustering <path/to/synthetic>/com.tsv \
-    --output-folder <path/to/synthetic>
+python ec-sbm/gen_outlier.py \
+    --edgelist <path/to/empirical>/edge.csv \
+    --clustering <path/to/empirical>/com.csv \
+    --output-folder <path/to/outlier_edges>
 ```
 
-The first command generates the outlier subnetwork. The second command combines the synthetic clustered subnetwork and the synthetic outlier subnetwork to form the synthetic network with outliers.
+**Output:** `<outlier_edges>/edge_outlier.csv`.
 
-**Output**
+#### **Stage 3: Degree matching**
 
-Important files in `path/to/synthetic`:
-* `edge.tsv`: edge list of the synthetic network (combination of the synthetic clustered subnetwork generated from Step 1 and the synthetic outlier subnetwork generated in the first command)
-* `com.tsv`: same as `path/to/empirical/com.tsv`
-
-Other files in `path/to/synthetic`:
-* `outlier_edge.tsv`: edge list of the synthetic outlier network
-* `outlier_run.log`: log file for the generation of the synthetic outlier subnetwork (first command)
-* `combine_run.log`: log file for the combination of the synthetic clustered subnetwork and the synthetic outlier subnetwork (second command)
-
-**Example**
+Adds edges so that the synthetic per-node degree matches the empirical one.
 
 ```bash
-python ec-sbm/generate_outliers.py \
-    --input-edgelist test/input/cit_hepph/edge.tsv \
-    --input-clustering test/input/cit_hepph/com.tsv \
-    --output-folder test/output/cit_hepph/ecsbm+o/
-
-python ec-sbm/combine_networks.py \
-    --input-edgelist-1 test/output/cit_hepph/ecsbm/edge.tsv \
-    --input-edgelist-2 test/output/cit_hepph/ecsbm+o/outlier_edge.tsv \
-    --input-clustering test/output/cit_hepph/ecsbm/com.tsv \
-    --output-folder test/output/cit_hepph/ecsbm+o/
+python ec-sbm/match_degree.py \
+    --input-edgelist <path/to/combined>/edge.csv \
+    --ref-edgelist <path/to/empirical>/edge.csv \
+    --ref-clustering <path/to/empirical>/com.csv \
+    --output-folder <path/to/match_degree>
 ```
 
-#### **Stage 3: Degree correction** 
+**Output:** `<match_degree>/degree_matching_edge.csv`.
 
-**Command** We correct the degrees of the vertices of the synthetic network by running the following commands:
+#### **Combining edgelists**
 
-```bash
-python ec-sbm/correct_degree.py \
-    --input-edgelist <path/to/synthetic>/edge.tsv \
-    --ref-edgelist <path/to/empirical>/edge.tsv \
-    --ref-clustering <path/to/empirical>/com.tsv \
-    --output-folder <path/to/synthetic_degcorr>
-
-python ec-sbm/combine_networks.py \
-    --input-edgelist-1 <path/to/synthetic>/edge.tsv \
-    --input-edgelist-2 <path/to/synthetic_degcorr>/degcorr_edge.tsv \
-    --input-clustering <path/to/synthetic>/com.tsv \
-    --output-folder <path/to/synthetic_degcorr>
-```
-
-The first command computes the additional edges to add to the synthetic network to correct the degrees of the vertices. The second command combines the synthetic network with the additional edges to form the final synthetic network.
-
-**Output**
-
-Important files in `path/to/synthetic_degcorr`:
-* `edge.tsv`: edge list of the synthetic network (combination of the synthetic clustered subnetwork generated from Step 1 and the synthetic outlier subnetwork generated in the first command)
-* `com.tsv`: same as `path/to/synthetic/com.tsv`
-
-Other files in `path/to/synthetic_degcorr`:
-* `degcorr_edge.tsv`: edge list of the additional edges to add to the synthetic network
-* `degcorr_run.log`: log file for the computation of the additional edges to add to the synthetic network (first command)
-* `combine_run.log`: log file for the combination of the synthetic clustered subnetwork and the additional edges to form the final synthetic network (second command)
-
-**Example**
+Merges two edgelists (deduplicated as undirected) and tracks provenance in `sources.json`.
 
 ```bash
-python ec-sbm/correct_degree.py \
-    --input-edgelist test/output/cit_hepph/ecsbm+o/edge.tsv \
-    --ref-edgelist test/input/cit_hepph/edge.tsv \
-    --ref-clustering test/input/cit_hepph/com.tsv \
-    --output-folder test/output/cit_hepph/ecsbm+o+e/
-
-python ec-sbm/combine_networks.py \
-    --input-edgelist-1 test/output/cit_hepph/ecsbm+o/edge.tsv \
-    --input-edgelist-2 test/output/cit_hepph/ecsbm+o+e/degcorr_edge.tsv \
-    --input-clustering test/output/cit_hepph/ecsbm+o/com.tsv \
-    --output-folder test/output/cit_hepph/ecsbm+o+e/
+python ec-sbm/combine_edgelists.py \
+    --edgelist-1 <path/to/a>/edge.csv --name-1 a \
+    --edgelist-2 <path/to/b>/edge.csv --name-2 b \
+    --output-folder <path/to/out> \
+    --output-filename edge.csv
 ```
 
 ## Installation Guide
 
 ### Using conda with the environment file
 
-Create a new conda environment by running the following command:
-
 ```bash
 conda env create -f env.yml -n ec-sbm
-```
-
-Remember to activate the environment before running the scripts by running the following command:
-
-```bash
 conda activate ec-sbm
 ```
 
-### Using conda
-
-Create a new conda environment and activate it by running the following commands:
+### Using conda manually
 
 ```bash
 conda create -n ec-sbm python=3.12
 conda activate ec-sbm
-```
-
-Install the required packages by running the following commands:
-
-```bash
 bash scripts/install.sh
 ```
