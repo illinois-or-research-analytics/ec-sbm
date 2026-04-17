@@ -1,57 +1,84 @@
-import csv
+import logging
 import argparse
-import shutil
 from pathlib import Path
+
+import pandas as pd
+
+from utils import setup_logging
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Clean outlier data')
+    parser = argparse.ArgumentParser(description="Clean outlier data")
     parser.add_argument(
-        '--input-edgelist',
+        "--edgelist",
         type=str,
         required=True,
-        help='Input network',
+        help="Input network (CSV with header: source,target)",
     )
     parser.add_argument(
-        '--input-clustering',
+        "--clustering",
         type=str,
         required=True,
-        help='Input clustering',
+        help="Input clustering (CSV with header: node_id,cluster_id)",
     )
     parser.add_argument(
-        '--output-folder',
+        "--output-folder",
         type=str,
         required=True,
-        help='Output folder',
+        help="Output folder",
     )
     return parser.parse_args()
 
 
-args = parse_args()
-inp_network_fp = Path(args.input_edgelist)
-inp_clustering_fp = Path(args.input_clustering)
-out_dir = Path(args.output_folder)
+def remove_singleton_outliers(
+    df_edges: pd.DataFrame, df_clusters: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Removes singleton clusters and filters out edges connected to them.
+    """
+    # 1. Find valid clusters (size > 1) to remove singletons
+    cluster_counts = df_clusters["cluster_id"].value_counts()
+    valid_clusters = cluster_counts[cluster_counts > 1].index
 
-out_dir.mkdir(parents=True, exist_ok=True)
+    # 2. Filter clustering dataframe to keep only nodes in valid clusters
+    df_filtered_clusters = df_clusters[df_clusters["cluster_id"].isin(valid_clusters)]
 
-# Compute all clustered nodes
-clustered_nodes = set()
-with open(inp_clustering_fp) as f:
-    for line in f:
-        node, _ = line.strip().split()
-        clustered_nodes.add(node)
+    # Create a fast lookup set of the valid node IDs
+    valid_nodes = set(df_filtered_clusters["node_id"])
 
-# Copy clustering file to output folder
-shutil.copy(inp_clustering_fp, out_dir / 'com.tsv')
+    # 3. Filter edges: keep only if BOTH source and target are valid
+    df_filtered_edges = df_edges[
+        df_edges["source"].isin(valid_nodes) & df_edges["target"].isin(valid_nodes)
+    ]
 
-# Remove unclustered node from edgelists
-with open(inp_network_fp) as f:
-    edges = []
-    for line in f:
-        node1, node2 = line.strip().split()
-        if node1 in clustered_nodes and node2 in clustered_nodes:
-            edges.append((node1, node2))
+    return df_filtered_edges, df_filtered_clusters
 
-with open(out_dir / 'edge.tsv', 'w') as out_f:
-    csv_writer = csv.writer(out_f, delimiter='\t')
-    csv_writer.writerows(edges)
+
+def main():
+    args = parse_args()
+    out_dir = Path(args.output_folder)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    setup_logging(out_dir / "run.log")
+
+    # Load data
+    df_edges = pd.read_csv(args.edgelist)
+    df_clusters = pd.read_csv(args.clustering)
+
+    # Process data via the new dedicated function
+    df_filtered_edges, df_filtered_clusters = remove_singleton_outliers(
+        df_edges, df_clusters
+    )
+
+    # Save the cleaned results
+    df_filtered_edges.to_csv(out_dir / "edge.csv", index=False)
+    df_filtered_clusters.to_csv(out_dir / "com.csv", index=False)
+
+    # Output summary
+    logging.info(f"Done! Cleaned files saved to: {out_dir}")
+    logging.info(
+        f"Kept {len(df_filtered_edges)} edges and {len(df_filtered_clusters)} clustered nodes."
+    )
+
+
+if __name__ == "__main__":
+    main()
