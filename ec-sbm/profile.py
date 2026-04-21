@@ -1,104 +1,41 @@
-import time
-import logging
+"""EC-SBM v1 profile extractor.
+
+Outputs: node_id.csv, cluster_id.csv, assignment.csv, degree.csv,
+edge_counts.csv, mincut.csv, com.csv.
+
+Outliers (unclustered nodes and singleton-cluster members) are excluded
+along with every incident edge before any downstream computation.
+"""
+from __future__ import annotations
+
 import argparse
-from pathlib import Path
 from collections import defaultdict
 
-import numpy as np
 import pandas as pd
 from pymincut.pygraph import PyGraph
 
-from utils import setup_logging
-
-
-def read_clustering(clustering_path):
-    df = pd.read_csv(clustering_path, usecols=[0, 1], dtype=str).dropna()
-
-    node2com = dict(zip(df.iloc[:, 0], df.iloc[:, 1]))
-    cluster_counts = df.iloc[:, 1].value_counts().to_dict()
-    nodes = set(node2com.keys())
-
-    return nodes, node2com, cluster_counts
-
-
-def read_edgelist(edgelist_path, nodes):
-    neighbors = defaultdict(set)
-    df = pd.read_csv(edgelist_path, usecols=[0, 1], dtype=str).dropna()
-
-    for u, v in zip(df.iloc[:, 0], df.iloc[:, 1]):
-        if u != v:  # Ignore self-loops
-            neighbors[u].add(v)
-            neighbors[v].add(u)
-            nodes.add(u)
-            nodes.add(v)
-
-    return nodes, neighbors
-
-
-def compute_node_degree(nodes, neighbors):
-    node_degree_sorted = sorted(
-        [(u, len(neighbors[u])) for u in nodes], reverse=True, key=lambda x: x[1]
-    )
-    node_id2iid = {u: i for i, (u, _) in enumerate(node_degree_sorted)}
-    return node_degree_sorted, node_id2iid
-
-
-def compute_comm_size(cluster_counts):
-    comm_size_sorted = sorted(cluster_counts.items(), reverse=True, key=lambda x: x[1])
-    cluster_id2iid = {c: i for i, (c, _) in enumerate(comm_size_sorted)}
-    return comm_size_sorted, cluster_id2iid
-
-
-def export_node_id(out_dir, node_degree_sorted):
-    pd.DataFrame([u for u, _ in node_degree_sorted]).to_csv(
-        f"{out_dir}/node_id.csv", index=False, header=False
-    )
-
-
-def export_cluster_id(out_dir, comm_size_sorted):
-    pd.DataFrame([c for c, _ in comm_size_sorted]).to_csv(
-        f"{out_dir}/cluster_id.csv", index=False, header=False
-    )
-
-
-def export_assignment(out_dir, node_degree_sorted, node2com, cluster_id2iid):
-    assignments = [
-        cluster_id2iid[node2com.get(u)] if u in node2com else -1
-        for u, _ in node_degree_sorted
-    ]
-    pd.DataFrame(assignments).to_csv(
-        f"{out_dir}/assignment.csv", index=False, header=False
-    )
-
-
-def export_degree(out_dir, node_degree_sorted):
-    pd.DataFrame([deg for _, deg in node_degree_sorted]).to_csv(
-        f"{out_dir}/degree.csv", index=False, header=False
-    )
-
-
-def compute_edge_count(nodes, neighbors, node2com, cluster_id2iid):
-    edge_counts = defaultdict(int)
-    for u in nodes:
-        cu = node2com.get(u)
-        if cu is None:
-            continue
-        c_iid_u = cluster_id2iid[cu]
-
-        for v in neighbors[u]:
-            cv = node2com.get(v)
-            if cv is not None:
-                c_iid_v = cluster_id2iid[cv]
-                edge_counts[(c_iid_u, c_iid_v)] += 1
-    return edge_counts
-
-
-def export_edge_count(out_dir, edge_counts):
-    data = [[r, c, w] for (r, c), w in edge_counts.items()]
-    pd.DataFrame(data).to_csv(f"{out_dir}/edge_counts.csv", index=False, header=False)
+from pipeline_common import standard_setup, timed
+from profile_common import (
+    compute_comm_size,
+    compute_edge_count,
+    compute_node_degree,
+    drop_outliers,
+    export_assignment,
+    export_cluster_id,
+    export_com_csv,
+    export_degree,
+    export_edge_count,
+    export_node_id,
+    identify_outliers,
+    read_clustering,
+    read_edgelist,
+)
 
 
 def compute_mincut(nodes, neighbors, node2com, comm_size_sorted, node_id2iid):
+    """Per-cluster min edge cut on the induced subgraph; singletons → 0.
+    Result list aligned with comm_size_sorted (index = cluster iid).
+    """
     clusters_by_id = defaultdict(list)
     for u, c in node2com.items():
         clusters_by_id[c].append(u)
@@ -133,125 +70,48 @@ def export_mincut(out_dir, mcs):
     pd.DataFrame(mcs).to_csv(f"{out_dir}/mincut.csv", index=False, header=False)
 
 
-def compute_mixing_parameter(nodes, neighbors, node2com, generator_type):
-    in_degree = defaultdict(int)
-    out_degree = defaultdict(int)
+def setup_inputs(edgelist_path, clustering_path, output_dir):
+    output_dir = standard_setup(output_dir)
 
-    for u in nodes:
-        u_clustered = u in node2com
-        for v in neighbors[u]:
-            v_clustered = v in node2com
+    with timed("Input reading"):
+        nodes, node2com, cluster_counts = read_clustering(clustering_path)
+        nodes, neighbors = read_edgelist(edgelist_path, nodes)
 
-            if not u_clustered and not v_clustered:
-                if generator_type == "abcd+o":
-                    out_degree[u] += 1
-                continue
+    with timed("Outlier transform"):
+        outliers = identify_outliers(nodes, node2com, cluster_counts)
+        drop_outliers(nodes, neighbors, outliers)
 
-            elif not u_clustered or not v_clustered:
-                out_degree[u] += 1
-                continue
+    with timed("Mappings computation"):
+        node_deg_sorted, node_id2iid = compute_node_degree(nodes, neighbors)
+        comm_size_sorted, cluster_id2iid = compute_comm_size(cluster_counts)
 
-            if node2com[u] == node2com[v]:
-                in_degree[u] += 1
-            else:
-                out_degree[u] += 1
-
-    if generator_type == "lfr":
-        mus = [
-            (
-                out_degree[i] / (in_degree[i] + out_degree[i])
-                if (in_degree[i] + out_degree[i]) > 0
-                else 0
-            )
-            for i in nodes
-        ]
-        return np.mean(mus)
-    else:
-        outs_sum = sum(out_degree[i] for i in nodes)
-        total_sum = sum(in_degree[i] + out_degree[i] for i in nodes)
-        return outs_sum / total_sum if total_sum > 0 else 0
-
-
-def export_comm_size(out_dir, comm_size_sorted):
-    pd.DataFrame([size for _, size in comm_size_sorted]).to_csv(
-        f"{out_dir}/cluster_sizes.csv", index=False, header=False
-    )
-
-
-def export_mixing_param(out_dir, mixing_param):
-    with open(f"{out_dir}/mixing_parameter.txt", "w") as f:
-        f.write(str(mixing_param))
-
-
-def setup_generator_inputs(edgelist_path, clustering_path, output_dir, generator):
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-    setup_logging(Path(output_dir) / "run.log")
-
-    # 1. Read Inputs
-    start = time.perf_counter()
-    nodes, node2com, cluster_counts = read_clustering(clustering_path)
-    nodes, neighbors = read_edgelist(edgelist_path, nodes)
-    logging.info(f"Input reading elapsed: {time.perf_counter() - start:.4f} seconds")
-
-    # 2. Compute Mappings
-    start = time.perf_counter()
-    node_deg_sorted, node_id2iid = compute_node_degree(nodes, neighbors)
-    comm_size_sorted, cluster_id2iid = compute_comm_size(cluster_counts)
-    logging.info(
-        f"Mappings computation elapsed: {time.perf_counter() - start:.4f} seconds"
-    )
-
-    # 3. Export Core Outputs
-    start = time.perf_counter()
-    export_node_id(output_dir, node_deg_sorted)
-    export_cluster_id(output_dir, comm_size_sorted)
-    export_assignment(output_dir, node_deg_sorted, node2com, cluster_id2iid)
-    export_degree(output_dir, node_deg_sorted)
-    logging.info(
-        f"Core outputs export elapsed: {time.perf_counter() - start:.4f} seconds"
-    )
-
-    # 4. Generator-Specific Flows
-    start = time.perf_counter()
-    if generator in ["sbm", "ecsbm"]:
-        edge_counts = compute_edge_count(nodes, neighbors, node2com, cluster_id2iid)
+    with timed("Outputs export"):
+        export_node_id(output_dir, node_deg_sorted)
+        export_cluster_id(output_dir, comm_size_sorted)
+        export_assignment(output_dir, node_deg_sorted, node2com, cluster_id2iid)
+        export_degree(output_dir, node_deg_sorted)
+        edge_counts = compute_edge_count(
+            nodes, neighbors, node2com, cluster_id2iid,
+        )
         export_edge_count(output_dir, edge_counts)
-
-    if generator == "ecsbm":
-        mcs = compute_mincut(nodes, neighbors, node2com, comm_size_sorted, node_id2iid)
+        mcs = compute_mincut(
+            nodes, neighbors, node2com, comm_size_sorted, node_id2iid,
+        )
         export_mincut(output_dir, mcs)
-
-    if generator in ["lfr", "abcd", "abcd+o"]:
-        export_comm_size(output_dir, comm_size_sorted)
-        mixing_param = compute_mixing_parameter(nodes, neighbors, node2com, generator)
-        export_mixing_param(output_dir, mixing_param)
-
-    logging.info(
-        f"Generator-specific outputs export elapsed: {time.perf_counter() - start:.4f} seconds"
-    )
-    logging.info("Setup complete.")
+        export_com_csv(output_dir, node2com)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="EC-SBM v1 profile extractor")
     parser.add_argument("--edgelist", type=str, required=True)
     parser.add_argument("--clustering", type=str, required=True)
     parser.add_argument("--output-folder", type=str, required=True)
-    parser.add_argument(
-        "--generator",
-        type=str,
-        default="ecsbm",
-        choices=["sbm", "lfr", "abcd", "abcd+o", "ecsbm"],
-    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    setup_generator_inputs(
-        args.edgelist, args.clustering, args.output_folder, args.generator
-    )
+    setup_inputs(args.edgelist, args.clustering, args.output_folder)
 
 
 if __name__ == "__main__":
