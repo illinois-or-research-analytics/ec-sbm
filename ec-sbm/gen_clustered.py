@@ -1,14 +1,18 @@
-import time
-import logging
+"""Generate the k-edge-connected clustered subnetwork from profiled inputs."""
 import argparse
-from pathlib import Path
+import logging
+import random
 
+import graph_tool.all as gt
 import numpy as np
 import pandas as pd
-from scipy.sparse import dok_matrix
-import graph_tool.all as gt
 
-from utils import setup_logging
+from pipeline_common import (
+    load_probs_matrix,
+    standard_setup,
+    timed,
+    write_edge_tuples_csv,
+)
 
 
 def create_edge(u, v):
@@ -115,17 +119,7 @@ def load_inputs(
     deg = pd.read_csv(degree_path, header=None)[0].to_numpy(copy=True)
     mcs = pd.read_csv(mincut_path, header=None)[0].to_numpy(copy=True)
 
-    probs = dok_matrix((num_clusters, num_clusters), dtype=int)
-    try:
-        edge_counts_df = pd.read_csv(
-            edge_counts_path, header=None, names=["r", "c", "w"]
-        )
-        for _, row in edge_counts_df.iterrows():
-            probs[int(row["r"]), int(row["c"])] = int(row["w"])
-    except pd.errors.EmptyDataError:
-        logging.warning(
-            f"Edge counts file ({edge_counts_path}) is empty. Assuming completely disconnected clusters."
-        )
+    probs = load_probs_matrix(edge_counts_path, num_clusters)
 
     return node_id2id, node2cluster, clustering, deg, mcs, probs
 
@@ -164,12 +158,7 @@ def synthesize_sbm_network(node_id2id, node2cluster, deg, probs, edges):
 
 
 def export_outputs(output_dir, g, node_id2id):
-    edge_out_df = pd.DataFrame(
-        [(node_id2id[src], node_id2id[tgt]) for src, tgt in g.iter_edges()]
-    )
-    edge_out_df.to_csv(
-        Path(output_dir) / "edge.csv", index=False, header=["source", "target"]
-    )
+    write_edge_tuples_csv(output_dir / "edge.csv", g.iter_edges(), node_id2id)
 
 
 def run_ecsbm_generation(
@@ -180,66 +169,47 @@ def run_ecsbm_generation(
     mincut_path,
     edge_counts_path,
     output_dir,
+    seed,
 ):
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    output_dir = standard_setup(output_dir)
 
-    setup_logging(Path(output_dir) / "run.log")
+    random.seed(seed)
+    np.random.seed(seed)
+    gt.seed_rng(seed)
 
     logging.info("Starting EC-SBM Generation Pipeline...")
 
-    start = time.perf_counter()
-    node_id2id, node2cluster, clustering, deg, mcs, probs = load_inputs(
-        node_id_path,
-        cluster_id_path,
-        assignment_path,
-        degree_path,
-        mincut_path,
-        edge_counts_path,
-    )
-    logging.info(f"Input loading elapsed: {time.perf_counter() - start:.4f} seconds")
+    with timed("Input loading"):
+        node_id2id, node2cluster, clustering, deg, mcs, probs = load_inputs(
+            node_id_path,
+            cluster_id_path,
+            assignment_path,
+            degree_path,
+            mincut_path,
+            edge_counts_path,
+        )
 
-    start = time.perf_counter()
-    edges = generate_internal_edges(clustering, mcs, deg, probs, node2cluster)
-    logging.info(
-        f"Generation of k-edge-connected graphs elapsed: {time.perf_counter() - start:.4f} seconds"
-    )
+    with timed("Generation of k-edge-connected graphs"):
+        edges = generate_internal_edges(clustering, mcs, deg, probs, node2cluster)
 
-    start = time.perf_counter()
-    g = synthesize_sbm_network(node_id2id, node2cluster, deg, probs, edges)
-    logging.info(
-        f"SBM network synthesis elapsed: {time.perf_counter() - start:.4f} seconds"
-    )
+    with timed("SBM network synthesis"):
+        g = synthesize_sbm_network(node_id2id, node2cluster, deg, probs, edges)
 
-    start = time.perf_counter()
-    export_outputs(output_dir, g, node_id2id)
-    logging.info(
-        f"Post-processing and file writing elapsed: {time.perf_counter() - start:.4f} seconds"
-    )
+    with timed("Post-processing and file writing"):
+        export_outputs(output_dir, g, node_id2id)
     logging.info("EC-SBM Generation complete.")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="EC-SBM Graph Generator")
-    parser.add_argument(
-        "--node-id", type=str, required=True, help="Path to node_id.csv"
-    )
-    parser.add_argument(
-        "--cluster-id", type=str, required=True, help="Path to cluster_id.csv"
-    )
-    parser.add_argument(
-        "--assignment", type=str, required=True, help="Path to assignment.csv"
-    )
-    parser.add_argument("--degree", type=str, required=True, help="Path to degree.csv")
-    parser.add_argument("--mincut", type=str, required=True, help="Path to mincut.csv")
-    parser.add_argument(
-        "--edge-counts", type=str, required=True, help="Path to edge_counts.csv"
-    )
-    parser.add_argument(
-        "--output-folder",
-        type=str,
-        required=True,
-        help="Output directory for generated network",
-    )
+    parser.add_argument("--node-id", type=str, required=True)
+    parser.add_argument("--cluster-id", type=str, required=True)
+    parser.add_argument("--assignment", type=str, required=True)
+    parser.add_argument("--degree", type=str, required=True)
+    parser.add_argument("--mincut", type=str, required=True)
+    parser.add_argument("--edge-counts", type=str, required=True)
+    parser.add_argument("--output-folder", type=str, required=True)
+    parser.add_argument("--seed", type=int, default=1)
     return parser.parse_args()
 
 
@@ -253,6 +223,7 @@ def main():
         args.mincut,
         args.edge_counts,
         args.output_folder,
+        args.seed,
     )
 
 
