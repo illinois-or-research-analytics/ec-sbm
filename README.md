@@ -65,10 +65,13 @@ The final synthetic network is `<output-dir>/edge.csv`. The surviving top-level 
 
 ```bash
 bash scripts/run_ecsbm.sh \
-    --input-edgelist examples/input/cit_hepph/edge.csv \
-    --input-clustering examples/input/cit_hepph/com.csv \
-    --output-dir examples/output/cit_hepph
+    --input-edgelist examples/input/dnc/edge.csv \
+    --input-clustering examples/input/dnc/com.csv \
+    --output-dir examples/output/dnc \
+    --seed 1
 ```
+
+Reference output at `examples/output/dnc/` was generated with `--seed 1 --keep-state`; `examples/output/dnc/edge.csv` has sha256 `e2b5a6914b12…`.
 
 ### **Long version**
 

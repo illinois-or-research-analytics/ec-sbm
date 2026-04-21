@@ -166,4 +166,5 @@ cython_debug/
 data
 data/
 output/
+!examples/output/
 slurm_output/

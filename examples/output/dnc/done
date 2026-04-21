@@ -1,0 +1,6 @@
+60e57ada6fc438cb448fb65c542cfd827a4509e4a5c9a13faa9d83c366d6bf76  examples/input/dnc/edge.csv
+e240ae23f3ea32f05e1a9135bbc3d310752dacfbbcaf80900cbf09e7dfd59984  examples/input/dnc/com.csv
+a05d155164363b0645b95529aa1eb8a2b568862b4541b4fb6fbb21520f25db87  examples/output/dnc/params.txt
+e2b5a6914b12f39c9356bbeba17a61ef82b0ce97258caf1dfef45b42d64a3d5b  examples/output/dnc/edge.csv
+e240ae23f3ea32f05e1a9135bbc3d310752dacfbbcaf80900cbf09e7dfd59984  examples/output/dnc/com.csv
+00892af59b097edf298b7c2d5f761da24275df2eaefa986bec506dd76900b2fe  examples/output/dnc/sources.json
