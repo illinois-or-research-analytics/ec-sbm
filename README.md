@@ -52,14 +52,25 @@ The final synthetic network is `<output-dir>/edge.csv`. The surviving top-level 
 
 ```
 <output-dir>/
-├── edge.csv        # Final synthetic network (source,target)
-├── com.csv         # Clustering used for generation (outliers removed)
-├── sources.json    # Provenance map: which rows came from which stage
-├── params.txt      # Pipeline fingerprint (seed, n_threads)
-├── run.log         # Consolidated per-stage logs
-├── done            # sha256 fingerprint of pipeline I/O
-└── .state/         # (only with --keep-state) per-stage intermediates
+├── edge.csv             # Final synthetic network (source,target)
+├── com.csv              # Clustering used for generation (outliers removed)
+├── sources.json         # Provenance map: which rows came from which stage
+├── params.txt           # Pipeline fingerprint (seed, n_threads)
+├── run.log              # Consolidated per-stage logs
+├── done                 # sha256 fingerprint of pipeline I/O
+└── .state/              # (only with --keep-state) per-stage intermediates
+    ├── profile/         # Empirical statistics (node_id, cluster_id, assignment,
+    │                    #   degree, mincut, edge_counts, com)
+    ├── gen_clustered/   # Stage 1 output: clustered subnetwork edge.csv
+    ├── gen_outlier/     # Stage 2: outlier subnetwork + combine with stage 1
+    │   ├── edges/       #   SBM-synthesized outlier edges (edge_outlier.csv)
+    │   └── edge.csv     #   stage 1 + outlier edges (deduped)
+    └── match_degree/    # Stage 3: degree matching + combine with stages 1+2
+        ├── edges/       #   Added edges (degree_matching_edge.csv)
+        └── edge.csv     #   stages 1+2 + degree-matching edges (deduped)
 ```
+
+Each stage directory also contains `done` (sha256 fingerprint of inputs+outputs), `params.txt` (stage parameters), `run.log`, and `time_and_err.log`.
 
 **Example**
 
