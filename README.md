@@ -12,9 +12,28 @@ k-edge-connected (where k is the empirical per-cluster min-cut). Outlier nodes
   block-preserving 2-opt rewiring, and a pluggable degree-matching stage
   (default hybrid).
 
-Full per-stage algorithmic detail lives upstream in the
-[`vltanh/network-generation`](https://github.com/vltanh/network-generation)
-per-algorithm docs; this repo is the standalone entry point.
+v1 and v2 share a single configurable module pair
+(`gen_clustered.py` + `gen_outlier.py`). `--version` picks a preset
+flag bundle; individual flags can still be overridden for ablations or
+custom mixes.
+
+v1 is the version used in the original EC-SBM paper. If you use our work in your research, please cite:
+
+```
+@article{vule2025ecsbm,
+  title = {EC-SBM synthetic network generator},
+  volume = {10},
+  ISSN = {2364-8228},
+  url = {http://dx.doi.org/10.1007/s41109-025-00701-2},
+  DOI = {10.1007/s41109-025-00701-2},
+  number = {1},
+  journal = {Applied Network Science},
+  publisher = {Springer Science and Business Media LLC},
+  author = {Vu-Le,  The-Anh and Anne,  Lahari and Chacko,  George and Warnow,  Tandy},
+  year = {2025},
+  month = May 
+}
+```
 
 ## Usage
 
@@ -33,17 +52,23 @@ Inputs:
 
 ### Flags
 
-| Flag | Versions | Default | Description |
-| --- | --- | --- | --- |
-| `--version {v1\|v2}` | both | - | Required. |
-| `--seed N` | both | `1` | RNG seed. Under a fixed seed the pipeline is byte-reproducible. |
-| `--n-threads N` | both | `1` | Sets `OMP_NUM_THREADS`. |
-| `--timeout DUR` | both | `3d` | Per-stage `timeout(1)` budget. |
-| `--outlier-mode {excluded\|singleton\|combined}` | v2 | `excluded` | Profile-stage outlier handling. v1 rejects anything other than `excluded`. |
-| `--drop-outlier-outlier-edges` / `--keep-outlier-outlier-edges` | v2 | keep | Drop or retain edges between two outlier nodes at profile time. |
-| `--gen-outlier-mode {combined\|singleton}` | v2 | `combined` | Residual-SBM outlier block grouping. |
-| `--edge-correction {drop\|rewire}` | v2 | `rewire` | Stage 3 parallel/self-loop handling. `rewire` preserves degree via 2-opt swaps; `drop` removes offenders. |
-| `--match-degree-algorithm {greedy\|true_greedy\|random_greedy\|rewire\|hybrid}` | v2 | `hybrid` | Stage 4 degree-matching method. v1 is fixed to `greedy`. |
+| Flag | Scope | v1 preset | v2 preset | Description |
+| --- | --- | --- | --- | --- |
+| `--version {v1\|v2}` | required | - | - | Selects the preset flag bundle. |
+| `--seed N` | all | `1` | `1` | RNG seed. Under a fixed seed the pipeline is byte-reproducible. |
+| `--n-threads N` | all | `1` | `1` | Sets `OMP_NUM_THREADS`. |
+| `--timeout DUR` | all | `3d` | `3d` | Per-stage `timeout(1)` budget. |
+| `--outlier-mode {excluded\|singleton\|combined}` | stage 1 | `excluded` (fixed) | `excluded` | How the profile stage handles outliers. v1 rejects anything other than `excluded`. |
+| `--drop-outlier-outlier-edges` / `--keep-outlier-outlier-edges` | stage 1 | keep | keep | Drop or retain edges between two outlier nodes at profile time. |
+| `--sbm-overlay` / `--no-sbm-overlay` | stage 2 | on | off | Whether stage 2 runs `gt.generate_sbm` on the mutated residual and overlays the constructive core (v1) or emits the core only (v2). |
+| `--scope {outlier-incident\|all}` | stage 3a | `outlier-incident` | `all` | Which orig edges contribute to the residual SBM's `probs` and `out_degs`: outlier-incident only (v1) or every edge, diag-adjusted (v2). |
+| `--gen-outlier-mode {combined\|singleton}` | stage 3a | `singleton` | `combined` | How outlier nodes are assigned to blocks during the residual SBM. |
+| `--edge-correction {none\|drop\|rewire}` | stage 3a | `none` | `rewire` | Post-SBM correction. `rewire` does block-preserving 2-opt swaps; `drop` / `none` rely on `remove_parallel_edges + remove_self_loops`. |
+| `--match-degree-algorithm {greedy\|true_greedy\|random_greedy\|rewire\|hybrid}` | stage 4a | `greedy` | `hybrid` | How stage 4 tops up residual degrees. |
+
+Any explicit flag overrides the `--version` preset, so you can run,
+for example, `--version v2 --sbm-overlay --scope all` to mix the v1
+stage-2 overlay with v2's residual accounting.
 
 ### Output layout
 
@@ -53,7 +78,7 @@ Inputs:
 ├── com.csv          # clustering used for generation (outliers per mode)
 ├── sources.json     # provenance ranges per origin stage
 ├── run.log          # consolidated per-stage logs
-└── stage/           # per-stage intermediates (always retained)
+└── stage/           # per-stage intermediates
     ├── profile/
     ├── gen_clustered/
     ├── gen_outlier/edges/
@@ -61,10 +86,6 @@ Inputs:
     ├── match_degree/edges/
     └── match_degree/
 ```
-
-The standalone script has no caching or stage short-circuit; every invocation
-runs all stages from scratch. The network-generation pipeline wrapper is the
-cached version; see below.
 
 ## Example
 
@@ -87,36 +108,24 @@ sha256 `f46e7d8b94c99fcc3cddbb7b6381c81e05c8b1f25d40134a7ed87b47910a1289`.
 ## Stages
 
 All stages consume and produce CSV files with headers; invoke them directly
-by setting `PYTHONPATH` to include `ec-sbm/common` and `ec-sbm`.
+by setting `PYTHONPATH` to include `ec-sbm/`.
 
 1. **Profile**: extracts node/cluster iid maps, per-node degree, per-cluster
    min-cut, inter-cluster edge counts, and the outlier-transformed clustering.
-   `ec-sbm/common/profile.py`.
-2. **gen_clustered**: builds the k-edge-connected clustered subgraph.
-   `ec-sbm/v{1,2}/gen_clustered.py`. v1 layers an SBM pass on top; v2 is
-   constructive-only.
-3. **gen_outlier**: synthesizes the remaining edges via SBM.
-   `ec-sbm/v1/gen_outlier.py` covers outlier-only edges;
-   `ec-sbm/v2/gen_outlier.py` runs a residual SBM across all blocks with
-   optional 2-opt rewiring.
+   `ec-sbm/profile.py`.
+2. **gen_clustered**: builds the k-edge-connected clustered subgraph via the
+   constructive K_{k+1} core + attach-by-degree loop. `ec-sbm/gen_clustered.py`
+   (internals in `ec-sbm/gen_clustered_core.py`). The `--sbm-overlay` flag
+   controls whether a residual SBM pass is layered on top.
+3. **gen_outlier**: SBM-samples the edges that stage 2 did not place.
+   `ec-sbm/gen_outlier.py`. The `--scope` + `--gen-outlier-mode` + `--edge-correction`
+   flags shape how the residual SBM's `probs` and `out_degs` are computed
+   and how invalid edges are handled.
 4. **match_degree**: tops up per-node degree to match the empirical
-   distribution. `ec-sbm/match_degree.py`. v1 pins `greedy`; v2 defaults to
-   `hybrid`.
+   distribution. `ec-sbm/match_degree.py`.
 
 Stage 3b and 4b run `ec-sbm/combine_edgelists.py` to merge edgelists with
 provenance tracking.
-
-## Relationship to network-generation
-
-[`vltanh/network-generation`](https://github.com/vltanh/network-generation) is
-a cross-algorithm harness covering sbm, abcd, abcd+o, lfr, npso, ec-sbm-v1,
-ec-sbm-v2. It invokes this repo's algorithm modules through a stage-aware
-pipeline wrapper (`src/ec-sbm/v{1,2}/pipeline.sh`) that adds sha256 done-files
-and stage-level caching. The wrappers shadow ec-sbm's vendored helpers with
-the canonical copies in `src/`.
-
-Use this repo when you want ec-sbm only. Use network-generation when you want
-to compare across algorithms or reuse the cached-stage orchestration.
 
 ## Installation
 
