@@ -1,19 +1,32 @@
-"""Generator-agnostic profiling primitives.
+"""EC-SBM stage 1: extract the inputs stages 2-4 consume.
 
-Outlier handling is a two-step pipeline: `identify_outliers` then
-`apply_outlier_mode`. Downstream primitives see `(nodes, node2com,
-cluster_counts, neighbors)` with outlier semantics already baked in.
+Reads the empirical edgelist + clustering, applies the chosen outlier
+handling (excluded / singleton / combined), and writes seven artifacts:
+``node_id.csv``, ``cluster_id.csv``, ``assignment.csv``, ``degree.csv``,
+``edge_counts.csv``, ``mincut.csv``, ``com.csv``.
 
-Deps: stdlib + pandas. numpy is lazy-imported inside the lfr mixing
-branch; pymincut lives in the ec-sbm profile module.
+The profiling primitives (``read_clustering``, ``apply_outlier_mode``,
+``compute_edge_count``, and friends) lived in a separate
+``profile_common`` module back when a tree of per-generator profile
+scripts all reused them. EC-SBM now ships a single profile module, so
+they are inlined here.
 """
 from __future__ import annotations
 
+import argparse
 import logging
 from collections import defaultdict
 
 import pandas as pd
 
+from pymincut.pygraph import PyGraph
+
+from params_common import _parse_bool, read_params, resolve_param
+from pipeline_common import standard_setup, timed
+
+
+DEFAULT_OUTLIER_MODE = "excluded"
+DEFAULT_DROP_OO = False
 
 OUTLIER_MODES = ("excluded", "singleton", "combined")
 COMBINED_OUTLIER_CLUSTER_ID = "__outliers__"
@@ -26,30 +39,26 @@ COMBINED_OUTLIER_CLUSTER_ID = "__outliers__"
 def read_clustering(clustering_path):
     """Read clustering CSV → (nodes, node2com, cluster_counts)."""
     df = pd.read_csv(clustering_path, usecols=[0, 1], dtype=str).dropna()
-
     node2com = dict(zip(df.iloc[:, 0], df.iloc[:, 1]))
     cluster_counts = df.iloc[:, 1].value_counts().to_dict()
     nodes = set(node2com.keys())
-
     return nodes, node2com, cluster_counts
 
 
 def read_edgelist(edgelist_path, nodes):
     """Read edgelist CSV into a bidirectional adjacency.
 
-    Self-loops ignored. `nodes` is extended with nodes absent from the
+    Self-loops ignored. ``nodes`` is extended with nodes absent from the
     clustering (true outliers).
     """
     neighbors = defaultdict(set)
     df = pd.read_csv(edgelist_path, usecols=[0, 1], dtype=str).dropna()
-
     for u, v in zip(df.iloc[:, 0], df.iloc[:, 1]):
         if u != v:
             neighbors[u].add(v)
             neighbors[v].add(u)
             nodes.add(u)
             nodes.add(v)
-
     return nodes, neighbors
 
 
@@ -58,11 +67,7 @@ def read_edgelist(edgelist_path, nodes):
 # ---------------------------------------------------------------------------
 
 def identify_outliers(nodes, node2com, cluster_counts):
-    """Outlier = unclustered OR in a size-1 cluster.
-
-    Mutates node2com/cluster_counts in place: size-1 clusters are removed;
-    their members migrate into the outlier pool. Returns the outlier set.
-    """
+    """Outlier = unclustered OR in a size-1 cluster. Mutates in place."""
     outliers = {u for u in nodes if u not in node2com}
     singleton_clusters = [c for c, sz in cluster_counts.items() if sz == 1]
     for c in singleton_clusters:
@@ -83,7 +88,7 @@ def apply_outlier_mode(nodes, node2com, cluster_counts, neighbors, outliers,
       - singleton: each outlier gets a fresh `__outlier_<id>__` cluster.
       - combined:  fold outliers into one `__outliers__` cluster.
 
-    `drop_outlier_outlier_edges` prunes OO edges first (no-op under excluded).
+    ``drop_outlier_outlier_edges`` prunes OO edges first (no-op under excluded).
     """
     if mode not in OUTLIER_MODES:
         raise ValueError(
@@ -169,22 +174,6 @@ def export_degree(out_dir, node_degree_sorted):
     )
 
 
-def export_comm_size(out_dir, comm_size_sorted):
-    pd.DataFrame([size for _, size in comm_size_sorted]).to_csv(
-        f"{out_dir}/cluster_sizes.csv", index=False, header=False
-    )
-
-
-def export_mixing_param(out_dir, mixing_param):
-    with open(f"{out_dir}/mixing_parameter.txt", "w") as f:
-        f.write(str(mixing_param))
-
-
-def export_n_outliers(out_dir, n_outliers):
-    with open(f"{out_dir}/n_outliers.txt", "w") as f:
-        f.write(str(n_outliers))
-
-
 def export_com_csv(out_dir, node2com):
     """Write node_id,cluster_id in input-clustering row order."""
     pd.DataFrame(node2com.items(), columns=["node_id", "cluster_id"]).to_csv(
@@ -193,13 +182,13 @@ def export_com_csv(out_dir, node2com):
 
 
 # ---------------------------------------------------------------------------
-# Edge-count matrix (sbm + ec-sbm share this)
+# Edge-count matrix
 # ---------------------------------------------------------------------------
 
 def compute_edge_count(nodes, neighbors, node2com, cluster_id2iid):
     """Directed inter-cluster edge counts per (c_i, c_j). Both directions
-    counted independently (matches the dok_matrix convention in gen_clustered).
-    Edges incident to unclustered nodes are ignored.
+    counted independently (matches the dok_matrix convention in
+    gen_clustered). Edges incident to unclustered nodes are ignored.
     """
     edge_counts = defaultdict(int)
     for u in nodes:
@@ -207,7 +196,6 @@ def compute_edge_count(nodes, neighbors, node2com, cluster_id2iid):
         if cu is None:
             continue
         c_iid_u = cluster_id2iid[cu]
-
         for v in neighbors[u]:
             cv = node2com.get(v)
             if cv is not None:
@@ -223,52 +211,121 @@ def export_edge_count(out_dir, edge_counts):
 
 
 # ---------------------------------------------------------------------------
-# Mixing parameter
+# Min-cut (ec-sbm specific)
 # ---------------------------------------------------------------------------
 
-def compute_mixing_parameter(nodes, neighbors, node2com, reduction):
-    """Empirical mixing parameter.
-
-      reduction="mean"   — mean per-node µ_i = out_i / (in_i + out_i),
-                           skipping 0-degree. LFR convention.
-      reduction="global" — global ξ = Σ_out / Σ_total. ABCD/ABCD+o convention.
+def compute_mincut(nodes, neighbors, node2com, comm_size_sorted, node_id2iid):
+    """Per-cluster min edge cut on the induced subgraph; singletons → 0.
+    Result list aligned with comm_size_sorted (index = cluster iid).
     """
-    if reduction not in ("mean", "global"):
-        raise ValueError(
-            f"unknown reduction: {reduction!r}; expected 'mean' or 'global'"
+    clusters_by_id = defaultdict(list)
+    for u, c in node2com.items():
+        clusters_by_id[c].append(u)
+
+    mcs = []
+    for c, _ in comm_size_sorted:
+        c_nodes_str = clusters_by_id[c]
+
+        if len(c_nodes_str) <= 1:
+            mcs.append([0])
+            continue
+
+        c_nodes_iid = [node_id2iid[u] for u in c_nodes_str]
+        c_nodes_set = set(c_nodes_iid)
+        c_edges = []
+        for u in c_nodes_str:
+            u_iid = node_id2iid[u]
+            for v in neighbors[u]:
+                v_iid = node_id2iid.get(v)
+                if v_iid is not None and v_iid in c_nodes_set:
+                    c_edges.append((u_iid, v_iid))
+
+        sub_G = PyGraph(c_nodes_iid, c_edges)
+        min_cut = sub_G.mincut("noi", "bqueue", False)[2]
+        mcs.append([min_cut])
+
+    return mcs
+
+
+def export_mincut(out_dir, mcs):
+    pd.DataFrame(mcs).to_csv(f"{out_dir}/mincut.csv", index=False, header=False)
+
+
+# ---------------------------------------------------------------------------
+# Driver
+# ---------------------------------------------------------------------------
+
+def setup_inputs(edgelist_path, clustering_path, output_dir,
+                 outlier_mode=DEFAULT_OUTLIER_MODE,
+                 drop_outlier_outlier_edges=DEFAULT_DROP_OO):
+    output_dir = standard_setup(output_dir)
+
+    with timed("Input reading"):
+        nodes, node2com, cluster_counts = read_clustering(clustering_path)
+        nodes, neighbors = read_edgelist(edgelist_path, nodes)
+
+    with timed("Outlier transform"):
+        outliers = identify_outliers(nodes, node2com, cluster_counts)
+        apply_outlier_mode(
+            nodes, node2com, cluster_counts, neighbors, outliers,
+            mode=outlier_mode,
+            drop_outlier_outlier_edges=drop_outlier_outlier_edges,
         )
 
-    in_degree = defaultdict(int)
-    out_degree = defaultdict(int)
+    with timed("Mappings computation"):
+        node_deg_sorted, node_id2iid = compute_node_degree(nodes, neighbors)
+        comm_size_sorted, cluster_id2iid = compute_comm_size(cluster_counts)
 
-    for u in nodes:
-        cu = node2com.get(u)
-        if cu is None:
-            continue
-        for v in neighbors[u]:
-            cv = node2com.get(v)
-            if cv is None:
-                continue
-            if cu == cv:
-                in_degree[u] += 1
-            else:
-                out_degree[u] += 1
+    with timed("Outputs export"):
+        export_node_id(output_dir, node_deg_sorted)
+        export_cluster_id(output_dir, comm_size_sorted)
+        export_assignment(output_dir, node_deg_sorted, node2com, cluster_id2iid)
+        export_degree(output_dir, node_deg_sorted)
+        edge_counts = compute_edge_count(
+            nodes, neighbors, node2com, cluster_id2iid,
+        )
+        export_edge_count(output_dir, edge_counts)
+        mcs = compute_mincut(
+            nodes, neighbors, node2com, comm_size_sorted, node_id2iid,
+        )
+        export_mincut(output_dir, mcs)
+        export_com_csv(output_dir, node2com)
 
-    if reduction == "mean":
-        import numpy as np
 
-        mus = []
-        for u in sorted(nodes):
-            total = in_degree[u] + out_degree[u]
-            if total == 0:
-                continue
-            mus.append(out_degree[u] / total)
-        if not mus:
-            return 0.0
-        return float(np.mean(mus))
-    else:
-        outs_sum = sum(out_degree.values())
-        total_sum = outs_sum + sum(in_degree.values())
-        if total_sum == 0:
-            return 0.0
-        return outs_sum / total_sum
+def parse_args():
+    parser = argparse.ArgumentParser(description="EC-SBM profile extractor")
+    parser.add_argument("--edgelist", type=str, required=True)
+    parser.add_argument("--clustering", type=str, required=True)
+    parser.add_argument("--output-folder", type=str, required=True)
+    parser.add_argument("--params-file", type=str, default=None)
+    parser.add_argument(
+        "--outlier-mode", choices=OUTLIER_MODES, default=None,
+    )
+    oo = parser.add_mutually_exclusive_group()
+    oo.add_argument("--drop-outlier-outlier-edges",
+                    dest="drop_oo", action="store_true", default=None)
+    oo.add_argument("--keep-outlier-outlier-edges",
+                    dest="drop_oo", action="store_false")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    file_params = read_params(args.params_file) if args.params_file else None
+    outlier_mode = resolve_param(
+        args.outlier_mode, file_params, "outlier_mode",
+        default=DEFAULT_OUTLIER_MODE,
+    )
+    drop_oo = resolve_param(
+        args.drop_oo, file_params, "drop_outlier_outlier_edges",
+        default=DEFAULT_DROP_OO, parser=_parse_bool,
+    )
+    setup_inputs(
+        args.edgelist, args.clustering, args.output_folder,
+        outlier_mode=outlier_mode,
+        drop_outlier_outlier_edges=drop_oo,
+    )
+
+
+if __name__ == "__main__":
+    main()

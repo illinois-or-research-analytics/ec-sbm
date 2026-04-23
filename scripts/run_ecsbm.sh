@@ -12,7 +12,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PKG_DIR="$( cd "${SCRIPT_DIR}/.." && pwd )/ec-sbm"
+PKG_DIR="$( cd "${SCRIPT_DIR}/.." && pwd )/src"
 export PYTHONPATH="${PKG_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 
 # -------- defaults (pre-preset) --------
