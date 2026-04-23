@@ -1,11 +1,10 @@
-"""Merge two edgelists (deduplicated as undirected), track provenance."""
 import argparse
-import json
 import logging
+import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
+import numpy as np
 
 from pipeline_common import standard_setup, timed
 
@@ -75,6 +74,7 @@ def main():
 
         df_combined["u"] = u
         df_combined["v"] = v
+        df_combined = df_combined[df_combined["u"] != df_combined["v"]]
         df_combined = df_combined.drop_duplicates(subset=["u", "v"], keep="first").drop(
             columns=["u", "v"]
         )
@@ -106,7 +106,7 @@ def main():
             json.dump(sources_out, f, indent=4)
 
         logging.info(f"Exported combined edgelist to {output_fp.name}")
-        logging.info("Exported provenance map to sources.json")
+        logging.info(f"Exported provenance map to sources.json")
     logging.info("--- Combination Complete ---")
 
 

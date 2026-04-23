@@ -1,14 +1,27 @@
-"""Profiling primitives for EC-SBM v1 (excluded-outlier only).
+"""Generator-agnostic profiling primitives.
 
-Two-step pipeline: identify outliers, then drop them and their incident
-edges. Downstream code sees clustered nodes only.
+Outlier handling is a two-step pipeline: `identify_outliers` then
+`apply_outlier_mode`. Downstream primitives see `(nodes, node2com,
+cluster_counts, neighbors)` with outlier semantics already baked in.
+
+Deps: stdlib + pandas. numpy is lazy-imported inside the lfr mixing
+branch; pymincut lives in the ec-sbm profile module.
 """
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 
 import pandas as pd
 
+
+OUTLIER_MODES = ("excluded", "singleton", "combined")
+COMBINED_OUTLIER_CLUSTER_ID = "__outliers__"
+
+
+# ---------------------------------------------------------------------------
+# Reading
+# ---------------------------------------------------------------------------
 
 def read_clustering(clustering_path):
     """Read clustering CSV → (nodes, node2com, cluster_counts)."""
@@ -40,6 +53,10 @@ def read_edgelist(edgelist_path, nodes):
     return nodes, neighbors
 
 
+# ---------------------------------------------------------------------------
+# Outlier identification + mode transform
+# ---------------------------------------------------------------------------
+
 def identify_outliers(nodes, node2com, cluster_counts):
     """Outlier = unclustered OR in a size-1 cluster.
 
@@ -57,15 +74,49 @@ def identify_outliers(nodes, node2com, cluster_counts):
     return outliers
 
 
-def drop_outliers(nodes, neighbors, outliers):
-    """Drop outliers and every incident edge. Mutates nodes/neighbors in place."""
-    for u in outliers:
-        nodes.discard(u)
-        if u in neighbors:
-            del neighbors[u]
-    for v in list(neighbors):
-        neighbors[v] = {w for w in neighbors[v] if w not in outliers}
+def apply_outlier_mode(nodes, node2com, cluster_counts, neighbors, outliers,
+                       mode, drop_outlier_outlier_edges=False):
+    """Transform profile inputs per outlier mode. Mutates in place.
 
+    Modes:
+      - excluded:  drop outliers and every incident edge.
+      - singleton: each outlier gets a fresh `__outlier_<id>__` cluster.
+      - combined:  fold outliers into one `__outliers__` cluster.
+
+    `drop_outlier_outlier_edges` prunes OO edges first (no-op under excluded).
+    """
+    if mode not in OUTLIER_MODES:
+        raise ValueError(
+            f"unknown outlier mode: {mode!r}; expected one of {OUTLIER_MODES}"
+        )
+
+    if drop_outlier_outlier_edges and mode != "excluded":
+        for u in outliers:
+            if u in neighbors:
+                neighbors[u] = {v for v in neighbors[u] if v not in outliers}
+
+    if mode == "excluded":
+        for u in outliers:
+            nodes.discard(u)
+            if u in neighbors:
+                del neighbors[u]
+        for v in list(neighbors):
+            neighbors[v] = {w for w in neighbors[v] if w not in outliers}
+    elif mode == "singleton":
+        for u in outliers:
+            cid = f"__outlier_{u}__"
+            node2com[u] = cid
+            cluster_counts[cid] = 1
+    elif mode == "combined":
+        if outliers:
+            for u in outliers:
+                node2com[u] = COMBINED_OUTLIER_CLUSTER_ID
+            cluster_counts[COMBINED_OUTLIER_CLUSTER_ID] = len(outliers)
+
+
+# ---------------------------------------------------------------------------
+# Mappings
+# ---------------------------------------------------------------------------
 
 def compute_node_degree(nodes, neighbors):
     """Nodes sorted by degree desc (tie-break on id asc), and node_id → iid."""
@@ -84,6 +135,10 @@ def compute_comm_size(cluster_counts):
     cluster_id2iid = {c: i for i, (c, _) in enumerate(comm_size_sorted)}
     return comm_size_sorted, cluster_id2iid
 
+
+# ---------------------------------------------------------------------------
+# Exporters
+# ---------------------------------------------------------------------------
 
 def export_node_id(out_dir, node_degree_sorted):
     pd.DataFrame([u for u, _ in node_degree_sorted]).to_csv(
@@ -114,12 +169,32 @@ def export_degree(out_dir, node_degree_sorted):
     )
 
 
+def export_comm_size(out_dir, comm_size_sorted):
+    pd.DataFrame([size for _, size in comm_size_sorted]).to_csv(
+        f"{out_dir}/cluster_sizes.csv", index=False, header=False
+    )
+
+
+def export_mixing_param(out_dir, mixing_param):
+    with open(f"{out_dir}/mixing_parameter.txt", "w") as f:
+        f.write(str(mixing_param))
+
+
+def export_n_outliers(out_dir, n_outliers):
+    with open(f"{out_dir}/n_outliers.txt", "w") as f:
+        f.write(str(n_outliers))
+
+
 def export_com_csv(out_dir, node2com):
     """Write node_id,cluster_id in input-clustering row order."""
     pd.DataFrame(node2com.items(), columns=["node_id", "cluster_id"]).to_csv(
         f"{out_dir}/com.csv", index=False
     )
 
+
+# ---------------------------------------------------------------------------
+# Edge-count matrix (sbm + ec-sbm share this)
+# ---------------------------------------------------------------------------
 
 def compute_edge_count(nodes, neighbors, node2com, cluster_id2iid):
     """Directed inter-cluster edge counts per (c_i, c_j). Both directions
@@ -145,3 +220,55 @@ def export_edge_count(out_dir, edge_counts):
     """(row, col, weight) triples, sorted by (row, col) for stability."""
     data = [[r, c, w] for (r, c), w in sorted(edge_counts.items())]
     pd.DataFrame(data).to_csv(f"{out_dir}/edge_counts.csv", index=False, header=False)
+
+
+# ---------------------------------------------------------------------------
+# Mixing parameter
+# ---------------------------------------------------------------------------
+
+def compute_mixing_parameter(nodes, neighbors, node2com, reduction):
+    """Empirical mixing parameter.
+
+      reduction="mean"   — mean per-node µ_i = out_i / (in_i + out_i),
+                           skipping 0-degree. LFR convention.
+      reduction="global" — global ξ = Σ_out / Σ_total. ABCD/ABCD+o convention.
+    """
+    if reduction not in ("mean", "global"):
+        raise ValueError(
+            f"unknown reduction: {reduction!r}; expected 'mean' or 'global'"
+        )
+
+    in_degree = defaultdict(int)
+    out_degree = defaultdict(int)
+
+    for u in nodes:
+        cu = node2com.get(u)
+        if cu is None:
+            continue
+        for v in neighbors[u]:
+            cv = node2com.get(v)
+            if cv is None:
+                continue
+            if cu == cv:
+                in_degree[u] += 1
+            else:
+                out_degree[u] += 1
+
+    if reduction == "mean":
+        import numpy as np
+
+        mus = []
+        for u in sorted(nodes):
+            total = in_degree[u] + out_degree[u]
+            if total == 0:
+                continue
+            mus.append(out_degree[u] / total)
+        if not mus:
+            return 0.0
+        return float(np.mean(mus))
+    else:
+        outs_sum = sum(out_degree.values())
+        total_sum = outs_sum + sum(in_degree.values())
+        if total_sum == 0:
+            return 0.0
+        return outs_sum / total_sum
