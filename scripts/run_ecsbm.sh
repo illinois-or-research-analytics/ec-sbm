@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# Standalone EC-SBM (v1 or v2) driver. Linear, no caching, no short-circuit.
+# Standalone EC-SBM driver. Linear, no caching, no short-circuit.
 #
-# Network-generation's pipeline wrapper (src/ec-sbm/v{1,2}/pipeline.sh) is the
-# cached / stage-aware version used in that repo. This script is the minimal
-# version for clone-and-run use.
+# The algorithm lives in a single configurable module pair
+# (gen_clustered.py + gen_outlier.py). This script wraps the common v1
+# and v2 flag bundles behind --version, and also lets advanced users
+# override any individual knob.
+#
+# Network-generation's pipeline wrapper (src/ec-sbm/v{1,2}/pipeline.sh) is
+# the cached / stage-aware version used in that repo. This script is the
+# minimal version for clone-and-run use.
 set -euo pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PKG_DIR="$( cd "${SCRIPT_DIR}/.." && pwd )/ec-sbm"
-# common/ first so gen_clustered_core resolves; package root second so the flat
-# vendored helpers (profile_common, pipeline_common, ...) resolve.
-export PYTHONPATH="${PKG_DIR}/common:${PKG_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONPATH="${PKG_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 
-# -------- defaults --------
+# -------- defaults (pre-preset) --------
 VERSION=""
 INPUT_EDGELIST=""
 INPUT_CLUSTERING=""
@@ -20,11 +23,17 @@ OUTPUT_DIR=""
 SEED=1
 N_THREADS=1
 TIMEOUT="3d"
+# Profile stage (shared).
 OUTLIER_MODE="excluded"
 DROP_OO_BOOL="false"
-GEN_OUTLIER_MODE="combined"
-EDGE_CORRECTION="rewire"
-MATCH_DEGREE_ALGORITHM="hybrid"
+# Stage 2 (gen_clustered).
+SBM_OVERLAY=""          # filled by preset unless overridden
+# Stage 3a (gen_outlier).
+SCOPE=""                # filled by preset unless overridden
+GEN_OUTLIER_MODE=""     # filled by preset unless overridden
+EDGE_CORRECTION=""      # filled by preset unless overridden
+# Stage 4a (match_degree).
+MATCH_DEGREE_ALGORITHM=""  # filled by preset unless overridden
 
 usage() {
     cat >&2 <<'EOF'
@@ -33,13 +42,22 @@ Usage: run_ecsbm.sh --version {v1|v2} \
                     --input-clustering <p> \
                     --output-dir <p> \
                     [--seed N] [--n-threads N] [--timeout DUR]
-                    [--outlier-mode {excluded|singleton|combined}]          # v2
-                    [--drop-outlier-outlier-edges|--keep-outlier-outlier-edges]  # v2
-                    [--gen-outlier-mode {combined|singleton}]               # v2
-                    [--edge-correction {drop|rewire}]                        # v2
-                    [--match-degree-algorithm {greedy|true_greedy|random_greedy|rewire|hybrid}]  # v2
+                    [--outlier-mode {excluded|singleton|combined}]         # stage 1
+                    [--drop-outlier-outlier-edges|--keep-outlier-outlier-edges]  # stage 1
+                    [--sbm-overlay|--no-sbm-overlay]                        # stage 2
+                    [--scope {outlier-incident|all}]                        # stage 3a
+                    [--gen-outlier-mode {combined|singleton}]               # stage 3a
+                    [--edge-correction {none|drop|rewire}]                  # stage 3a
+                    [--match-degree-algorithm {greedy|true_greedy|random_greedy|rewire|hybrid}]  # stage 4a
 
-v1 ignores all v2-only flags; --outlier-mode must be 'excluded' for v1.
+--version sets a preset flag bundle:
+  v1: --sbm-overlay --scope outlier-incident --gen-outlier-mode singleton
+      --edge-correction none --match-degree-algorithm greedy
+      (stage 1 forced to --outlier-mode excluded)
+  v2: --no-sbm-overlay --scope all --gen-outlier-mode combined
+      --edge-correction rewire --match-degree-algorithm hybrid
+
+Any explicit flag after --version overrides the preset.
 EOF
 }
 
@@ -56,6 +74,9 @@ while [[ "$#" -gt 0 ]]; do
         --outlier-mode) OUTLIER_MODE="$2"; shift ;;
         --drop-outlier-outlier-edges) DROP_OO_BOOL="true" ;;
         --keep-outlier-outlier-edges) DROP_OO_BOOL="false" ;;
+        --sbm-overlay) SBM_OVERLAY="true" ;;
+        --no-sbm-overlay) SBM_OVERLAY="false" ;;
+        --scope) SCOPE="$2"; shift ;;
         --gen-outlier-mode) GEN_OUTLIER_MODE="$2"; shift ;;
         --edge-correction) EDGE_CORRECTION="$2"; shift ;;
         --match-degree-algorithm) MATCH_DEGREE_ALGORITHM="$2"; shift ;;
@@ -80,13 +101,24 @@ if [[ ! -f "${INPUT_CLUSTERING}" ]]; then
     echo "Error: input clustering not found: ${INPUT_CLUSTERING}" >&2; exit 1
 fi
 
-# v1 constraints.
+# -------- fill unset knobs from the version preset --------
 if [[ "${VERSION}" == "v1" ]]; then
+    : "${SBM_OVERLAY:=true}"
+    : "${SCOPE:=outlier-incident}"
+    : "${GEN_OUTLIER_MODE:=singleton}"
+    : "${EDGE_CORRECTION:=none}"
+    : "${MATCH_DEGREE_ALGORITHM:=greedy}"
+    # v1's profile stage is --outlier-mode excluded by definition.
     if [[ "${OUTLIER_MODE}" != "excluded" ]]; then
         echo "Error: v1 only supports --outlier-mode excluded (got '${OUTLIER_MODE}')." >&2
         exit 1
     fi
-    MATCH_DEGREE_ALGORITHM="greedy"
+else  # v2
+    : "${SBM_OVERLAY:=false}"
+    : "${SCOPE:=all}"
+    : "${GEN_OUTLIER_MODE:=combined}"
+    : "${EDGE_CORRECTION:=rewire}"
+    : "${MATCH_DEGREE_ALGORITHM:=hybrid}"
 fi
 
 export OMP_NUM_THREADS="${N_THREADS}"
@@ -123,18 +155,30 @@ run_stage() {
     fi
 }
 
+if [[ "${DROP_OO_BOOL}" == "true" ]]; then
+    PROFILE_DROP_OO_FLAG=(--drop-outlier-outlier-edges)
+else
+    PROFILE_DROP_OO_FLAG=(--keep-outlier-outlier-edges)
+fi
+
+if [[ "${SBM_OVERLAY}" == "true" ]]; then
+    SBM_OVERLAY_FLAG=(--sbm-overlay)
+else
+    SBM_OVERLAY_FLAG=(--no-sbm-overlay)
+fi
+
 # ---- Stage 1: profile ----
 run_stage "profile" \
-    python "${PKG_DIR}/common/profile.py" \
+    python "${PKG_DIR}/profile.py" \
     --edgelist "${INPUT_EDGELIST}" \
     --clustering "${INPUT_CLUSTERING}" \
     --output-folder "${STG_PROFILE}" \
     --outlier-mode "${OUTLIER_MODE}" \
-    $( [[ "${DROP_OO_BOOL}" == "true" ]] && echo "--drop-outlier-outlier-edges" || echo "--keep-outlier-outlier-edges" )
+    "${PROFILE_DROP_OO_FLAG[@]}"
 
 # ---- Stage 2: gen_clustered ----
-run_stage "gen_clustered (${VERSION})" \
-    python "${PKG_DIR}/${VERSION}/gen_clustered.py" \
+run_stage "gen_clustered (sbm_overlay=${SBM_OVERLAY})" \
+    python "${PKG_DIR}/gen_clustered.py" \
     --node-id "${STG_PROFILE}/node_id.csv" \
     --cluster-id "${STG_PROFILE}/cluster_id.csv" \
     --assignment "${STG_PROFILE}/assignment.csv" \
@@ -142,27 +186,26 @@ run_stage "gen_clustered (${VERSION})" \
     --mincut "${STG_PROFILE}/mincut.csv" \
     --edge-counts "${STG_PROFILE}/edge_counts.csv" \
     --output-folder "${STG_GEN_CLUSTERED}" \
-    --seed "${SEED}"
+    --seed "${SEED}" \
+    "${SBM_OVERLAY_FLAG[@]}"
 
 # ---- Stage 3a: gen_outlier ----
-if [[ "${VERSION}" == "v1" ]]; then
-    run_stage "gen_outlier (v1)" \
-        python "${PKG_DIR}/v1/gen_outlier.py" \
-        --edgelist "${INPUT_EDGELIST}" \
-        --clustering "${INPUT_CLUSTERING}" \
-        --output-folder "${STG_GEN_OUTLIER_EDGES}" \
-        --seed "$((SEED + 1))"
-else
-    run_stage "gen_outlier (v2)" \
-        python "${PKG_DIR}/v2/gen_outlier.py" \
-        --orig-edgelist "${INPUT_EDGELIST}" \
-        --orig-clustering "${INPUT_CLUSTERING}" \
-        --exist-edgelist "${STG_GEN_CLUSTERED}/edge.csv" \
-        --outlier-mode "${GEN_OUTLIER_MODE}" \
-        --edge-correction "${EDGE_CORRECTION}" \
-        --output-folder "${STG_GEN_OUTLIER_EDGES}" \
-        --seed "$((SEED + 1))"
+# Under scope=all we subtract stage-2 output from the residual budget.
+# Under scope=outlier-incident v1 doesn't consult --exist-edgelist.
+GEN_OUTLIER_EXIST_FLAG=()
+if [[ "${SCOPE}" == "all" ]]; then
+    GEN_OUTLIER_EXIST_FLAG=(--exist-edgelist "${STG_GEN_CLUSTERED}/edge.csv")
 fi
+run_stage "gen_outlier (scope=${SCOPE}, outlier_mode=${GEN_OUTLIER_MODE}, edge_correction=${EDGE_CORRECTION})" \
+    python "${PKG_DIR}/gen_outlier.py" \
+    --orig-edgelist "${INPUT_EDGELIST}" \
+    --orig-clustering "${INPUT_CLUSTERING}" \
+    "${GEN_OUTLIER_EXIST_FLAG[@]}" \
+    --scope "${SCOPE}" \
+    --outlier-mode "${GEN_OUTLIER_MODE}" \
+    --edge-correction "${EDGE_CORRECTION}" \
+    --output-folder "${STG_GEN_OUTLIER_EDGES}" \
+    --seed "$((SEED + 1))"
 
 # ---- Stage 3b: combine (clustered + outlier) ----
 run_stage "combine clustered+outlier" \
