@@ -14,7 +14,6 @@ they are inlined here.
 from __future__ import annotations
 
 import argparse
-import logging
 from collections import defaultdict
 
 import pandas as pd
