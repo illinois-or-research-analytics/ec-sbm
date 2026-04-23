@@ -108,23 +108,24 @@ sha256 `f46e7d8b94c99fcc3cddbb7b6381c81e05c8b1f25d40134a7ed87b47910a1289`.
 ## Stages
 
 All stages consume and produce CSV files with headers; invoke them directly
-by setting `PYTHONPATH` to include `ec-sbm/`.
+by setting `PYTHONPATH` to include `src/`. The package lives at `src/`
+(mirrors the layout used in network-generation's `src/`).
 
 1. **Profile**: extracts node/cluster iid maps, per-node degree, per-cluster
    min-cut, inter-cluster edge counts, and the outlier-transformed clustering.
-   `ec-sbm/profile.py`.
+   `src/profile.py`.
 2. **gen_clustered**: builds the k-edge-connected clustered subgraph via the
-   constructive K_{k+1} core + attach-by-degree loop. `ec-sbm/gen_clustered.py`
-   (internals in `ec-sbm/gen_clustered_core.py`). The `--sbm-overlay` flag
+   constructive K_{k+1} core + attach-by-degree loop. `src/gen_clustered.py`
+   (internals in `src/gen_clustered_core.py`). The `--sbm-overlay` flag
    controls whether a residual SBM pass is layered on top.
 3. **gen_outlier**: SBM-samples the edges that stage 2 did not place.
-   `ec-sbm/gen_outlier.py`. The `--scope` + `--gen-outlier-mode` + `--edge-correction`
+   `src/gen_outlier.py`. The `--scope` + `--gen-outlier-mode` + `--edge-correction`
    flags shape how the residual SBM's `probs` and `out_degs` are computed
    and how invalid edges are handled.
 4. **match_degree**: tops up per-node degree to match the empirical
-   distribution. `ec-sbm/match_degree.py`.
+   distribution. `src/match_degree.py`.
 
-Stage 3b and 4b run `ec-sbm/combine_edgelists.py` to merge edgelists with
+Stage 3b and 4b run `src/combine_edgelists.py` to merge edgelists with
 provenance tracking.
 
 ## Installation
