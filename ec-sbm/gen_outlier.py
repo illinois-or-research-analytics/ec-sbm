@@ -51,7 +51,7 @@ import pandas as pd
 from scipy.sparse import dok_matrix
 
 from graph_utils import normalize_edge, run_rewire_attempts
-from params_common import _parse_bool, read_params, resolve_param
+from params_common import read_params, resolve_param
 from pipeline_common import standard_setup, timed, write_edge_tuples_csv
 
 
