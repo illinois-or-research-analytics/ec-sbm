@@ -1,12 +1,11 @@
-"""Generate the outlier subnetwork (edges touching >= 1 outlier) via SBM."""
-import argparse
 import logging
+import argparse
 import random
 from pathlib import Path
 
-import graph_tool.all as gt
 import numpy as np
 import pandas as pd
+import graph_tool.all as gt
 from scipy.sparse import dok_matrix
 
 from pipeline_common import standard_setup, timed, write_edge_tuples_csv

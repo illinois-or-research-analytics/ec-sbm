@@ -1,25 +1,26 @@
-"""EC-SBM v1 profile extractor.
+"""EC-SBM profile (shared by v1 and v2).
 
 Outputs: node_id.csv, cluster_id.csv, assignment.csv, degree.csv,
-edge_counts.csv, mincut.csv, com.csv.
+edge_counts.csv, mincut.csv, com.csv. v1 is `excluded`-only; v2 accepts
+any outlier mode.
 
-Outliers (unclustered nodes and singleton-cluster members) are excluded
-along with every incident edge before any downstream computation.
+Deps: stdlib + pandas + pymincut.
 """
 from __future__ import annotations
 
 import argparse
 from collections import defaultdict
 
-import pandas as pd
 from pymincut.pygraph import PyGraph
 
+from params_common import _parse_bool, read_params, resolve_param
 from pipeline_common import standard_setup, timed
 from profile_common import (
+    OUTLIER_MODES,
+    apply_outlier_mode,
     compute_comm_size,
     compute_edge_count,
     compute_node_degree,
-    drop_outliers,
     export_assignment,
     export_cluster_id,
     export_com_csv,
@@ -30,6 +31,12 @@ from profile_common import (
     read_clustering,
     read_edgelist,
 )
+
+import pandas as pd  # noqa: E402
+
+
+DEFAULT_OUTLIER_MODE = "excluded"
+DEFAULT_DROP_OO = False
 
 
 def compute_mincut(nodes, neighbors, node2com, comm_size_sorted, node_id2iid):
@@ -70,7 +77,9 @@ def export_mincut(out_dir, mcs):
     pd.DataFrame(mcs).to_csv(f"{out_dir}/mincut.csv", index=False, header=False)
 
 
-def setup_inputs(edgelist_path, clustering_path, output_dir):
+def setup_inputs(edgelist_path, clustering_path, output_dir,
+                 outlier_mode=DEFAULT_OUTLIER_MODE,
+                 drop_outlier_outlier_edges=DEFAULT_DROP_OO):
     output_dir = standard_setup(output_dir)
 
     with timed("Input reading"):
@@ -79,7 +88,11 @@ def setup_inputs(edgelist_path, clustering_path, output_dir):
 
     with timed("Outlier transform"):
         outliers = identify_outliers(nodes, node2com, cluster_counts)
-        drop_outliers(nodes, neighbors, outliers)
+        apply_outlier_mode(
+            nodes, node2com, cluster_counts, neighbors, outliers,
+            mode=outlier_mode,
+            drop_outlier_outlier_edges=drop_outlier_outlier_edges,
+        )
 
     with timed("Mappings computation"):
         node_deg_sorted, node_id2iid = compute_node_degree(nodes, neighbors)
@@ -102,16 +115,38 @@ def setup_inputs(edgelist_path, clustering_path, output_dir):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="EC-SBM v1 profile extractor")
+    parser = argparse.ArgumentParser(description="EC-SBM profile extractor")
     parser.add_argument("--edgelist", type=str, required=True)
     parser.add_argument("--clustering", type=str, required=True)
     parser.add_argument("--output-folder", type=str, required=True)
+    parser.add_argument("--params-file", type=str, default=None)
+    parser.add_argument(
+        "--outlier-mode", choices=OUTLIER_MODES, default=None,
+    )
+    oo = parser.add_mutually_exclusive_group()
+    oo.add_argument("--drop-outlier-outlier-edges",
+                    dest="drop_oo", action="store_true", default=None)
+    oo.add_argument("--keep-outlier-outlier-edges",
+                    dest="drop_oo", action="store_false")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    setup_inputs(args.edgelist, args.clustering, args.output_folder)
+    file_params = read_params(args.params_file) if args.params_file else None
+    outlier_mode = resolve_param(
+        args.outlier_mode, file_params, "outlier_mode",
+        default=DEFAULT_OUTLIER_MODE,
+    )
+    drop_oo = resolve_param(
+        args.drop_oo, file_params, "drop_outlier_outlier_edges",
+        default=DEFAULT_DROP_OO, parser=_parse_bool,
+    )
+    setup_inputs(
+        args.edgelist, args.clustering, args.output_folder,
+        outlier_mode=outlier_mode,
+        drop_outlier_outlier_edges=drop_oo,
+    )
 
 
 if __name__ == "__main__":
