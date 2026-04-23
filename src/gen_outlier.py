@@ -81,7 +81,7 @@ def load_network_data(orig_edgelist_fp, orig_clustering_fp, exist_edgelist_fp=No
         df_exist = pd.DataFrame(columns=["source", "target"])
 
     node2cluster_str = dict(zip(df_clust["node_id"], df_clust["cluster_id"]))
-    return df_orig, df_clust, df_exist, node2cluster_str
+    return df_orig, df_exist, node2cluster_str
 
 
 def build_node_universe(df_orig, node2cluster_str, scope):
@@ -91,6 +91,12 @@ def build_node_universe(df_orig, node2cluster_str, scope):
     so clustered nodes that are isolated in the orig edgelist are still
     assigned a block (v1 historical shape). Under ``scope=all`` only the
     orig edge endpoints enter the universe.
+
+    ``all_nodes`` is a plain ``set``; downstream iid numbering (see
+    ``assign_blocks``) enumerates it in set-iteration order, so byte
+    reproducibility depends on ``PYTHONHASHSEED=0`` being set by the
+    wrapper. Do not swap for ``sorted(...)``: the baseline hashes
+    (v1 ``e2b5a691…``, v2 ``f46e7d8b…``) are pinned to this ordering.
     """
     all_nodes = set(df_orig["source"]).union(set(df_orig["target"]))
     if scope == "outlier-incident":
@@ -356,12 +362,8 @@ def synthesize_residual_subnetwork(b, probs, out_degs, edge_correction):
 
 
 # ---------------------------------------------------------------------------
-# Export + driver
+# Driver
 # ---------------------------------------------------------------------------
-
-def export_generated_edges(edges, node_iid2id, output_dir):
-    write_edge_tuples_csv(output_dir / "edge_outlier.csv", edges, node_iid2id)
-
 
 def run_outlier_generation(
     orig_edgelist_fp,
@@ -386,7 +388,7 @@ def run_outlier_generation(
     )
 
     with timed("Setup"):
-        df_orig, _, df_exist, node2cluster_str = load_network_data(
+        df_orig, df_exist, node2cluster_str = load_network_data(
             orig_edgelist_fp, orig_clustering_fp, exist_edgelist_fp,
         )
         b, probs, out_degs, node_iid2id = prepare_sbm_inputs(
@@ -398,7 +400,7 @@ def run_outlier_generation(
         edges = synthesize_residual_subnetwork(b, probs, out_degs, edge_correction)
 
     with timed("Export"):
-        export_generated_edges(edges, node_iid2id, output_dir)
+        write_edge_tuples_csv(output_dir / "edge_outlier.csv", edges, node_iid2id)
 
     logging.info("Outlier generation complete.")
 
