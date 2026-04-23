@@ -23,23 +23,8 @@ import random
 import numpy as np
 
 from pipeline_common import standard_setup, timed, write_edge_tuples_csv
-from gen_clustered_core import (
-    generate_cluster,  # re-exported for tests that import through this module
-    generate_internal_edges,
-    load_inputs,
-)
+from gen_clustered_core import generate_internal_edges, load_inputs
 from params_common import _parse_bool, read_params, resolve_param
-
-
-__all__ = [
-    "generate_cluster",
-    "generate_internal_edges",
-    "load_inputs",
-    "synthesize_sbm_network",
-    "export_core_edges",
-    "export_sbm_graph",
-    "run_ecsbm_generation",
-]
 
 
 DEFAULT_SBM_OVERLAY = False
@@ -69,14 +54,6 @@ def synthesize_sbm_network(node_id2id, node2cluster, deg, probs, edges):
     gt.remove_parallel_edges(g)
     gt.remove_self_loops(g)
     return g
-
-
-def export_core_edges(output_dir, edges, node_id2id):
-    write_edge_tuples_csv(output_dir / "edge.csv", edges, node_id2id)
-
-
-def export_sbm_graph(output_dir, g, node_id2id):
-    write_edge_tuples_csv(output_dir / "edge.csv", g.iter_edges(), node_id2id)
 
 
 def run_ecsbm_generation(
@@ -123,10 +100,10 @@ def run_ecsbm_generation(
                 node_id2id, node2cluster, deg, probs, edges,
             )
         with timed("Export"):
-            export_sbm_graph(output_dir, g, node_id2id)
+            write_edge_tuples_csv(output_dir / "edge.csv", g.iter_edges(), node_id2id)
     else:
         with timed(f"Exporting {len(edges)} constructive edges"):
-            export_core_edges(output_dir, edges, node_id2id)
+            write_edge_tuples_csv(output_dir / "edge.csv", edges, node_id2id)
 
     logging.info("Clustered generation complete.")
 

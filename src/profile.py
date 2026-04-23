@@ -4,12 +4,6 @@ Reads the empirical edgelist + clustering, applies the chosen outlier
 handling (excluded / singleton / combined), and writes seven artifacts:
 ``node_id.csv``, ``cluster_id.csv``, ``assignment.csv``, ``degree.csv``,
 ``edge_counts.csv``, ``mincut.csv``, ``com.csv``.
-
-The profiling primitives (``read_clustering``, ``apply_outlier_mode``,
-``compute_edge_count``, and friends) lived in a separate
-``profile_common`` module back when a tree of per-generator profile
-scripts all reused them. EC-SBM now ships a single profile module, so
-they are inlined here.
 """
 from __future__ import annotations
 

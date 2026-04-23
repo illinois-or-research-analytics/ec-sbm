@@ -1,9 +1,8 @@
-"""Shared k-edge-connected cluster construction, used by v1 + v2.
+"""Constructive k-edge-connected cluster build shared by both ec-sbm presets.
 
-Extracted from the near-identical inner loops of
-`src/ec-sbm/v1/gen_clustered.py` and `src/ec-sbm/v2/gen_clustered.py`.
-Per-version orchestration (v1's SBM overlay, v2's constructive-only run)
-stays in the respective wrappers.
+Per-preset orchestration (v1's residual SBM overlay on the mutated
+probs/deg, v2's constructive-only export) lives in ``gen_clustered.py``
+behind ``--sbm-overlay``.
 """
 from __future__ import annotations
 
