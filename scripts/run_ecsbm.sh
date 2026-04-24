@@ -53,11 +53,11 @@ Usage: run_ecsbm.sh --version {v1|v2} \
 --version sets a preset flag bundle:
   v1: --sbm-overlay --scope outlier-incident --gen-outlier-mode singleton
       --edge-correction none --match-degree-algorithm greedy
-      (stage 1 forced to --outlier-mode excluded)
   v2: --no-sbm-overlay --scope all --gen-outlier-mode combined
       --edge-correction rewire --match-degree-algorithm hybrid
 
-Any explicit flag after --version overrides the preset.
+Stage 1 defaults to --outlier-mode excluded; both presets leave it
+unchanged. Any explicit flag after --version overrides the preset.
 EOF
 }
 
@@ -108,11 +108,6 @@ if [[ "${VERSION}" == "v1" ]]; then
     : "${GEN_OUTLIER_MODE:=singleton}"
     : "${EDGE_CORRECTION:=none}"
     : "${MATCH_DEGREE_ALGORITHM:=greedy}"
-    # v1's profile stage is --outlier-mode excluded by definition.
-    if [[ "${OUTLIER_MODE}" != "excluded" ]]; then
-        echo "Error: v1 only supports --outlier-mode excluded (got '${OUTLIER_MODE}')." >&2
-        exit 1
-    fi
 else  # v2
     : "${SBM_OVERLAY:=false}"
     : "${SCOPE:=all}"
