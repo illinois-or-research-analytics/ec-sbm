@@ -59,7 +59,7 @@ Inputs:
 | `--timeout DUR` | all | `3d` | `3d` | Per-stage `timeout(1)` budget. |
 | `--outlier-mode {excluded\|singleton\|combined}` | stage 1 | `excluded` (fixed) | `excluded` | How the profile stage handles outliers. v1 rejects anything other than `excluded`. |
 | `--drop-outlier-outlier-edges` / `--keep-outlier-outlier-edges` | stage 1 | keep | keep | Drop or retain edges between two outlier nodes at profile time. |
-| `--sbm-overlay` / `--no-sbm-overlay` | stage 2 | on | off | Whether stage 2 runs `gt.generate_sbm` on the mutated residual and overlays the constructive cliques (v1) or emits the cliques only (v2). |
+| `--sbm-overlay` / `--no-sbm-overlay` | stage 2 | on | off | Whether stage 2 runs `gt.generate_sbm` on the mutated residual and overlays the k-edge-connected core (v1) or emits the core only (v2). |
 | `--scope {outlier-incident\|all}` | stage 3a | `outlier-incident` | `all` | Which orig edges contribute to the residual SBM's `probs` and `out_degs`: outlier-incident only (v1) or every edge, diag-adjusted (v2). |
 | `--gen-outlier-mode {combined\|singleton}` | stage 3a | `singleton` | `combined` | How outlier nodes are assigned to blocks during the residual SBM. |
 | `--edge-correction {none\|drop\|rewire}` | stage 3a | `none` | `rewire` | Post-SBM correction. `rewire` does block-preserving 2-opt swaps; `drop` / `none` rely on `remove_parallel_edges + remove_self_loops`. |
@@ -115,9 +115,10 @@ directly by setting `PYTHONPATH` to include `src/`.
    per-cluster min-cut, inter-cluster edge counts, and the
    outlier-transformed clustering. `src/profile.py`.
 2. **gen_clustered**: builds the clustered subgraph. `src/gen_clustered.py`
-   calls the constructive K_{k+1} clique core in `src/gen_cliques.py`;
-   the `--sbm-overlay` flag controls whether a residual SBM pass is
-   layered on top.
+   calls the constructive k-edge-connected core in `src/gen_kec_core.py`
+   (K_{k+1} clique on the top-(k+1) nodes + attach-by-degree for the
+   rest); the `--sbm-overlay` flag controls whether a residual SBM pass
+   is layered on top.
 3. **gen_outlier**: SBM-samples the edges that stage 2 did not place.
    `src/gen_outlier.py`. The `--scope`, `--gen-outlier-mode`, and
    `--edge-correction` flags shape how the residual SBM's `probs` and
