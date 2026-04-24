@@ -12,11 +12,7 @@ nodes (unclustered or singleton) are synthesized in a dedicated stage.
   with block-preserving 2-opt rewiring, and a pluggable degree-matching
   stage (default hybrid).
 
-`--version v1` / `--version v2` pick a preset flag bundle. Individual
-flags can be set explicitly to override any knob within a preset or to
-mix the two recipes.
-
-If you use this work in your research, please cite:
+The v1 variant is published in [Vu-Le et al. 2025](https://doi.org/10.1007/s41109-025-00701-2). If you use it in your research, please cite the paper:
 
 ```
 @article{vule2025ecsbm,
@@ -57,7 +53,7 @@ Inputs:
 | `--seed N` | all | `1` | `1` | RNG seed. Under a fixed seed the pipeline is byte-reproducible. |
 | `--n-threads N` | all | `1` | `1` | Sets `OMP_NUM_THREADS`. |
 | `--timeout DUR` | all | `3d` | `3d` | Per-stage `timeout(1)` budget. |
-| `--outlier-mode {excluded\|singleton\|combined}` | stage 1 | `excluded` (fixed) | `excluded` | How the profile stage handles outliers. v1 rejects anything other than `excluded`. |
+| `--outlier-mode {excluded\|singleton\|combined}` | stage 1 | `excluded` | `excluded` | How the profile stage handles outliers. |
 | `--drop-outlier-outlier-edges` / `--keep-outlier-outlier-edges` | stage 1 | keep | keep | Drop or retain edges between two outlier nodes at profile time. |
 | `--sbm-overlay` / `--no-sbm-overlay` | stage 2 | on | off | Whether stage 2 runs `gt.generate_sbm` on the mutated residual and overlays the k-edge-connected core (v1) or emits the core only (v2). |
 | `--scope {outlier-incident\|all}` | stage 3a | `outlier-incident` | `all` | Which orig edges contribute to the residual SBM's `probs` and `out_degs`: outlier-incident only (v1) or every edge, diag-adjusted (v2). |
@@ -132,3 +128,10 @@ provenance tracking.
 ## Installation
 
 See [INSTALL.md](INSTALL.md).
+
+## Acknowledgements
+
+- [graph-tool](https://graph-tool.skewed.de/) for the SBM sampler and
+  core graph types.
+- [python-mincut](https://github.com/vikramr2/python-mincut) for VieCut 
+  wrapper to compute min-cut used in the profile stage.
