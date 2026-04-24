@@ -1,0 +1,10 @@
+drop_outlier_outlier_edges=false
+edge_correction=rewire
+gen_outlier_mode=combined
+match_degree_algorithm=hybrid
+n_threads=1
+outlier_mode=excluded
+sbm_overlay=false
+scope=all
+seed=1
+version=v2

@@ -1,0 +1,10 @@
+drop_outlier_outlier_edges=false
+edge_correction=none
+gen_outlier_mode=singleton
+match_degree_algorithm=greedy
+n_threads=1
+outlier_mode=excluded
+sbm_overlay=true
+scope=outlier-incident
+seed=1
+version=v1
