@@ -1,8 +1,13 @@
-"""Constructive k-edge-connected cluster build shared by both ec-sbm presets.
+"""Per-cluster constructive k-edge-connected cliques.
 
-Per-preset orchestration (v1's residual SBM overlay on the mutated
-probs/deg, v2's constructive-only export) lives in ``gen_clustered.py``
-behind ``--sbm-overlay``.
+Phase 1 builds a ``K_{k+1}`` clique on the top-(k+1) nodes by residual
+degree; phase 2 attaches each remaining node with ``k`` edges to the
+already-processed set. The resulting per-cluster subgraph is guaranteed
+k-edge-connected.
+
+Used by ``gen_clustered.py`` as the first step of stage 2; that
+wrapper optionally overlays a residual SBM sample on top
+(``--sbm-overlay``).
 """
 from __future__ import annotations
 

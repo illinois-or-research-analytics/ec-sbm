@@ -114,10 +114,11 @@ by setting `PYTHONPATH` to include `src/`. The package lives at `src/`
 1. **Profile**: extracts node/cluster iid maps, per-node degree, per-cluster
    min-cut, inter-cluster edge counts, and the outlier-transformed clustering.
    `src/profile.py`.
-2. **gen_clustered**: builds the k-edge-connected clustered subgraph via the
-   constructive K_{k+1} core + attach-by-degree loop. `src/gen_clustered.py`
-   (internals in `src/gen_clustered_core.py`). The `--sbm-overlay` flag
-   controls whether a residual SBM pass is layered on top.
+2. **gen_clustered**: builds the k-edge-connected clustered subgraph.
+   `src/gen_clustered.py`. The constructive K_{k+1} clique core lives in
+   `src/gen_cliques.py` and is used as the first step regardless of
+   preset; the `--sbm-overlay` flag controls whether a residual SBM
+   pass is layered on top.
 3. **gen_outlier**: SBM-samples the edges that stage 2 did not place.
    `src/gen_outlier.py`. The `--scope` + `--gen-outlier-mode` + `--edge-correction`
    flags shape how the residual SBM's `probs` and `out_degs` are computed
