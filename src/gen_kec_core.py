@@ -1,4 +1,4 @@
-"""Per-cluster constructive k-edge-connected cliques.
+"""Per-cluster constructive k-edge-connected core.
 
 Phase 1 builds a ``K_{k+1}`` clique on the top-(k+1) nodes by residual
 degree; phase 2 attaches each remaining node with ``k`` edges to the

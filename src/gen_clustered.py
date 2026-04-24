@@ -1,18 +1,18 @@
-"""Stage 2: per-cluster clustered subgraph. Calls ``gen_cliques`` for the
+"""Stage 2: per-cluster clustered subgraph. Calls ``gen_kec_core`` for the
 k-edge-connected core, then optionally overlays a residual SBM on the
 (mutated) block probabilities.
 
 Two presets and a knob:
 
-- ``--no-sbm-overlay`` (default, "v2" behavior): the output is exactly the
-  constructive cliques produced by ``gen_cliques``. Intra-cluster budget
-  is left for later stages to spend; nothing is sampled here.
-- ``--sbm-overlay`` ("v1" behavior): after the clique phase, run
+- ``--no-sbm-overlay`` (default, "v2" behavior): the output is exactly
+  the k-edge-connected cores produced by ``gen_kec_core``. Intra-cluster
+  budget is left for later stages to spend; nothing is sampled here.
+- ``--sbm-overlay`` ("v1" behavior): after the core phase, run
   ``gt.generate_sbm`` on the *residual* (mutated) ``probs`` and
-  ``out_degs``, overlay the clique edges on top of the sampled graph,
+  ``out_degs``, overlay the core edges on top of the sampled graph,
   and drop parallels + self-loops.
 
-The clique-generation step is identical either way; switching the flag
+The core-generation step is identical either way; switching the flag
 only adds or removes the SBM overlay.
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ import random
 import numpy as np
 
 from pipeline_common import standard_setup, timed, write_edge_tuples_csv
-from gen_cliques import generate_internal_edges, load_inputs
+from gen_kec_core import generate_internal_edges, load_inputs
 from params_common import _parse_bool, read_params, resolve_param
 
 
