@@ -241,4 +241,19 @@ cp "${STG_MATCH_DEGREE}/edge.csv"     "${OUTPUT_DIR}/edge.csv"
 cp "${STG_MATCH_DEGREE}/sources.json" "${OUTPUT_DIR}/sources.json"
 cp "${STG_PROFILE}/com.csv"           "${OUTPUT_DIR}/com.csv"
 
+# ---- top-level params.txt (one key=value per line, sorted) ----
+{
+    printf '%s\n' \
+        "drop_outlier_outlier_edges=${DROP_OO_BOOL}" \
+        "edge_correction=${EDGE_CORRECTION}" \
+        "gen_outlier_mode=${GEN_OUTLIER_MODE}" \
+        "match_degree_algorithm=${MATCH_DEGREE_ALGORITHM}" \
+        "n_threads=${N_THREADS}" \
+        "outlier_mode=${OUTLIER_MODE}" \
+        "sbm_overlay=${SBM_OVERLAY}" \
+        "scope=${SCOPE}" \
+        "seed=${SEED}" \
+        "version=${VERSION}"
+} > "${OUTPUT_DIR}/params.txt"
+
 echo "=== Done. Final network: ${OUTPUT_DIR}/edge.csv ==="
