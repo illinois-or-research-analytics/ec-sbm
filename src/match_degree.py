@@ -424,8 +424,10 @@ def match_missing_degrees_hybrid(out_degs, exist_neighbor):
 
 
 def export_degree_matched_edgelist(degree_edges, node_iid2id, output_dir):
+    # Sort so the CSV row order does not depend on set iteration (hash-slot
+    # order under PYTHONHASHSEED).
     df_out = pd.DataFrame(
-        [(node_iid2id[src], node_iid2id[tgt]) for src, tgt in degree_edges],
+        [(node_iid2id[src], node_iid2id[tgt]) for src, tgt in sorted(degree_edges)],
         columns=["source", "target"],
     )
     df_out.to_csv(output_dir / "degree_matching_edge.csv", index=False)
