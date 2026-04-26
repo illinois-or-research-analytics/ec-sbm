@@ -36,8 +36,10 @@ def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
     k = min(k, n - 1)
 
     int_deg = deg.copy()
+    # Tie-break on iid asc so the order is invariant to upstream
+    # set/dict iteration when multiple nodes share the same degree.
     cluster_nodes_ordered = sorted(
-        cluster_nodes, key=lambda n_iid: int_deg[n_iid], reverse=True
+        cluster_nodes, key=lambda n_iid: (-int_deg[n_iid], n_iid)
     )
 
     processed_nodes = set()
@@ -69,7 +71,7 @@ def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
     while i < n:
         u = cluster_nodes_ordered[i]
         processed_nodes_ordered = sorted(
-            processed_nodes, key=lambda n_iid: int_deg[n_iid], reverse=True
+            processed_nodes, key=lambda n_iid: (-int_deg[n_iid], n_iid)
         )
         candidates = set(processed_nodes)
 
@@ -85,7 +87,10 @@ def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
             ii += 1
 
         while ii < k:
-            list_cands = list(candidates)
+            # Sort the candidate list so the np.random.choice index pick is
+            # invariant to set-iteration order. Probabilities track the
+            # sorted positions; weights still align by index.
+            list_cands = sorted(candidates)
             deg_sum = deg[list_cands].sum()
             weights = (
                 deg[list_cands] / deg_sum

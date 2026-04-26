@@ -168,8 +168,10 @@ def export_degree(out_dir, node_degree_sorted):
 
 
 def export_com_csv(out_dir, node2com):
-    """Write node_id,cluster_id in input-clustering row order."""
-    pd.DataFrame(node2com.items(), columns=["node_id", "cluster_id"]).to_csv(
+    """Write node_id,cluster_id sorted by node_id so the output bytes do not
+    depend on PYTHONHASHSEED or upstream dict-insertion order."""
+    rows = sorted(node2com.items(), key=lambda kv: kv[0])
+    pd.DataFrame(rows, columns=["node_id", "cluster_id"]).to_csv(
         f"{out_dir}/com.csv", index=False
     )
 
@@ -214,6 +216,11 @@ def compute_mincut(nodes, neighbors, node2com, comm_size_sorted, node_id2iid):
     clusters_by_id = defaultdict(list)
     for u, c in node2com.items():
         clusters_by_id[c].append(u)
+    # Pin per-cluster node order so the edge list fed to PyGraph.mincut is
+    # the same across PYTHONHASHSEED values. Mincut tie-breaks may depend
+    # on input edge order.
+    for c in clusters_by_id:
+        clusters_by_id[c].sort()
 
     mcs = []
     for c, _ in comm_size_sorted:

@@ -79,7 +79,7 @@ def load_reference_topologies(orig_edgelist_fp, input_edgelist_fp=None):
             set(df_in["source"]).union(set(df_in["target"]))
         )
 
-    node_id2iid = {u: i for i, u in enumerate(all_orig_nodes)}
+    node_id2iid = {u: i for i, u in enumerate(sorted(all_orig_nodes))}
     node_iid2id = {i: u for u, i in node_id2iid.items()}
     out_degs = {iid: 0 for iid in node_iid2id.keys()}
 
@@ -144,7 +144,7 @@ def subtract_existing_edges(exist_edgelist_fp, node_id2iid, out_degs):
 def match_missing_degrees_random_greedy(out_degs, exist_neighbor):
     logging.info("Starting Randomized Greedy matching algorithm...")
 
-    available_degrees = {k: v for k, v in out_degs.items() if v > 0}
+    available_degrees = {k: v for k, v in sorted(out_degs.items()) if v > 0}
     available_nodes = list(available_degrees.keys())
 
     initial_missing_stubs = sum(available_degrees.values())
@@ -222,8 +222,12 @@ def match_missing_degrees_greedy(out_degs, exist_neighbor):
             available_node_degrees[available_c_node], len(available_non_neighbors)
         )
 
-        for _ in range(avail_k):
-            edge_end = available_non_neighbors.pop()
+        # `set.pop()` returns hash-slot order; pick the smallest id instead so
+        # the algorithm is deterministic across PYTHONHASHSEED values and
+        # matches the JS port at vltanh.github.io/netgen/matcher.html.
+        sorted_non_neighbors = sorted(available_non_neighbors)
+        for k in range(avail_k):
+            edge_end = sorted_non_neighbors[k]
             degree_edges.add((available_c_node, edge_end))
 
             exist_neighbor[available_c_node].add(edge_end)
@@ -274,7 +278,9 @@ def match_missing_degrees_true_greedy(out_degs, exist_neighbor):
             del current_degrees[u]
             continue
 
-        v = max(valid_targets, key=lambda x: current_degrees[x])
+        # Tie-break on id ascending so the choice is deterministic across
+        # dict-iteration order and matches the JS port.
+        v = max(valid_targets, key=lambda x: (current_degrees[x], -x))
 
         degree_edges.add((min(u, v), max(u, v)))
         exist_neighbor[u].add(v)
@@ -312,7 +318,7 @@ def match_missing_degrees_rewire(out_degs, exist_neighbor, max_retries=10):
     logging.info("Starting Rewire (Configuration Model) matching algorithm...")
 
     stubs = []
-    for node_iid, deg in out_degs.items():
+    for node_iid, deg in sorted(out_degs.items()):
         stubs.extend([node_iid] * int(deg))
 
     if len(stubs) % 2 != 0:
@@ -342,7 +348,7 @@ def match_missing_degrees_rewire(out_degs, exist_neighbor, max_retries=10):
         f"Initial pairing complete -> Valid edges: {len(valid_edges)} | Bad edges to rewire: {len(invalid_edges)}"
     )
 
-    valid_pool = list(valid_edges)
+    valid_pool = sorted(valid_edges)
 
     def is_valid(e):
         u, v = e
@@ -401,7 +407,7 @@ def match_missing_degrees_hybrid(out_degs, exist_neighbor):
         f"({len(invalid_edges) * 2} stubs) to True Greedy deterministic fallback."
     )
 
-    remaining_out_degs = {n: 0 for n in out_degs.keys()}
+    remaining_out_degs = {n: 0 for n in sorted(out_degs.keys())}
     for u, v in invalid_edges:
         remaining_out_degs[u] += 1
         remaining_out_degs[v] += 1

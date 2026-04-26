@@ -92,17 +92,14 @@ def build_node_universe(df_orig, node2cluster_str, scope):
     assigned a block (v1 historical shape). Under ``scope=all`` only the
     orig edge endpoints enter the universe.
 
-    ``all_nodes`` is a plain ``set``; downstream iid numbering (see
-    ``assign_blocks``) enumerates it in set-iteration order, so byte
-    reproducibility depends on ``PYTHONHASHSEED=0`` being set by the
-    wrapper. Do not swap for ``sorted(...)``: the baseline hashes
-    (v1 ``e2b5a691…``, v2 ``f46e7d8b…``) are pinned to this ordering.
+    Returned ``all_nodes`` is sorted so iid numbering downstream does not
+    depend on PYTHONHASHSEED.
     """
     all_nodes = set(df_orig["source"]).union(set(df_orig["target"]))
     if scope == "outlier-incident":
         all_nodes = all_nodes.union(set(node2cluster_str.keys()))
     outliers = all_nodes - set(node2cluster_str.keys())
-    return all_nodes, outliers
+    return sorted(all_nodes), sorted(outliers)
 
 
 # ---------------------------------------------------------------------------
@@ -110,12 +107,19 @@ def build_node_universe(df_orig, node2cluster_str, scope):
 # ---------------------------------------------------------------------------
 
 def assign_blocks(all_nodes, outliers, node2cluster_str, outlier_mode):
-    """Return (node_id2iid, node_iid2id, outlier_iids, b, num_clusters)."""
+    """Return (node_id2iid, node_iid2id, outlier_iids, b, num_clusters).
+
+    ``all_nodes`` and ``outliers`` are expected to come from
+    ``build_node_universe`` already sorted; the iteration here therefore
+    produces deterministic iid numbering and singleton-mode block-id
+    allocation regardless of PYTHONHASHSEED.
+    """
     node_id2iid = {u: i for i, u in enumerate(all_nodes)}
     node_iid2id = {i: u for u, i in node_id2iid.items()}
+    outlier_set = set(outliers)
     outlier_iids = {node_id2iid[u] for u in outliers}
 
-    unique_clusters = set(node2cluster_str.values())
+    unique_clusters = sorted(set(node2cluster_str.values()))
     cluster_id2iid = {c: i for i, c in enumerate(unique_clusters)}
     current_c_iid = len(cluster_id2iid)
 
@@ -127,7 +131,7 @@ def assign_blocks(all_nodes, outliers, node2cluster_str, outlier_mode):
     b = np.empty(len(all_nodes), dtype=int)
     for u in all_nodes:
         u_iid = node_id2iid[u]
-        if u in outliers:
+        if u in outlier_set:
             if outlier_mode == "combined":
                 b[u_iid] = combined_block
             else:
