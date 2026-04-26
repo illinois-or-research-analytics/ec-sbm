@@ -94,17 +94,20 @@ def run_ecsbm_generation(
 
     with timed("Generation of k-edge-connected cores"):
         edges = generate_internal_edges(clustering, mcs, deg, probs, node2cluster)
+    # Sort once so the SBM-overlay graph add order and the no-overlay CSV
+    # row order are both stable under PYTHONHASHSEED.
+    edges_sorted = sorted(edges)
 
     if sbm_overlay:
         with timed("SBM overlay synthesis"):
             g = synthesize_sbm_network(
-                node_id2id, node2cluster, deg, probs, edges,
+                node_id2id, node2cluster, deg, probs, edges_sorted,
             )
         with timed("Export"):
             write_edge_tuples_csv(output_dir / "edge.csv", g.iter_edges(), node_id2id)
     else:
-        with timed(f"Exporting {len(edges)} constructive edges"):
-            write_edge_tuples_csv(output_dir / "edge.csv", edges, node_id2id)
+        with timed(f"Exporting {len(edges_sorted)} constructive edges"):
+            write_edge_tuples_csv(output_dir / "edge.csv", edges_sorted, node_id2id)
 
     logging.info("Clustered generation complete.")
 

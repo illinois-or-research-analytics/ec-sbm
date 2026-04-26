@@ -62,7 +62,11 @@ def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
     i = 0
     while i <= k:
         u = cluster_nodes_ordered[i]
-        for v in processed_nodes:
+        # Sort so the per-edge ensure_edge_capacity / apply_edge sequence is
+        # invariant to PYTHONHASHSEED. The K_{k+1} edge set is order-invariant
+        # but the inflate decisions depend on intermediate int_deg / probs
+        # state, so order leaks into residual + trace.
+        for v in sorted(processed_nodes):
             ensure_edge_capacity(u, v)
             apply_edge(u, v)
         processed_nodes.add(u)
@@ -136,7 +140,13 @@ def load_inputs(node_id_path, cluster_id_path, assignment_path,
 
 def generate_internal_edges(clustering, mcs, deg, probs, node2cluster):
     edges = set()
-    for cluster_iid, cluster_nodes in clustering.items():
+    # Iterate cluster_iid asc. clustering's insertion order tracks the first
+    # appearance of each c_iid in assignment.csv, which is deterministic but
+    # not necessarily c_iid asc when the highest-degree node sits in a
+    # smaller cluster. Sorted iteration makes the per-cluster order stable
+    # under upstream refactors and matches profile's c_iid = size-rank.
+    for cluster_iid in sorted(clustering):
+        cluster_nodes = clustering[cluster_iid]
         logging.info(
             f"Generating cluster {cluster_iid} (N={len(cluster_nodes)} | k={mcs[cluster_iid]})"
         )
