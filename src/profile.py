@@ -235,7 +235,9 @@ def compute_mincut(nodes, neighbors, node2com, comm_size_sorted, node_id2iid):
         c_edges = []
         for u in c_nodes_str:
             u_iid = node_id2iid[u]
-            for v in neighbors[u]:
+            # Sort neighbours so PyGraph.mincut sees a stable edge list under
+            # PYTHONHASHSEED variation (set iteration is hash-slot order).
+            for v in sorted(neighbors[u]):
                 v_iid = node_id2iid.get(v)
                 if v_iid is not None and v_iid in c_nodes_set:
                     c_edges.append((u_iid, v_iid))

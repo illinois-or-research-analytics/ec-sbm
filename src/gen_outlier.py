@@ -336,7 +336,10 @@ def rewire_invalid_edges(g, b, max_retries=10):
             f"Finished {max_retries} retries. {len(invalid_edges)} bad edges "
             "remain unresolved and will be dropped."
         )
-    return list(valid_set)
+    # Sort so the downstream g.add_edge_list call sees a deterministic
+    # order (set iteration is hash-slot order; leaks into the post-rewire
+    # graph's iter_edges sequence and the edge_outlier.csv row order).
+    return sorted(valid_set)
 
 
 def synthesize_residual_subnetwork(b, probs, out_degs, edge_correction):
