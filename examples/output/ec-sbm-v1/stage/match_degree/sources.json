@@ -1,13 +1,21 @@
 {
-    "clustered": [
+    "clustered_kec_clique": [
         1,
+        1832
+    ],
+    "clustered_kec_attach": [
+        1833,
+        2202
+    ],
+    "clustered_sbm_overlay": [
+        2203,
         7291
     ],
-    "outlier": [
+    "outlier_sbm": [
         7292,
         8298
     ],
-    "match_degree": [
+    "match_degree_greedy": [
         8299,
         10425
     ]

@@ -6,13 +6,5 @@
     "clustered_kec_attach": [
         1833,
         2202
-    ],
-    "clustered_sbm_overlay": [
-        2203,
-        7291
-    ],
-    "outlier_sbm": [
-        7292,
-        8298
     ]
 }

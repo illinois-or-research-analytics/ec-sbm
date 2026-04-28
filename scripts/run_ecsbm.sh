@@ -54,7 +54,7 @@ Usage: run_ecsbm.sh --version {v1|v2} \
   v1: --sbm-overlay --scope outlier-incident --gen-outlier-mode singleton
       --edge-correction none --match-degree-algorithm greedy
   v2: --no-sbm-overlay --scope all --gen-outlier-mode combined
-      --edge-correction rewire --match-degree-algorithm hybrid
+      --edge-correction rewire --match-degree-algorithm true_greedy
 
 Stage 1 defaults to --outlier-mode excluded; both presets leave it
 unchanged. Any explicit flag after --version overrides the preset.
@@ -113,7 +113,7 @@ else  # v2
     : "${SCOPE:=all}"
     : "${GEN_OUTLIER_MODE:=combined}"
     : "${EDGE_CORRECTION:=rewire}"
-    : "${MATCH_DEGREE_ALGORITHM:=hybrid}"
+    : "${MATCH_DEGREE_ALGORITHM:=true_greedy}"
 fi
 
 export OMP_NUM_THREADS="${N_THREADS}"
@@ -206,9 +206,9 @@ run_stage "gen_outlier (scope=${SCOPE}, outlier_mode=${GEN_OUTLIER_MODE}, edge_c
 run_stage "combine clustered+outlier" \
     python "${PKG_DIR}/combine_edgelists.py" \
     --edgelist-1 "${STG_GEN_CLUSTERED}/edge.csv" \
-    --name-1 "clustered" \
+    --json-1 "${STG_GEN_CLUSTERED}/sources.json" \
     --edgelist-2 "${STG_GEN_OUTLIER_EDGES}/edge_outlier.csv" \
-    --name-2 "outlier" \
+    --json-2 "${STG_GEN_OUTLIER_EDGES}/sources.json" \
     --output-folder "${STG_GEN_OUTLIER}" \
     --output-filename "edge.csv"
 
@@ -227,7 +227,7 @@ run_stage "combine stage3+match_degree" \
     --edgelist-1 "${STG_GEN_OUTLIER}/edge.csv" \
     --json-1 "${STG_GEN_OUTLIER}/sources.json" \
     --edgelist-2 "${STG_MATCH_DEGREE_EDGES}/degree_matching_edge.csv" \
-    --name-2 "match_degree" \
+    --json-2 "${STG_MATCH_DEGREE_EDGES}/sources.json" \
     --output-folder "${STG_MATCH_DEGREE}" \
     --output-filename "edge.csv"
 

@@ -27,6 +27,7 @@ Output: `degree_matching_edge.csv` with columns (source, target), keyed
 by the input edgelist's ID space.
 """
 import argparse
+import json
 import logging
 import heapq
 import random
@@ -53,7 +54,7 @@ def parse_args():
     parser.add_argument(
         "--match-degree-algorithm", dest="match_degree_algorithm", type=str,
         choices=["greedy", "true_greedy", "random_greedy", "rewire", "hybrid"],
-        default="hybrid",
+        default="true_greedy",
     )
     parser.add_argument("--seed", type=int, default=1)
     return parser.parse_args()
@@ -392,7 +393,11 @@ def match_missing_degrees_rewire(out_degs, exist_neighbor, max_retries=10):
     return valid_edges, list(invalid_edges)
 
 
-def match_missing_degrees_hybrid(out_degs, exist_neighbor):
+def match_missing_degrees_hybrid_bands(out_degs, exist_neighbor):
+    """Hybrid (rewire → true_greedy fallback) returning the two bands separately.
+
+    Returns ``{"hybrid_rewire": set, "hybrid_true_greedy": set}``.
+    """
     logging.info("Starting Hybrid (Rewire -> True Greedy) matching algorithm...")
 
     valid_edges, invalid_edges = match_missing_degrees_rewire(
@@ -400,7 +405,7 @@ def match_missing_degrees_hybrid(out_degs, exist_neighbor):
     )
 
     if not invalid_edges:
-        return valid_edges
+        return {"hybrid_rewire": valid_edges, "hybrid_true_greedy": set()}
 
     logging.info(
         f"Hybrid transition: Passing {len(invalid_edges)} gridlocked edges "
@@ -420,17 +425,44 @@ def match_missing_degrees_hybrid(out_degs, exist_neighbor):
 
     greedy_edges = match_missing_degrees_true_greedy(remaining_out_degs, exist_neighbor)
 
-    return valid_edges.union(greedy_edges)
+    return {"hybrid_rewire": valid_edges, "hybrid_true_greedy": greedy_edges}
 
 
-def export_degree_matched_edgelist(degree_edges, node_iid2id, output_dir):
-    # Sort so the CSV row order does not depend on set iteration (hash-slot
-    # order under PYTHONHASHSEED).
-    df_out = pd.DataFrame(
-        [(node_iid2id[src], node_iid2id[tgt]) for src, tgt in sorted(degree_edges)],
-        columns=["source", "target"],
+def match_missing_degrees_hybrid(out_degs, exist_neighbor):
+    """Backward-compat wrapper: returns flat union of the two hybrid bands."""
+    bands = match_missing_degrees_hybrid_bands(out_degs, exist_neighbor)
+    return bands["hybrid_rewire"] | bands["hybrid_true_greedy"]
+
+
+def export_degree_matched_edgelist(degree_edges, node_iid2id, output_dir,
+                                   bands=None):
+    """Write ``degree_matching_edge.csv`` with rows in band-block order
+    (sorted within each band) and emit a sibling ``sources.json``.
+
+    ``bands`` is an ordered list of ``(band_name, edges_iterable)`` pairs;
+    if ``None``, fall back to a single anonymous band carrying every edge
+    in ``degree_edges`` (the legacy single-set call shape).
+    """
+    if bands is None:
+        bands = [("match_degree", degree_edges)]
+
+    rows = []
+    sources = {}
+    cursor = 1
+    for band_name, edge_iter in bands:
+        sorted_edges = sorted(edge_iter)
+        if not sorted_edges:
+            continue
+        for src, tgt in sorted_edges:
+            rows.append((node_iid2id[src], node_iid2id[tgt]))
+        sources[band_name] = [cursor, cursor + len(sorted_edges) - 1]
+        cursor += len(sorted_edges)
+
+    pd.DataFrame(rows, columns=["source", "target"]).to_csv(
+        output_dir / "degree_matching_edge.csv", index=False,
     )
-    df_out.to_csv(output_dir / "degree_matching_edge.csv", index=False)
+    with open(output_dir / "sources.json", "w") as f:
+        json.dump(sources, f, indent=4)
 
 
 def main():
@@ -462,30 +494,47 @@ def main():
         )
 
     with timed("Degree matching"):
-        if args.match_degree_algorithm == "greedy":
+        algo = args.match_degree_algorithm
+        bands = None
+        if algo == "greedy":
             degree_edges = match_missing_degrees_greedy(updated_out_degs, exist_neighbor)
-        elif args.match_degree_algorithm == "true_greedy":
+            bands = [("match_degree_greedy", degree_edges)]
+        elif algo == "true_greedy":
             degree_edges = match_missing_degrees_true_greedy(
                 updated_out_degs, exist_neighbor
             )
-        elif args.match_degree_algorithm == "random_greedy":
+            bands = [("match_degree_true_greedy", degree_edges)]
+        elif algo == "random_greedy":
             degree_edges = match_missing_degrees_random_greedy(
                 updated_out_degs, exist_neighbor
             )
-        elif args.match_degree_algorithm == "rewire":
+            bands = [("match_degree_random_greedy", degree_edges)]
+        elif algo == "rewire":
             degree_edges, _ = match_missing_degrees_rewire(
                 updated_out_degs, exist_neighbor, max_retries=10
             )
-        elif args.match_degree_algorithm == "hybrid":
-            degree_edges = match_missing_degrees_hybrid(updated_out_degs, exist_neighbor)
+            bands = [("match_degree_rewire", degree_edges)]
+        elif algo == "hybrid":
+            hybrid_bands = match_missing_degrees_hybrid_bands(
+                updated_out_degs, exist_neighbor
+            )
+            degree_edges = (
+                hybrid_bands["hybrid_rewire"] | hybrid_bands["hybrid_true_greedy"]
+            )
+            bands = [
+                ("match_degree_hybrid_rewire", hybrid_bands["hybrid_rewire"]),
+                ("match_degree_hybrid_true_greedy", hybrid_bands["hybrid_true_greedy"]),
+            ]
         else:
-            logging.error(f"Unknown algorithm choice: {args.match_degree_algorithm}")
+            logging.error(f"Unknown algorithm choice: {algo}")
             return
 
         logging.info(f"Added {len(degree_edges)} edges")
 
     with timed("Exported edgelist"):
-        export_degree_matched_edgelist(degree_edges, node_iid2id, out_dir)
+        export_degree_matched_edgelist(
+            degree_edges, node_iid2id, out_dir, bands=bands,
+        )
 
 
 if __name__ == "__main__":
