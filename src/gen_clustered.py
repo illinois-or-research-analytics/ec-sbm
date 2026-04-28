@@ -18,13 +18,16 @@ only adds or removes the SBM overlay.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import random
 
 import numpy as np
+import pandas as pd
 
 from pipeline_common import standard_setup, timed, write_edge_tuples_csv
-from gen_kec_core import generate_internal_edges, load_inputs
+from gen_kec_core import generate_internal_edges_bands, load_inputs
+from graph_utils import normalize_edge
 from params_common import _parse_bool, read_params, resolve_param
 
 
@@ -55,6 +58,31 @@ def synthesize_sbm_network(node_id2id, node2cluster, deg, probs, edges):
     gt.remove_parallel_edges(g)
     gt.remove_self_loops(g)
     return g
+
+
+def _write_bands_csv(output_path, bands_in_order, node_id2id):
+    """Write ``edge.csv`` with rows ordered by band, sorted within each
+    band; emit a sibling ``sources.json`` mapping each band name to a
+    1-based inclusive [start, end] range over the data rows.
+
+    ``bands_in_order`` is a list of ``(band_name, edge_iterable)`` pairs.
+    Edges are tuples of node iids; each is sorted then mapped through
+    ``node_id2id`` for emit. Empty bands are omitted from sources.json.
+    """
+    rows = []
+    sources = {}
+    cursor = 1
+    for band_name, edge_iter in bands_in_order:
+        sorted_edges = sorted(edge_iter)
+        if not sorted_edges:
+            continue
+        for u, v in sorted_edges:
+            rows.append((node_id2id[u], node_id2id[v]))
+        sources[band_name] = [cursor, cursor + len(sorted_edges) - 1]
+        cursor += len(sorted_edges)
+    pd.DataFrame(rows, columns=["source", "target"]).to_csv(output_path, index=False)
+    with open(output_path.parent / "sources.json", "w") as f:
+        json.dump(sources, f, indent=4)
 
 
 def run_ecsbm_generation(
@@ -93,21 +121,37 @@ def run_ecsbm_generation(
         )
 
     with timed("Generation of k-edge-connected cores"):
-        edges = generate_internal_edges(clustering, mcs, deg, probs, node2cluster)
-    # Sort once so the SBM-overlay graph add order and the no-overlay CSV
-    # row order are both stable under PYTHONHASHSEED.
-    edges_sorted = sorted(edges)
+        kec_bands = generate_internal_edges_bands(
+            clustering, mcs, deg, probs, node2cluster,
+        )
+    clique_edges = kec_bands["kec_clique"]
+    attach_edges = kec_bands["kec_attach"]
+    # Sort once so the SBM-overlay graph add order is stable under PYTHONHASHSEED.
+    kec_edges_sorted = sorted(clique_edges | attach_edges)
 
     if sbm_overlay:
         with timed("SBM overlay synthesis"):
             g = synthesize_sbm_network(
-                node_id2id, node2cluster, deg, probs, edges_sorted,
+                node_id2id, node2cluster, deg, probs, kec_edges_sorted,
             )
         with timed("Export"):
-            write_edge_tuples_csv(output_dir / "edge.csv", g.iter_edges(), node_id2id)
+            final_edges = {normalize_edge(int(u), int(v)) for u, v in g.iter_edges()}
+            overlay_edges = final_edges - clique_edges - attach_edges
+            # Constructive edges that survived dedup keep their kec_* tag;
+            # remaining edges are credited to the SBM overlay.
+            bands = [
+                ("clustered_kec_clique", clique_edges & final_edges),
+                ("clustered_kec_attach", attach_edges & final_edges),
+                ("clustered_sbm_overlay", overlay_edges),
+            ]
+            _write_bands_csv(output_dir / "edge.csv", bands, node_id2id)
     else:
-        with timed(f"Exporting {len(edges_sorted)} constructive edges"):
-            write_edge_tuples_csv(output_dir / "edge.csv", edges_sorted, node_id2id)
+        with timed(f"Exporting {len(kec_edges_sorted)} constructive edges"):
+            bands = [
+                ("clustered_kec_clique", clique_edges),
+                ("clustered_kec_attach", attach_edges),
+            ]
+            _write_bands_csv(output_dir / "edge.csv", bands, node_id2id)
 
     logging.info("Clustered generation complete.")
 

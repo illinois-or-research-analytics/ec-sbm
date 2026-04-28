@@ -41,6 +41,7 @@ non-standard profile.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import random
 from collections import defaultdict, deque
@@ -266,6 +267,10 @@ def rewire_invalid_edges(g, b, max_retries=10):
     Groups edges by their (min_block, max_block) pair; swaps within a
     pair so each endpoint stays in its original block. Anything still
     invalid after ``max_retries`` passes is dropped.
+
+    Returns ``(sbm_only_sorted, rewired_sorted)`` so callers can
+    distinguish SBM-sampled edges that survived untouched from edges
+    introduced by the 2-opt swap.
     """
     edges = g.get_edges()
     valid_pool = defaultdict(list)
@@ -283,6 +288,8 @@ def rewire_invalid_edges(g, b, max_retries=10):
             bp = get_bp(u, v)
             valid_set.add(e)
             valid_pool[bp].append(e)
+
+    initial_valid_set = frozenset(valid_set)
 
     logging.info(f"Initial bad edges before rewiring: {len(invalid_edges)}")
 
@@ -339,12 +346,18 @@ def rewire_invalid_edges(g, b, max_retries=10):
     # Sort so the downstream g.add_edge_list call sees a deterministic
     # order (set iteration is hash-slot order; leaks into the post-rewire
     # graph's iter_edges sequence and the edge_outlier.csv row order).
-    return sorted(valid_set)
+    sbm_only = sorted(valid_set & initial_valid_set)
+    rewired = sorted(valid_set - initial_valid_set)
+    return sbm_only, rewired
 
 
 def synthesize_residual_subnetwork(b, probs, out_degs, edge_correction):
     """Sample the residual SBM, apply the chosen edge correction, and
-    emit a list of ``(u_iid, v_iid)`` tuples.
+    return ``{"sbm": [...], "rewire": [...]}`` lists of ``(u_iid, v_iid)``.
+
+    The "rewire" key is present (possibly empty) only when
+    ``edge_correction == "rewire"``; otherwise the entire output sits in
+    "sbm".
     """
     if out_degs.sum() > 0:
         g = gt.generate_sbm(
@@ -359,13 +372,21 @@ def synthesize_residual_subnetwork(b, probs, out_degs, edge_correction):
         g = gt.Graph(directed=False)
 
     if edge_correction == "rewire":
-        valid_edges = rewire_invalid_edges(g, b, max_retries=10)
+        sbm_only, rewired = rewire_invalid_edges(g, b, max_retries=10)
         g.clear_edges()
-        g.add_edge_list(valid_edges)
+        g.add_edge_list(sbm_only + rewired)
+        gt.remove_parallel_edges(g)
+        gt.remove_self_loops(g)
+        final_edges = {normalize_edge(int(u), int(v)) for u, v in g.iter_edges()}
+        sbm_only_set = set(sbm_only)
+        return {
+            "sbm": sorted(final_edges & sbm_only_set),
+            "rewire": sorted(final_edges - sbm_only_set),
+        }
 
     gt.remove_parallel_edges(g)
     gt.remove_self_loops(g)
-    return list(g.iter_edges())
+    return {"sbm": [normalize_edge(int(u), int(v)) for u, v in g.iter_edges()]}
 
 
 # ---------------------------------------------------------------------------
@@ -404,10 +425,27 @@ def run_outlier_generation(
         )
 
     with timed("SBM synthesis"):
-        edges = synthesize_residual_subnetwork(b, probs, out_degs, edge_correction)
+        bands = synthesize_residual_subnetwork(b, probs, out_degs, edge_correction)
 
     with timed("Export"):
-        write_edge_tuples_csv(output_dir / "edge_outlier.csv", edges, node_iid2id)
+        rows = []
+        sources = {}
+        cursor = 1
+        ordered = [("outlier_sbm", bands.get("sbm", []))]
+        if "rewire" in bands:
+            ordered.append(("outlier_rewire", bands["rewire"]))
+        for band_name, edge_list in ordered:
+            if not edge_list:
+                continue
+            for u, v in edge_list:
+                rows.append((node_iid2id[int(u)], node_iid2id[int(v)]))
+            sources[band_name] = [cursor, cursor + len(edge_list) - 1]
+            cursor += len(edge_list)
+        pd.DataFrame(rows, columns=["source", "target"]).to_csv(
+            output_dir / "edge_outlier.csv", index=False,
+        )
+        with open(output_dir / "sources.json", "w") as f:
+            json.dump(sources, f, indent=4)
 
     logging.info("Outlier generation complete.")
 

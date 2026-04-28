@@ -1,14 +1,22 @@
 {
-    "clustered": [
+    "clustered_kec_clique": [
         1,
+        1832
+    ],
+    "clustered_kec_attach": [
+        1833,
         2202
     ],
-    "outlier": [
+    "outlier_sbm": [
         2203,
+        7470
+    ],
+    "outlier_rewire": [
+        7471,
         9561
     ],
-    "match_degree": [
+    "match_degree_true_greedy": [
         9562,
-        10342
+        10431
     ]
 }

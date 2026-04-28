@@ -20,30 +20,33 @@ from graph_utils import normalize_edge
 from pipeline_common import load_probs_matrix
 
 
-def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
-    """Generate a k-edge-connected subgraph for one cluster.
+def generate_cluster_bands(cluster_nodes, k, deg, probs, node2cluster):
+    """Generate a k-edge-connected subgraph for one cluster, tagged by phase.
 
-    Phase 1: first k+1 nodes (degree desc) form a complete graph.
-    Phase 2: each remaining node connects greedily to the k highest-degree
-    processed nodes; falls back to degree-weighted random sampling.
+    Phase 1 ("clique"): first k+1 nodes (degree desc) form a complete graph.
+    Phase 2 ("attach"): each remaining node connects greedily to the k
+    highest-degree processed nodes; falls back to degree-weighted random
+    sampling.
+
+    Returns ``{"clique": set, "attach": set}``.
 
     `deg` and `probs` are mutated in place. When either budget would block
     a required edge, `ensure_edge_capacity` inflates both by 1.
     """
     n = len(cluster_nodes)
     if n == 0 or k == 0:
-        return set()
+        return {"clique": set(), "attach": set()}
     k = min(k, n - 1)
 
     int_deg = deg.copy()
-    # Tie-break on iid asc so the order is invariant to upstream
-    # set/dict iteration when multiple nodes share the same degree.
     cluster_nodes_ordered = sorted(
         cluster_nodes, key=lambda n_iid: (-int_deg[n_iid], n_iid)
     )
 
     processed_nodes = set()
-    edges = set()
+    clique_edges = set()
+    attach_edges = set()
+    cur_bucket = clique_edges
 
     def ensure_edge_capacity(u, v):
         if probs[node2cluster[u], node2cluster[v]] == 0 or int_deg[v] == 0:
@@ -53,7 +56,7 @@ def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
             probs[node2cluster[v], node2cluster[u]] += 1
 
     def apply_edge(u, v):
-        edges.add(normalize_edge(u, v))
+        cur_bucket.add(normalize_edge(u, v))
         int_deg[u] -= 1
         int_deg[v] -= 1
         probs[node2cluster[u], node2cluster[v]] -= 1
@@ -62,15 +65,13 @@ def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
     i = 0
     while i <= k:
         u = cluster_nodes_ordered[i]
-        # Sort so the per-edge ensure_edge_capacity / apply_edge sequence is
-        # invariant to PYTHONHASHSEED. The K_{k+1} edge set is order-invariant
-        # but the inflate decisions depend on intermediate int_deg / probs
-        # state, so order leaks into residual + trace.
         for v in sorted(processed_nodes):
             ensure_edge_capacity(u, v)
             apply_edge(u, v)
         processed_nodes.add(u)
         i += 1
+
+    cur_bucket = attach_edges
 
     while i < n:
         u = cluster_nodes_ordered[i]
@@ -91,9 +92,6 @@ def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
             ii += 1
 
         while ii < k:
-            # Sort the candidate list so the np.random.choice index pick is
-            # invariant to set-iteration order. Probabilities track the
-            # sorted positions; weights still align by index.
             list_cands = sorted(candidates)
             deg_sum = deg[list_cands].sum()
             weights = (
@@ -111,7 +109,13 @@ def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
         i += 1
 
     deg[:] = int_deg[:]
-    return edges
+    return {"clique": clique_edges, "attach": attach_edges}
+
+
+def generate_cluster(cluster_nodes, k, deg, probs, node2cluster):
+    """Backward-compat wrapper: returns the flat union of clique + attach."""
+    bands = generate_cluster_bands(cluster_nodes, k, deg, probs, node2cluster)
+    return bands["clique"] | bands["attach"]
 
 
 def load_inputs(node_id_path, cluster_id_path, assignment_path,
@@ -138,19 +142,30 @@ def load_inputs(node_id_path, cluster_id_path, assignment_path,
     return node_id2id, node2cluster, clustering, deg, mcs, probs
 
 
-def generate_internal_edges(clustering, mcs, deg, probs, node2cluster):
-    edges = set()
-    # Iterate cluster_iid asc. clustering's insertion order tracks the first
-    # appearance of each c_iid in assignment.csv, which is deterministic but
-    # not necessarily c_iid asc when the highest-degree node sits in a
-    # smaller cluster. Sorted iteration makes the per-cluster order stable
-    # under upstream refactors and matches profile's c_iid = size-rank.
+def generate_internal_edges_bands(clustering, mcs, deg, probs, node2cluster):
+    """Returns ``{"kec_clique": set, "kec_attach": set}`` aggregated across clusters.
+
+    Iteration is cluster_iid ascending; clustering's insertion order tracks
+    the first appearance of each c_iid in assignment.csv, deterministic but
+    not necessarily c_iid asc when the highest-degree node sits in a
+    smaller cluster. Sorted iteration matches profile's c_iid = size-rank.
+    """
+    clique = set()
+    attach = set()
     for cluster_iid in sorted(clustering):
         cluster_nodes = clustering[cluster_iid]
         logging.info(
             f"Generating cluster {cluster_iid} (N={len(cluster_nodes)} | k={mcs[cluster_iid]})"
         )
-        edges.update(
-            generate_cluster(cluster_nodes, mcs[cluster_iid], deg, probs, node2cluster)
+        bands = generate_cluster_bands(
+            cluster_nodes, mcs[cluster_iid], deg, probs, node2cluster
         )
-    return edges
+        clique.update(bands["clique"])
+        attach.update(bands["attach"])
+    return {"kec_clique": clique, "kec_attach": attach}
+
+
+def generate_internal_edges(clustering, mcs, deg, probs, node2cluster):
+    """Backward-compat wrapper: returns flat union of kec_clique + kec_attach."""
+    bands = generate_internal_edges_bands(clustering, mcs, deg, probs, node2cluster)
+    return bands["kec_clique"] | bands["kec_attach"]
