@@ -20,8 +20,10 @@ from pipeline_common import standard_setup, timed
 
 DEFAULT_OUTLIER_MODE = "excluded"
 DEFAULT_DROP_OO = False
+DEFAULT_METHOD = "res-deg-weighted"
 
 OUTLIER_MODES = ("excluded", "singleton", "combined")
+METHODS = ("res-deg-weighted", "pso")
 COMBINED_OUTLIER_CLUSTER_ID = "__outliers__"
 
 
@@ -206,6 +208,78 @@ def export_edge_count(out_dir, edge_counts):
 
 
 # ---------------------------------------------------------------------------
+# Per-cluster intra-induced clustering coefficient (used by gen_clustered's
+# pso method as the T-search target). Computed under sorted neighbour
+# iteration so the count is invariant under PYTHONHASHSEED.
+# ---------------------------------------------------------------------------
+
+def compute_cluster_ccoeff(nodes, neighbors, node2com, comm_size_sorted):
+    """Per-cluster global clustering coefficient (3 * triangles /
+    triplets) on the empirical intra-cluster induced subgraph, in the
+    order of ``comm_size_sorted`` (= cluster iid order).
+
+    Inter-cluster edges and edges incident to unclustered nodes are
+    skipped. Singletons (n < 3) and triplet-less clusters get 0.0.
+    Returned list aligns with the cluster_id.csv column.
+    """
+    clusters_by_id = defaultdict(list)
+    for u, c in node2com.items():
+        clusters_by_id[c].append(u)
+    for c in clusters_by_id:
+        clusters_by_id[c].sort()
+
+    out = []
+    for c, _ in comm_size_sorted:
+        c_nodes = clusters_by_id.get(c, [])
+        n_c = len(c_nodes)
+        if n_c < 3:
+            out.append([0.0])
+            continue
+        # Build per-cluster adjacency, restricted to intra-cluster edges,
+        # with sorted neighbour lists so iteration order does not depend
+        # on PYTHONHASHSEED.
+        cset = set(c_nodes)
+        adj = {u: sorted(v for v in neighbors.get(u, ()) if v in cset and v != u)
+               for u in c_nodes}
+        triplets = sum(len(adj[u]) * (len(adj[u]) - 1) // 2 for u in c_nodes)
+        if triplets == 0:
+            out.append([0.0])
+            continue
+        triangles = 0
+        # Sorted node iteration; for each ordered (u, v, w) with u<v<w
+        # check membership.
+        for u in c_nodes:
+            nbrs_u = adj[u]
+            for v in nbrs_u:
+                if v <= u:
+                    continue
+                # set lookup for membership; iterate sorted nbrs_u so
+                # the count is invariant under hashseed (counting order
+                # does not change the sum but pin it for clarity).
+                nbrs_v = adj[v]
+                # two-pointer intersection on sorted lists
+                i = j = 0
+                while i < len(nbrs_u) and j < len(nbrs_v):
+                    a, b = nbrs_u[i], nbrs_v[j]
+                    if a == b:
+                        if a > v:
+                            triangles += 1
+                        i += 1; j += 1
+                    elif a < b:
+                        i += 1
+                    else:
+                        j += 1
+        out.append([3.0 * triangles / triplets])
+    return out
+
+
+def export_cluster_ccoeff(out_dir, ccoeffs):
+    pd.DataFrame(ccoeffs).to_csv(
+        f"{out_dir}/cluster_ccoeff.csv", index=False, header=False,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Min-cut (ec-sbm specific)
 # ---------------------------------------------------------------------------
 
@@ -259,7 +333,8 @@ def export_mincut(out_dir, mcs):
 
 def setup_inputs(edgelist_path, clustering_path, output_dir,
                  outlier_mode=DEFAULT_OUTLIER_MODE,
-                 drop_outlier_outlier_edges=DEFAULT_DROP_OO):
+                 drop_outlier_outlier_edges=DEFAULT_DROP_OO,
+                 method=DEFAULT_METHOD):
     output_dir = standard_setup(output_dir)
 
     with timed("Input reading"):
@@ -291,6 +366,11 @@ def setup_inputs(edgelist_path, clustering_path, output_dir,
             nodes, neighbors, node2com, comm_size_sorted, node_id2iid,
         )
         export_mincut(output_dir, mcs)
+        if method == "pso":
+            ccoeffs = compute_cluster_ccoeff(
+                nodes, neighbors, node2com, comm_size_sorted,
+            )
+            export_cluster_ccoeff(output_dir, ccoeffs)
         export_com_csv(output_dir, node2com)
 
 
@@ -302,6 +382,13 @@ def parse_args():
     parser.add_argument("--params-file", type=str, default=None)
     parser.add_argument(
         "--outlier-mode", choices=OUTLIER_MODES, default=None,
+    )
+    parser.add_argument(
+        "--method", choices=METHODS, default=None,
+        help="Which gen_clustered method this profile feeds. "
+             "'res-deg-weighted' (default) emits the v1/v2 set. "
+             "'pso' additionally emits cluster_ccoeff.csv (per-cluster "
+             "intra-induced global ccoeff target for v3's T-search).",
     )
     oo = parser.add_mutually_exclusive_group()
     oo.add_argument("--drop-outlier-outlier-edges",
@@ -322,10 +409,17 @@ def main():
         args.drop_oo, file_params, "drop_outlier_outlier_edges",
         default=DEFAULT_DROP_OO, parser=_parse_bool,
     )
+    method = resolve_param(
+        args.method, file_params, "method",
+        default=DEFAULT_METHOD,
+    )
+    if method not in METHODS:
+        raise SystemExit(f"unknown method: {method!r}; expected one of {METHODS}")
     setup_inputs(
         args.edgelist, args.clustering, args.output_folder,
         outlier_mode=outlier_mode,
         drop_outlier_outlier_edges=drop_oo,
+        method=method,
     )
 
 

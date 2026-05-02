@@ -36,7 +36,6 @@ EDGE_CORRECTION=""      # filled by preset unless overridden
 MATCH_DEGREE_ALGORITHM=""  # filled by preset unless overridden
 # Stage 2 v3-only: PSO knobs.
 PSO_GAMMA=""
-PSO_M_POLICY=""
 PSO_M_FLOOR=""
 PSO_SEARCH_STRATEGY=""
 PSO_SEARCH_MAX_ITERS=""
@@ -104,7 +103,6 @@ while [[ "$#" -gt 0 ]]; do
         --edge-correction) EDGE_CORRECTION="$2"; shift ;;
         --match-degree-algorithm) MATCH_DEGREE_ALGORITHM="$2"; shift ;;
         --pso-gamma) PSO_GAMMA="$2"; shift ;;
-        --pso-m-policy) PSO_M_POLICY="$2"; shift ;;
         --pso-m-floor) PSO_M_FLOOR="$2"; shift ;;
         --pso-search-strategy) PSO_SEARCH_STRATEGY="$2"; shift ;;
         --pso-search-max-iters) PSO_SEARCH_MAX_ITERS="$2"; shift ;;
@@ -138,29 +136,31 @@ fi
 
 # -------- fill unset knobs from the version preset --------
 if [[ "${VERSION}" == "v1" ]]; then
+    METHOD="res-deg-weighted"
     : "${SBM_OVERLAY:=true}"
     : "${SCOPE:=outlier-incident}"
     : "${GEN_OUTLIER_MODE:=singleton}"
     : "${EDGE_CORRECTION:=none}"
     : "${MATCH_DEGREE_ALGORITHM:=greedy}"
 elif [[ "${VERSION}" == "v2" ]]; then
+    METHOD="res-deg-weighted"
     : "${SBM_OVERLAY:=false}"
     : "${SCOPE:=all}"
     : "${GEN_OUTLIER_MODE:=combined}"
     : "${EDGE_CORRECTION:=rewire}"
     : "${MATCH_DEGREE_ALGORITHM:=true_greedy}"
 else  # v3 (PSO clustered + v2-style residual + match_degree)
+    METHOD="pso"
     : "${SBM_OVERLAY:=false}"  # stage 2 of v3 ignores this; kept for params.txt
     : "${SCOPE:=all}"
     : "${GEN_OUTLIER_MODE:=combined}"
     : "${EDGE_CORRECTION:=rewire}"
     : "${MATCH_DEGREE_ALGORITHM:=true_greedy}"
     : "${PSO_GAMMA:=2.0}"
-    : "${PSO_M_POLICY:=auto}"
     : "${PSO_M_FLOOR:=1}"
     : "${PSO_SEARCH_STRATEGY:=secant}"
     : "${PSO_SEARCH_MAX_ITERS:=30}"
-    : "${PSO_SEARCH_INITIAL_POINTS:=5}"
+    : "${PSO_SEARCH_INITIAL_POINTS:=3}"
     : "${PSO_SEARCH_SAMPLES_PER_T:=3}"
     : "${PSO_SEARCH_DIFF_TOL:=0.01}"
     : "${PSO_SEARCH_STEP_TOL:=0.0001}"
@@ -170,8 +170,9 @@ else  # v3 (PSO clustered + v2-style residual + match_degree)
 fi
 
 export OMP_NUM_THREADS="${N_THREADS}"
-# Pin: set/dict iteration order affects byte output.
-export PYTHONHASHSEED=0
+# Default to PYTHONHASHSEED=0 for byte-stable output. Override in the
+# environment if you need to audit hashseed invariance.
+export PYTHONHASHSEED="${PYTHONHASHSEED:-0}"
 
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR="$( cd "${OUTPUT_DIR}" && pwd )"
@@ -222,24 +223,24 @@ run_stage "profile" \
     --clustering "${INPUT_CLUSTERING}" \
     --output-folder "${STG_PROFILE}" \
     --outlier-mode "${OUTLIER_MODE}" \
+    --method "${METHOD}" \
     "${PROFILE_DROP_OO_FLAG[@]}"
 
 # ---- Stage 2: gen_clustered ----
 if [[ "${VERSION}" == "v3" ]]; then
-    run_stage "gen_clustered_v3 (per-cluster PSO, T-search)" \
-        python "${PKG_DIR}/gen_clustered_v3.py" \
+    run_stage "gen_clustered (method=pso)" \
+        python "${PKG_DIR}/gen_clustered.py" \
+        --method pso \
         --node-id "${STG_PROFILE}/node_id.csv" \
         --cluster-id "${STG_PROFILE}/cluster_id.csv" \
         --assignment "${STG_PROFILE}/assignment.csv" \
         --degree "${STG_PROFILE}/degree.csv" \
         --mincut "${STG_PROFILE}/mincut.csv" \
         --edge-counts "${STG_PROFILE}/edge_counts.csv" \
-        --orig-edgelist "${INPUT_EDGELIST}" \
-        --orig-clustering "${INPUT_CLUSTERING}" \
+        --cluster-ccoeff "${STG_PROFILE}/cluster_ccoeff.csv" \
         --output-folder "${STG_GEN_CLUSTERED}" \
         --seed "${SEED}" \
         --pso-gamma "${PSO_GAMMA}" \
-        --pso-m-policy "${PSO_M_POLICY}" \
         --pso-m-floor "${PSO_M_FLOOR}" \
         --pso-search-strategy "${PSO_SEARCH_STRATEGY}" \
         --pso-search-max-iters "${PSO_SEARCH_MAX_ITERS}" \
@@ -251,8 +252,9 @@ if [[ "${VERSION}" == "v3" ]]; then
         --pso-search-t-max "${PSO_SEARCH_T_MAX}" \
         --pso-initial-t "${PSO_INITIAL_T}"
 else
-    run_stage "gen_clustered (sbm_overlay=${SBM_OVERLAY})" \
+    run_stage "gen_clustered (method=res-deg-weighted, sbm_overlay=${SBM_OVERLAY})" \
         python "${PKG_DIR}/gen_clustered.py" \
+        --method res-deg-weighted \
         --node-id "${STG_PROFILE}/node_id.csv" \
         --cluster-id "${STG_PROFILE}/cluster_id.csv" \
         --assignment "${STG_PROFILE}/assignment.csv" \
@@ -334,7 +336,6 @@ cp "${STG_PROFILE}/com.csv"           "${OUTPUT_DIR}/com.csv"
             "pso_gamma=${PSO_GAMMA}" \
             "pso_initial_t=${PSO_INITIAL_T}" \
             "pso_m_floor=${PSO_M_FLOOR}" \
-            "pso_m_policy=${PSO_M_POLICY}" \
             "pso_search_diff_tol=${PSO_SEARCH_DIFF_TOL}" \
             "pso_search_initial_points=${PSO_SEARCH_INITIAL_POINTS}" \
             "pso_search_max_iters=${PSO_SEARCH_MAX_ITERS}" \

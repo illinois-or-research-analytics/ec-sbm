@@ -1,18 +1,18 @@
 {
     "clustered_pso_core": [
         1,
-        2790
+        2202
     ],
     "outlier_sbm": [
-        2791,
-        7775
+        2203,
+        7538
     ],
     "outlier_rewire": [
-        7776,
-        9602
+        7539,
+        9574
     ],
     "match_degree_true_greedy": [
-        9603,
-        10445
+        9575,
+        10432
     ]
 }
