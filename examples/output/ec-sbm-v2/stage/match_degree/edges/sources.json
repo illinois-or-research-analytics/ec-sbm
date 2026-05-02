@@ -1,6 +1,6 @@
 {
-    "match_degree_true_greedy": [
+    "match_degree_cluster_preserving_true_greedy": [
         1,
-        870
+        2022
     ]
 }

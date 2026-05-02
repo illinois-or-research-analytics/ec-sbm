@@ -31,13 +31,20 @@ import json
 import logging
 import heapq
 import random
-from collections import deque
+from collections import defaultdict, deque
 
 import numpy as np
 import pandas as pd
 
 from pipeline_common import standard_setup, timed
-from graph_utils import normalize_edge, run_rewire_attempts
+from graph_utils import (
+    cluster_preserving_2opt_rewire,
+    normalize_edge,
+    run_rewire_attempts,
+)
+
+
+OUTLIER_MODES = ("combined", "singleton")
 
 
 def parse_args():
@@ -52,9 +59,27 @@ def parse_args():
                              "the ref degree of its rank-paired ref node. "
                              "Top-up edges stay in the input's ID space.")
     parser.add_argument(
-        "--match-degree-algorithm", dest="match_degree_algorithm", type=str,
-        choices=["greedy", "true_greedy", "random_greedy", "rewire", "hybrid"],
+        "--degree-matcher", dest="degree_matcher", type=str,
+        choices=list(ALGO_TABLE),
         default="true_greedy",
+    )
+    parser.add_argument(
+        "--input-clustering", type=str, default=None,
+        help="Clustering for the input edgelist's ID space. Required when "
+             "the algorithm starts with cluster_preserving_.",
+    )
+    parser.add_argument(
+        "--ref-clustering", type=str, default=None,
+        help="Clustering for the ref edgelist's ID space. Required when "
+             "the algorithm starts with cluster_preserving_; in direct "
+             "mode points at the same file as --input-clustering.",
+    )
+    parser.add_argument(
+        "--outlier-mode", choices=list(OUTLIER_MODES), default="combined",
+        help="Block assignment for nodes absent from the clustering file. "
+             "'combined' lumps every outlier into one block; 'singleton' "
+             "gives each outlier its own block. Consulted only by "
+             "cluster_preserving_* algorithms.",
     )
     parser.add_argument("--seed", type=int, default=1)
     return parser.parse_args()
@@ -434,6 +459,465 @@ def match_missing_degrees_hybrid(out_degs, exist_neighbor):
     return bands["hybrid_rewire"] | bands["hybrid_true_greedy"]
 
 
+# ---------------------------------------------------------------------------
+# Cluster-preserving variants (per-bp budget tracking)
+# ---------------------------------------------------------------------------
+
+
+def build_block_assignment(node_id2iid, clustering_fp, outlier_mode):
+    """Block array indexed by node iid.
+
+    Mirrors ``gen_outlier.assign_blocks`` so direct-mode bp counts match
+    ec-sbm's stage-3a accounting. Cluster ids enter sorted ascending and
+    take iids ``0..K-1``. Outliers (nodes absent from the clustering file)
+    are bucketed per ``outlier_mode``: combined -> single block ``K``;
+    singleton -> consecutive ids ``K, K+1, ...`` ordered by node id.
+    """
+    df = pd.read_csv(clustering_fp, dtype=str)
+    node2cluster = dict(zip(df["node_id"], df["cluster_id"]))
+
+    n = len(node_id2iid)
+    b = np.empty(n, dtype=int)
+
+    relevant_clusters = sorted({
+        node2cluster[nd] for nd in node_id2iid if nd in node2cluster
+    })
+    cluster_id2iid = {c: i for i, c in enumerate(relevant_clusters)}
+    next_iid = len(cluster_id2iid)
+
+    sorted_nodes = sorted(node_id2iid.keys())
+    has_outliers = any(nd not in node2cluster for nd in sorted_nodes)
+    combined_block = None
+    if has_outliers and outlier_mode == "combined":
+        combined_block = next_iid
+        next_iid += 1
+
+    for nd in sorted_nodes:
+        u_iid = node_id2iid[nd]
+        if nd in node2cluster:
+            b[u_iid] = cluster_id2iid[node2cluster[nd]]
+        elif outlier_mode == "combined":
+            b[u_iid] = combined_block
+        else:
+            b[u_iid] = next_iid
+            next_iid += 1
+
+    return b
+
+
+def _bp_counts(edgelist_fp, b, node_id2iid):
+    """Per-(min_block, max_block) edge counts for an edgelist.
+
+    Endpoints not in ``node_id2iid`` are skipped (rare: would only happen
+    if the caller built the iid map from a non-superset input).
+    """
+    df = pd.read_csv(edgelist_fp, dtype=str)
+    counts = defaultdict(int)
+    for src, tgt in zip(df["source"], df["target"]):
+        if src not in node_id2iid or tgt not in node_id2iid:
+            continue
+        u, v = node_id2iid[src], node_id2iid[tgt]
+        bu, bv = int(b[u]), int(b[v])
+        counts[(min(bu, bv), max(bu, bv))] += 1
+    return counts
+
+
+def build_bp_budget_remap(input_edgelist_fp, ref_edgelist_fp,
+                          input_clustering_fp, outlier_mode, node_id2iid):
+    """Remap-mode bp budget in INPUT block space.
+
+    Rank-pair (descending degree, ties by node id) maps each ref node to
+    an input node. Each ref edge ``(a, b)`` translates to its rank-paired
+    input pair, whose bp under ``input_clustering`` increments
+    ``induced_bp``. Budget = ``induced_bp - input_bp`` clamped at 0.
+
+    Ref-side clustering plays no role: the rank-pair already mediates the
+    translation, and the budget lives in input block space.
+    """
+    b = build_block_assignment(node_id2iid, input_clustering_fp, outlier_mode)
+
+    in_df = pd.read_csv(input_edgelist_fp, dtype=str)
+    ref_df = pd.read_csv(ref_edgelist_fp, dtype=str)
+
+    in_endpoints = pd.concat([in_df["source"], in_df["target"]], ignore_index=True)
+    ref_endpoints = pd.concat([ref_df["source"], ref_df["target"]], ignore_index=True)
+    in_deg = in_endpoints.value_counts()
+    ref_deg = ref_endpoints.value_counts()
+
+    in_nodes = sorted(in_deg.index, key=lambda n: (-int(in_deg[n]), n))
+    ref_nodes = sorted(ref_deg.index, key=lambda n: (-int(ref_deg[n]), n))
+    n_pair = min(len(in_nodes), len(ref_nodes))
+    ref_node2input_id = {ref_nodes[i]: in_nodes[i] for i in range(n_pair)}
+
+    induced_bp = defaultdict(int)
+    for src, tgt in zip(ref_df["source"], ref_df["target"]):
+        u_id = ref_node2input_id.get(src)
+        v_id = ref_node2input_id.get(tgt)
+        if u_id is None or v_id is None:
+            continue
+        if u_id not in node_id2iid or v_id not in node_id2iid:
+            continue
+        u, v = node_id2iid[u_id], node_id2iid[v_id]
+        bu, bv = int(b[u]), int(b[v])
+        induced_bp[(min(bu, bv), max(bu, bv))] += 1
+
+    inp_bp = _bp_counts(input_edgelist_fp, b, node_id2iid)
+
+    bp_budget = {}
+    for key, ind_cnt in induced_bp.items():
+        diff = ind_cnt - inp_bp.get(key, 0)
+        if diff > 0:
+            bp_budget[key] = diff
+    return b, bp_budget
+
+
+def build_bp_budget_direct(input_edgelist_fp, ref_edgelist_fp, clustering_fp,
+                           outlier_mode, node_id2iid):
+    """Direct-mode bp budget: ``ref_count - input_count`` clamped at 0.
+
+    Returns ``(b, bp_budget)``. ``bp_budget`` only contains keys with a
+    strictly positive deficit; missing keys are interpreted as zero by
+    callers and the matcher refuses to place edges in those bp's.
+    """
+    b = build_block_assignment(node_id2iid, clustering_fp, outlier_mode)
+    ref_bp = _bp_counts(ref_edgelist_fp, b, node_id2iid)
+    inp_bp = _bp_counts(input_edgelist_fp, b, node_id2iid)
+
+    bp_budget = {}
+    for key, ref_cnt in ref_bp.items():
+        diff = ref_cnt - inp_bp.get(key, 0)
+        if diff > 0:
+            bp_budget[key] = diff
+    return b, bp_budget
+
+
+def _bp_key(b, u, v):
+    bu, bv = int(b[u]), int(b[v])
+    return (min(bu, bv), max(bu, bv))
+
+
+def match_missing_degrees_cluster_preserving_greedy(out_degs, exist_neighbor,
+                                                    b, bp_budget):
+    """Greedy variant gated by ``bp_budget``.
+
+    Same heap-and-set scaffolding as ``match_missing_degrees_greedy`` but
+    only partners whose bp still has remaining budget are considered, and
+    each accept decrements the budget.
+    """
+    logging.info("Starting Cluster-Preserving Greedy matching algorithm...")
+    available_node_set = {n for n, d in out_degs.items() if d > 0}
+    available_node_degrees = {n: d for n, d in out_degs.items() if d > 0}
+
+    initial_missing_stubs = sum(available_node_degrees.values())
+    logging.info(f"Initial missing stubs: {initial_missing_stubs}")
+
+    max_heap = [(-d, n) for n, d in available_node_degrees.items()]
+    heapq.heapify(max_heap)
+
+    degree_edges = set()
+
+    while max_heap:
+        _, c = heapq.heappop(max_heap)
+        if c not in available_node_degrees:
+            continue
+
+        invalid_targets = exist_neighbor.get(c, set()).copy()
+        invalid_targets.add(c)
+        candidates = sorted(available_node_set - invalid_targets)
+        candidates = [n for n in candidates if bp_budget.get(_bp_key(b, c, n), 0) > 0]
+
+        avail_k = min(available_node_degrees[c], len(candidates))
+        for k in range(avail_k):
+            partner = candidates[k]
+            bp = _bp_key(b, c, partner)
+            if bp_budget.get(bp, 0) <= 0:
+                continue
+            degree_edges.add((min(c, partner), max(c, partner)))
+            exist_neighbor[c].add(partner)
+            exist_neighbor[partner].add(c)
+            bp_budget[bp] -= 1
+            available_node_degrees[partner] -= 1
+            if available_node_degrees[partner] == 0:
+                available_node_set.remove(partner)
+                del available_node_degrees[partner]
+
+        del available_node_degrees[c]
+        available_node_set.discard(c)
+
+    return degree_edges
+
+
+def match_missing_degrees_cluster_preserving_true_greedy(out_degs, exist_neighbor,
+                                                          b, bp_budget):
+    """True-greedy variant gated by ``bp_budget``."""
+    logging.info("Starting Cluster-Preserving True Greedy matching algorithm...")
+    current_degrees = {n: d for n, d in out_degs.items() if d > 0}
+
+    initial_missing_stubs = sum(current_degrees.values())
+    logging.info(
+        f"Initial missing stubs: {initial_missing_stubs} (Target edges: {initial_missing_stubs // 2})"
+    )
+
+    heap = [(-d, n) for n, d in current_degrees.items()]
+    heapq.heapify(heap)
+
+    degree_edges = set()
+    stuck_nodes = set()
+
+    while heap:
+        neg_deg, u = heapq.heappop(heap)
+        deg_u = -neg_deg
+        if u not in current_degrees or deg_u != current_degrees[u]:
+            continue
+
+        invalid_targets = exist_neighbor.get(u, set())
+        valid_targets = [
+            n for n in current_degrees
+            if n != u
+            and n not in invalid_targets
+            and bp_budget.get(_bp_key(b, u, n), 0) > 0
+        ]
+
+        if not valid_targets:
+            stuck_nodes.add(u)
+            del current_degrees[u]
+            continue
+
+        v = max(valid_targets, key=lambda x: (current_degrees[x], -x))
+        bp = _bp_key(b, u, v)
+
+        degree_edges.add((min(u, v), max(u, v)))
+        exist_neighbor[u].add(v)
+        exist_neighbor[v].add(u)
+        bp_budget[bp] -= 1
+
+        current_degrees[u] -= 1
+        current_degrees[v] -= 1
+
+        if current_degrees[u] > 0:
+            heapq.heappush(heap, (-current_degrees[u], u))
+        else:
+            del current_degrees[u]
+
+        if current_degrees[v] > 0:
+            heapq.heappush(heap, (-current_degrees[v], v))
+        elif v in current_degrees:
+            del current_degrees[v]
+
+    if stuck_nodes:
+        logging.warning(f"Finished with {len(stuck_nodes)} gridlocked nodes.")
+
+    return degree_edges
+
+
+def match_missing_degrees_cluster_preserving_random_greedy(out_degs, exist_neighbor,
+                                                            b, bp_budget):
+    """Random-greedy variant gated by ``bp_budget``."""
+    logging.info("Starting Cluster-Preserving Randomized Greedy matching algorithm...")
+
+    available_degrees = {k: v for k, v in sorted(out_degs.items()) if v > 0}
+    available_nodes = list(available_degrees.keys())
+
+    initial_missing_stubs = sum(available_degrees.values())
+    logging.info(
+        f"Initial missing stubs: {initial_missing_stubs} (Target edges: {initial_missing_stubs // 2})"
+    )
+
+    degree_edges = set()
+    stuck_nodes = set()
+
+    while available_nodes:
+        weights = [available_degrees[n] for n in available_nodes]
+        u = random.choices(available_nodes, weights=weights, k=1)[0]
+
+        invalid_targets = exist_neighbor.get(u, set())
+        valid_targets = [
+            n for n in available_nodes
+            if n != u
+            and n not in invalid_targets
+            and bp_budget.get(_bp_key(b, u, n), 0) > 0
+        ]
+
+        if not valid_targets:
+            available_nodes.remove(u)
+            stuck_nodes.add(u)
+            continue
+
+        v_weights = [available_degrees[n] for n in valid_targets]
+        v = random.choices(valid_targets, weights=v_weights, k=1)[0]
+        bp = _bp_key(b, u, v)
+
+        degree_edges.add((min(u, v), max(u, v)))
+        exist_neighbor[u].add(v)
+        exist_neighbor[v].add(u)
+        bp_budget[bp] -= 1
+
+        available_degrees[u] -= 1
+        available_degrees[v] -= 1
+
+        if available_degrees[u] == 0:
+            available_nodes.remove(u)
+        if available_degrees[v] == 0:
+            available_nodes.remove(v)
+
+    if stuck_nodes:
+        stuck_stubs = sum(available_degrees[n] for n in stuck_nodes)
+        logging.warning(
+            f"Finished with {len(stuck_nodes)} physically gridlocked nodes. {stuck_stubs} missing stubs dropped."
+        )
+
+    return degree_edges
+
+
+def match_missing_degrees_cluster_preserving_rewire(out_degs, exist_neighbor,
+                                                    b, bp_budget,
+                                                    max_retries=10):
+    """Rewire variant via residual SBM + per-bp 2-opt swap.
+
+    Builds a probs matrix from ``bp_budget`` (mass = remaining edges per
+    bp), feeds graph-tool's ``generate_sbm`` with per-node out-degs, then
+    cleans up self-loops / duplicates / pre-existing edges via the shared
+    ``cluster_preserving_2opt_rewire`` helper. Anything still invalid
+    after the swap loop is returned to the caller for hybrid fallback.
+    """
+    logging.info("Starting Cluster-Preserving Rewire matching algorithm...")
+    import graph_tool.all as gt
+    from scipy.sparse import dok_matrix
+
+    n_blocks = int(b.max()) + 1 if len(b) else 0
+    n_nodes = len(b)
+
+    out_degs_array = np.zeros(n_nodes, dtype=int)
+    for node_iid, deg in out_degs.items():
+        if deg > 0:
+            out_degs_array[node_iid] = deg
+
+    probs = dok_matrix((n_blocks, n_blocks), dtype=int)
+    for (B_i, B_j), cnt in bp_budget.items():
+        if cnt <= 0:
+            continue
+        if B_i == B_j:
+            probs[B_i, B_j] = 2 * cnt
+        else:
+            probs[B_i, B_j] = cnt
+            probs[B_j, B_i] = cnt
+
+    # graph_tool needs each block's degree sum to match its row sum.
+    # Drop excess stubs (per-node, smallest id last) per block where
+    # out_degs_array > row_sum, and pad row_sum's diagonal upward when it
+    # exceeds out_degs (rare; happens if bp_budget overshoots residual).
+    probs_csr = probs.tocsr()
+    row_sums = np.array(probs_csr.sum(axis=1)).flatten()
+
+    for k in range(n_blocks):
+        nodes_in_k = np.where(b == k)[0]
+        if len(nodes_in_k) == 0:
+            continue
+        D_k = int(out_degs_array[nodes_in_k].sum())
+        E_k = int(row_sums[k])
+        if D_k > E_k:
+            excess = D_k - E_k
+            for nd in nodes_in_k[::-1]:
+                if excess <= 0:
+                    break
+                drop = min(excess, int(out_degs_array[nd]))
+                out_degs_array[nd] -= drop
+                excess -= drop
+        elif E_k > D_k:
+            deficit = E_k - D_k
+            for i in range(deficit):
+                out_degs_array[nodes_in_k[i % len(nodes_in_k)]] += 1
+        diag = int(probs[k, k])
+        if diag % 2 != 0:
+            probs[k, k] = diag + 1
+            out_degs_array[nodes_in_k[0]] += 1
+
+    if int(out_degs_array.sum()) == 0:
+        return set(), []
+
+    g = gt.generate_sbm(
+        b, probs.tocsr(),
+        out_degs=out_degs_array,
+        micro_ers=True,
+        micro_degs=True,
+        directed=False,
+    )
+
+    edges = g.get_edges()
+    valid_pool = defaultdict(list)
+    valid_set = set()
+    invalid_edges = deque()
+    for u, v in edges:
+        u, v = int(u), int(v)
+        e = normalize_edge(u, v)
+        if u == v or e in valid_set:
+            invalid_edges.append((u, v))
+            continue
+        valid_set.add(e)
+        valid_pool[(int(min(b[u], b[v])), int(max(b[u], b[v])))].append(e)
+
+    sbm_only, rewired = cluster_preserving_2opt_rewire(
+        invalid_edges, valid_pool, b, max_retries,
+    )
+
+    placed = set(sbm_only) | set(rewired)
+    leftover = []
+    for u, v in placed:
+        if v in exist_neighbor.get(u, set()):
+            leftover.append((u, v))
+        else:
+            exist_neighbor[u].add(v)
+            exist_neighbor[v].add(u)
+
+    valid_edges = placed - set(leftover)
+    for u, v in valid_edges:
+        bp = _bp_key(b, u, v)
+        bp_budget[bp] = max(0, bp_budget.get(bp, 0) - 1)
+    return valid_edges, leftover
+
+
+def match_missing_degrees_cluster_preserving_hybrid_bands(out_degs, exist_neighbor,
+                                                           b, bp_budget):
+    """Cluster-preserving hybrid: rewire then true-greedy fallback.
+
+    Returns ``{"hybrid_rewire": set, "hybrid_true_greedy": set}``.
+    """
+    logging.info("Starting Cluster-Preserving Hybrid (Rewire -> True Greedy) algorithm...")
+
+    valid_edges, leftover_edges = match_missing_degrees_cluster_preserving_rewire(
+        out_degs, exist_neighbor, b, bp_budget, max_retries=10,
+    )
+
+    if not leftover_edges:
+        return {"hybrid_rewire": valid_edges, "hybrid_true_greedy": set()}
+
+    logging.info(
+        f"Hybrid transition: {len(leftover_edges)} edges remained invalid; "
+        f"falling back to cluster_preserving_true_greedy."
+    )
+
+    remaining_out_degs = defaultdict(int)
+    for u, v in leftover_edges:
+        remaining_out_degs[u] += 1
+        remaining_out_degs[v] += 1
+    remaining_out_degs = {n: d for n, d in remaining_out_degs.items() if d > 0}
+
+    greedy_edges = match_missing_degrees_cluster_preserving_true_greedy(
+        remaining_out_degs, exist_neighbor, b, bp_budget,
+    )
+
+    return {"hybrid_rewire": valid_edges, "hybrid_true_greedy": greedy_edges}
+
+
+def match_missing_degrees_cluster_preserving_hybrid(out_degs, exist_neighbor,
+                                                    b, bp_budget):
+    """Backward-compat wrapper: flat union of the two hybrid bands."""
+    bands = match_missing_degrees_cluster_preserving_hybrid_bands(
+        out_degs, exist_neighbor, b, bp_budget,
+    )
+    return bands["hybrid_rewire"] | bands["hybrid_true_greedy"]
+
+
 def export_degree_matched_edgelist(degree_edges, node_iid2id, output_dir,
                                    bands=None):
     """Write ``degree_matching_edge.csv`` with rows in band-block order
@@ -465,6 +949,60 @@ def export_degree_matched_edgelist(degree_edges, node_iid2id, output_dir,
         json.dump(sources, f, indent=4)
 
 
+# Algorithm registry consumed by main(). Each entry: (kind, fn, labels, is_cp).
+#   kind="single"  → fn(...) returns edges set; bands = [(label, edges)].
+#   kind="rewire"  → fn(..., max_retries=10) returns (edges, leftover);
+#                    bands = [(label, edges)].
+#   kind="hybrid"  → fn(...) returns {"hybrid_rewire": ..., "hybrid_true_greedy": ...};
+#                    labels is a (rewire_label, tg_label) pair.
+# is_cp=True signals the matcher takes (b, bp_budget) after the standard args.
+ALGO_TABLE = {
+    "greedy": (
+        "single", match_missing_degrees_greedy,
+        "match_degree_greedy", False,
+    ),
+    "true_greedy": (
+        "single", match_missing_degrees_true_greedy,
+        "match_degree_true_greedy", False,
+    ),
+    "random_greedy": (
+        "single", match_missing_degrees_random_greedy,
+        "match_degree_random_greedy", False,
+    ),
+    "rewire": (
+        "rewire", match_missing_degrees_rewire,
+        "match_degree_rewire", False,
+    ),
+    "hybrid": (
+        "hybrid", match_missing_degrees_hybrid_bands,
+        ("match_degree_hybrid_rewire", "match_degree_hybrid_true_greedy"),
+        False,
+    ),
+    "cluster_preserving_greedy": (
+        "single", match_missing_degrees_cluster_preserving_greedy,
+        "match_degree_cluster_preserving_greedy", True,
+    ),
+    "cluster_preserving_true_greedy": (
+        "single", match_missing_degrees_cluster_preserving_true_greedy,
+        "match_degree_cluster_preserving_true_greedy", True,
+    ),
+    "cluster_preserving_random_greedy": (
+        "single", match_missing_degrees_cluster_preserving_random_greedy,
+        "match_degree_cluster_preserving_random_greedy", True,
+    ),
+    "cluster_preserving_rewire": (
+        "rewire", match_missing_degrees_cluster_preserving_rewire,
+        "match_degree_cluster_preserving_rewire", True,
+    ),
+    "cluster_preserving_hybrid": (
+        "hybrid", match_missing_degrees_cluster_preserving_hybrid_bands,
+        ("match_degree_cluster_preserving_hybrid_rewire",
+         "match_degree_cluster_preserving_hybrid_true_greedy"),
+        True,
+    ),
+}
+
+
 def main():
     args = parse_args()
     out_dir = standard_setup(args.output_folder)
@@ -472,8 +1010,24 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
 
+    algo = args.degree_matcher
+    kind, algo_fn, labels, is_cp = ALGO_TABLE[algo]
+
+    # Cluster-preserving rewire/hybrid call into gt.generate_sbm; seed
+    # graph-tool's RNG too so the SBM sample is reproducible.
+    if algo in ("cluster_preserving_rewire", "cluster_preserving_hybrid"):
+        import graph_tool.all as gt
+        gt.seed_rng(args.seed)
+
+    if is_cp and args.input_clustering is None:
+        raise SystemExit(
+            f"--degree-matcher {algo} requires --input-clustering."
+        )
+    if is_cp and args.ref_clustering is None and not args.remap:
+        args.ref_clustering = args.input_clustering
+
     logging.info(
-        f"--- Starting Degree Matching ({args.match_degree_algorithm.upper()}"
+        f"--- Starting Degree Matching ({algo.upper()}"
         f"{' + remap' if args.remap else ''} mode) ---"
     )
 
@@ -493,41 +1047,37 @@ def main():
             args.input_edgelist, node_id2iid, out_degs
         )
 
-    with timed("Degree matching"):
-        algo = args.match_degree_algorithm
-        bands = None
-        if algo == "greedy":
-            degree_edges = match_missing_degrees_greedy(updated_out_degs, exist_neighbor)
-            bands = [("match_degree_greedy", degree_edges)]
-        elif algo == "true_greedy":
-            degree_edges = match_missing_degrees_true_greedy(
-                updated_out_degs, exist_neighbor
-            )
-            bands = [("match_degree_true_greedy", degree_edges)]
-        elif algo == "random_greedy":
-            degree_edges = match_missing_degrees_random_greedy(
-                updated_out_degs, exist_neighbor
-            )
-            bands = [("match_degree_random_greedy", degree_edges)]
-        elif algo == "rewire":
-            degree_edges, _ = match_missing_degrees_rewire(
-                updated_out_degs, exist_neighbor, max_retries=10
-            )
-            bands = [("match_degree_rewire", degree_edges)]
-        elif algo == "hybrid":
-            hybrid_bands = match_missing_degrees_hybrid_bands(
-                updated_out_degs, exist_neighbor
-            )
-            degree_edges = (
-                hybrid_bands["hybrid_rewire"] | hybrid_bands["hybrid_true_greedy"]
-            )
-            bands = [
-                ("match_degree_hybrid_rewire", hybrid_bands["hybrid_rewire"]),
-                ("match_degree_hybrid_true_greedy", hybrid_bands["hybrid_true_greedy"]),
-            ]
+    if is_cp:
+        if args.remap:
+            with timed("Built per-bp budget (remap mode)"):
+                b, bp_budget = build_bp_budget_remap(
+                    args.input_edgelist, args.ref_edgelist,
+                    args.input_clustering, args.outlier_mode, node_id2iid,
+                )
         else:
-            logging.error(f"Unknown algorithm choice: {algo}")
-            return
+            with timed("Built per-bp budget (direct mode)"):
+                b, bp_budget = build_bp_budget_direct(
+                    args.input_edgelist, args.ref_edgelist,
+                    args.input_clustering, args.outlier_mode, node_id2iid,
+                )
+
+    with timed("Degree matching"):
+        extra = (b, bp_budget) if is_cp else ()
+        if kind == "single":
+            degree_edges = algo_fn(updated_out_degs, exist_neighbor, *extra)
+            bands = [(labels, degree_edges)]
+        elif kind == "rewire":
+            degree_edges, _ = algo_fn(
+                updated_out_degs, exist_neighbor, *extra, max_retries=10,
+            )
+            bands = [(labels, degree_edges)]
+        else:  # kind == "hybrid"
+            band_dict = algo_fn(updated_out_degs, exist_neighbor, *extra)
+            degree_edges = band_dict["hybrid_rewire"] | band_dict["hybrid_true_greedy"]
+            bands = [
+                (labels[0], band_dict["hybrid_rewire"]),
+                (labels[1], band_dict["hybrid_true_greedy"]),
+            ]
 
         logging.info(f"Added {len(degree_edges)} edges")
 

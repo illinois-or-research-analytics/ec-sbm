@@ -9,14 +9,10 @@
     ],
     "outlier_sbm": [
         2203,
-        7470
+        8169
     ],
-    "outlier_rewire": [
-        7471,
-        9561
-    ],
-    "match_degree_true_greedy": [
-        9562,
-        10431
+    "match_degree_cluster_preserving_true_greedy": [
+        8170,
+        10191
     ]
 }

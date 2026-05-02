@@ -1,7 +1,6 @@
 drop_outlier_outlier_edges=false
-edge_correction=rewire
 gen_outlier_mode=combined
-match_degree_algorithm=true_greedy
+degree_matcher=cluster_preserving_true_greedy
 n_threads=1
 outlier_mode=excluded
 sbm_overlay=false

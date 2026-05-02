@@ -1,7 +1,6 @@
 drop_outlier_outlier_edges=false
-edge_correction=none
 gen_outlier_mode=singleton
-match_degree_algorithm=greedy
+degree_matcher=greedy
 n_threads=1
 outlier_mode=excluded
 sbm_overlay=true

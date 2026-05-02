@@ -292,11 +292,25 @@ run_stage "combine clustered+outlier" \
     --output-filename "edge.csv"
 
 # ---- Stage 4a: match_degree ----
+# cluster_preserving_* algorithms need the input + reference clustering;
+# the global family ignores them. Mode is inferred from the algorithm
+# name prefix.
+MATCH_DEGREE_CP_FLAGS=()
+case "${MATCH_DEGREE_ALGORITHM}" in
+    cluster_preserving_*)
+        MATCH_DEGREE_CP_FLAGS=(
+            --input-clustering "${INPUT_CLUSTERING}"
+            --ref-clustering "${INPUT_CLUSTERING}"
+            --outlier-mode "${GEN_OUTLIER_MODE}"
+        )
+        ;;
+esac
 run_stage "match_degree (${MATCH_DEGREE_ALGORITHM})" \
     python "${PKG_DIR}/match_degree.py" \
     --input-edgelist "${STG_GEN_OUTLIER}/edge.csv" \
     --ref-edgelist "${INPUT_EDGELIST}" \
     --degree-matcher "${MATCH_DEGREE_ALGORITHM}" \
+    "${MATCH_DEGREE_CP_FLAGS[@]}" \
     --output-folder "${STG_MATCH_DEGREE_EDGES}" \
     --seed "$((SEED + 2))"
 
