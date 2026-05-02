@@ -49,9 +49,13 @@ from pipeline_common import standard_setup, timed
 DEFAULT_PSO_GAMMA = 2.0
 DEFAULT_PSO_M_POLICY = "auto"
 DEFAULT_PSO_M_FLOOR = 1
-DEFAULT_SEARCH_STRATEGY = "bayesian"
+# Secant is the empirical winner on the nPSO 1D ccoeff(T) objective
+# across multiple sweeps (see tools/npso_bo_sweep/). The same trend-with-
+# noise structure applies per-cluster in v3. BO via Optuna TPE remains
+# opt-in (`--pso-search-strategy bayesian`).
+DEFAULT_SEARCH_STRATEGY = "secant"
 DEFAULT_SEARCH_MAX_ITERS = 30
-DEFAULT_SEARCH_INITIAL_POINTS = 5
+DEFAULT_SEARCH_INITIAL_POINTS = 3
 DEFAULT_SEARCH_SAMPLES_PER_T = 1
 DEFAULT_SEARCH_DIFF_TOL = 0.01
 DEFAULT_SEARCH_STEP_TOL = 1e-4
@@ -249,42 +253,42 @@ def _search_T_secant(
 
 def _search_T_bayesian(
     n, m, gamma, target_ccoeff, base_seed,
-    max_iters, initial_points, diff_tol,
+    max_iters, initial_points, diff_tol, step_tol,
     t_min, t_max, samples_per_T,
 ):
-    """Gaussian-process Bayesian optimisation of T against the noisy
-    objective ``|ccoeff(T) - target|``.
+    """Bayesian optimisation of T against the noisy objective
+    ``|ccoeff(T) - target|`` via Optuna's TPE sampler.
 
-    Uses ``skopt.Optimizer`` with a Matern kernel + EI acquisition,
-    pinning the random_state from the cluster seed so re-runs are
-    deterministic. Falls back to the secant strategy if scikit-optimize
-    is not installed at import time.
+    TPE models densities of below-vs-above-threshold trials, which is
+    noise-tolerant by construction (no GP misfit when neighbouring
+    probes disagree by more than the signal). Per-T eval averages
+    ``samples_per_T`` PSO realisations.
 
-    Each call evaluates one (or ``samples_per_T``) PSO realisation per
-    T probe and reports the empirical mean ccoeff to the GP. The search
-    stops early on diff_tol or after ``max_iters`` total evaluations.
+    Stops early when ``best_diff < diff_tol`` or successive diffs
+    differ by less than ``step_tol``; otherwise runs to ``max_iters``.
     """
-    from skopt import Optimizer
-    from skopt.space import Real
+    import optuna
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-    space = [Real(t_min, t_max, name="T")]
-    opt = Optimizer(
-        dimensions=space,
-        base_estimator="GP",
-        acq_func="EI",
-        n_initial_points=min(initial_points, max_iters),
-        initial_point_generator="lhs",
-        random_state=int(base_seed) % (2**32 - 1),
+    n_startup = max(1, min(initial_points, max_iters))
+    study = optuna.create_study(
+        direction="minimize",
+        sampler=optuna.samplers.TPESampler(
+            n_startup_trials=n_startup,
+            seed=int(base_seed) % (2**32 - 1),
+        ),
     )
+    dist = optuna.distributions.FloatDistribution(t_min, t_max)
 
     iter_records = []
     best_T = None
     best_cc = None
     best_diff = None
     best_edges = None
+    prev_diff = None
     for it in range(max_iters):
-        suggestion = opt.ask()
-        T = float(suggestion[0])
+        trial = study.ask({"T": dist})
+        T = float(trial.params["T"])
         iter_seed = (base_seed * 7_777_771 + it) & 0xFFFFFFFF
         cc, edges_local, samples = _eval_T(n, m, T, gamma, iter_seed, samples_per_T)
         diff = abs(cc - target_ccoeff)
@@ -292,12 +296,15 @@ def _search_T_bayesian(
             "T": T, "ccoeff": cc, "diff": diff,
             "samples": samples if samples_per_T > 1 else None,
         })
-        opt.tell(suggestion, diff)
+        study.tell(trial, diff)
         if best_cc is None or diff < best_diff:
             best_T, best_cc, best_diff = T, cc, diff
             best_edges = edges_local
         if best_diff < diff_tol:
             break
+        if prev_diff is not None and abs(prev_diff - diff) < step_tol:
+            break
+        prev_diff = diff
     return best_T, best_cc, best_edges, iter_records
 
 
@@ -339,12 +346,12 @@ def _search_T_for_cluster(
         try:
             best_T, best_cc, best_edges, iter_records = _search_T_bayesian(
                 n, m, gamma, target_ccoeff, base_seed,
-                max_iters, initial_points, diff_tol,
+                max_iters, initial_points, diff_tol, step_tol,
                 t_min, t_max, samples_per_T,
             )
         except ImportError:
             logging.warning(
-                "scikit-optimize missing; falling back to secant for cluster n=%d",
+                "optuna missing; falling back to secant for cluster n=%d",
                 n,
             )
             best_T, best_cc, best_edges, iter_records = _search_T_secant(

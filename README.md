@@ -67,7 +67,7 @@ Inputs:
 | `--pso-gamma F` | stage 2 (v3) | n/a | n/a | `2.0` | PSO power-law exponent. Default `2.0` makes radial coords `r_i = 2*log(arrival_rank)` where arrival rank comes from the descending empirical-degree sort, so the PSO geometry encodes the empirical degree ordering. |
 | `--pso-m-policy {auto\|floor}` | stage 2 (v3) | n/a | n/a | `auto` | `auto` lifts m to `round(empirical_mean_intra_deg/2)`; `floor` skips the lift. |
 | `--pso-m-floor N` | stage 2 (v3) | n/a | n/a | `1` | Hard lower bound on per-cluster m. |
-| `--pso-search-strategy {bayesian\|secant}` | stage 2 (v3) | n/a | n/a | `bayesian` | `bayesian` uses skopt's GP + EI, robust to PSO sampling noise; `secant` uses bisection + secant, cheaper but brittle when realisation noise dominates. |
+| `--pso-search-strategy {bayesian\|secant}` | stage 2 (v3) | n/a | n/a | `secant` | `secant` is bisection + secant, fast and accurate on the trend-with-noise objective (sweep at `tools/npso_bo_sweep/`). `bayesian` uses Optuna TPE; opt-in for ablation or non-monotone regimes. |
 | `--pso-search-samples-per-T N` | stage 2 (v3) | n/a | n/a | `1` | Average this many PSO realisations per T probe to suppress noise (linear cost in eval time). |
 | `--pso-search-{max-iters,initial-points,diff-tol,step-tol,t-min,t-max,initial-t}` | stage 2 (v3) | n/a | n/a | `30 / 5 / 0.01 / 1e-4 / 0.01 / 0.99 / 0.5` | T-search controls. `initial-points` is BO-only (LHS warm-up before the GP takes over). |
 
@@ -109,8 +109,8 @@ sha256sum examples/output/ec-sbm-v1/edge.csv
 
 v2 on the same input yields `edge.csv` with sha256
 `f46e7d8b94c99fcc3cddbb7b6381c81e05c8b1f25d40134a7ed87b47910a1289`.
-v3 (per-cluster PSO + Bayesian T-search, default knobs) yields sha256
-`6d3b296d695457b5cae64b68c492d3a3d88cf86d7e79d96dc18772496f22f43e`.
+v3 (per-cluster PSO + secant T-search, default knobs) yields sha256
+`a3343e8371d885c97f2bfaed2712cee5dedc33f8dd14ecc89bfa89c0cc6c1ce6`.
 The `examples/output/ec-sbm-v{1,2,3}/` trees are committed as reference
 outputs.
 

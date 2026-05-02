@@ -158,7 +158,7 @@ else  # v3 (PSO clustered + v2-style residual + match_degree)
     : "${PSO_GAMMA:=2.0}"
     : "${PSO_M_POLICY:=auto}"
     : "${PSO_M_FLOOR:=1}"
-    : "${PSO_SEARCH_STRATEGY:=bayesian}"
+    : "${PSO_SEARCH_STRATEGY:=secant}"
     : "${PSO_SEARCH_MAX_ITERS:=30}"
     : "${PSO_SEARCH_INITIAL_POINTS:=5}"
     : "${PSO_SEARCH_SAMPLES_PER_T:=1}"

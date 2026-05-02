@@ -17,6 +17,6 @@ pso_search_initial_points=5
 pso_search_max_iters=30
 pso_search_samples_per_T=1
 pso_search_step_tol=0.0001
-pso_search_strategy=bayesian
+pso_search_strategy=secant
 pso_search_t_max=0.99
 pso_search_t_min=0.01
