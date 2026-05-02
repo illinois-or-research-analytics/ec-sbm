@@ -34,29 +34,49 @@ GEN_OUTLIER_MODE=""     # filled by preset unless overridden
 EDGE_CORRECTION=""      # filled by preset unless overridden
 # Stage 4a (match_degree).
 MATCH_DEGREE_ALGORITHM=""  # filled by preset unless overridden
+# Stage 2 v3-only: PSO knobs.
+PSO_GAMMA=""
+PSO_M_POLICY=""
+PSO_M_FLOOR=""
+PSO_SEARCH_MAX_ITERS=""
+PSO_SEARCH_DIFF_TOL=""
+PSO_SEARCH_STEP_TOL=""
+PSO_SEARCH_T_MIN=""
+PSO_SEARCH_T_MAX=""
+PSO_INITIAL_T=""
 
 usage() {
     cat >&2 <<'EOF'
-Usage: run_ecsbm.sh --version {v1|v2} \
+Usage: run_ecsbm.sh --version {v1|v2|v3} \
                     --input-edgelist <p> \
                     --input-clustering <p> \
                     --output-dir <p> \
                     [--seed N] [--n-threads N] [--timeout DUR]
                     [--outlier-mode {excluded|singleton|combined}]         # stage 1
                     [--drop-outlier-outlier-edges|--keep-outlier-outlier-edges]  # stage 1
-                    [--sbm-overlay|--no-sbm-overlay]                        # stage 2
+                    [--sbm-overlay|--no-sbm-overlay]                        # stage 2 (v1/v2)
                     [--scope {outlier-incident|all}]                        # stage 3a
                     [--gen-outlier-mode {combined|singleton}]               # stage 3a
                     [--edge-correction {none|drop|rewire}]                  # stage 3a
                     [--match-degree-algorithm {greedy|true_greedy|random_greedy|rewire|hybrid}]  # stage 4a
+                    [--pso-gamma F]                                          # stage 2 (v3)
+                    [--pso-search-max-iters N]                               # stage 2 (v3)
+                    [--pso-search-diff-tol F]                                # stage 2 (v3)
+                    [--pso-search-step-tol F]                                # stage 2 (v3)
+                    [--pso-search-t-min F]                                   # stage 2 (v3)
+                    [--pso-search-t-max F]                                   # stage 2 (v3)
+                    [--pso-initial-t F]                                      # stage 2 (v3)
 
 --version sets a preset flag bundle:
   v1: --sbm-overlay --scope outlier-incident --gen-outlier-mode singleton
       --edge-correction none --match-degree-algorithm greedy
   v2: --no-sbm-overlay --scope all --gen-outlier-mode combined
       --edge-correction rewire --match-degree-algorithm true_greedy
+  v3: per-cluster PSO core (uniform angular, T tuned to per-cluster ccoeff)
+      then v2's residual SBM + match_degree. Stage 2 of v3 ignores
+      --sbm-overlay; stages 3a/4a take v2's preset.
 
-Stage 1 defaults to --outlier-mode excluded; both presets leave it
+Stage 1 defaults to --outlier-mode excluded; all presets leave it
 unchanged. Any explicit flag after --version overrides the preset.
 EOF
 }
@@ -80,6 +100,15 @@ while [[ "$#" -gt 0 ]]; do
         --gen-outlier-mode) GEN_OUTLIER_MODE="$2"; shift ;;
         --edge-correction) EDGE_CORRECTION="$2"; shift ;;
         --match-degree-algorithm) MATCH_DEGREE_ALGORITHM="$2"; shift ;;
+        --pso-gamma) PSO_GAMMA="$2"; shift ;;
+        --pso-m-policy) PSO_M_POLICY="$2"; shift ;;
+        --pso-m-floor) PSO_M_FLOOR="$2"; shift ;;
+        --pso-search-max-iters) PSO_SEARCH_MAX_ITERS="$2"; shift ;;
+        --pso-search-diff-tol) PSO_SEARCH_DIFF_TOL="$2"; shift ;;
+        --pso-search-step-tol) PSO_SEARCH_STEP_TOL="$2"; shift ;;
+        --pso-search-t-min) PSO_SEARCH_T_MIN="$2"; shift ;;
+        --pso-search-t-max) PSO_SEARCH_T_MAX="$2"; shift ;;
+        --pso-initial-t) PSO_INITIAL_T="$2"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown parameter: $1" >&2; usage; exit 1 ;;
     esac
@@ -91,8 +120,8 @@ if [[ -z "${VERSION}" || -z "${INPUT_EDGELIST}" || -z "${INPUT_CLUSTERING}" || -
     echo "Error: --version, --input-edgelist, --input-clustering, --output-dir are required." >&2
     usage; exit 1
 fi
-if [[ "${VERSION}" != "v1" && "${VERSION}" != "v2" ]]; then
-    echo "Error: --version must be v1 or v2 (got '${VERSION}')." >&2; exit 1
+if [[ "${VERSION}" != "v1" && "${VERSION}" != "v2" && "${VERSION}" != "v3" ]]; then
+    echo "Error: --version must be v1, v2, or v3 (got '${VERSION}')." >&2; exit 1
 fi
 if [[ ! -f "${INPUT_EDGELIST}" ]]; then
     echo "Error: input edgelist not found: ${INPUT_EDGELIST}" >&2; exit 1
@@ -108,12 +137,27 @@ if [[ "${VERSION}" == "v1" ]]; then
     : "${GEN_OUTLIER_MODE:=singleton}"
     : "${EDGE_CORRECTION:=none}"
     : "${MATCH_DEGREE_ALGORITHM:=greedy}"
-else  # v2
+elif [[ "${VERSION}" == "v2" ]]; then
     : "${SBM_OVERLAY:=false}"
     : "${SCOPE:=all}"
     : "${GEN_OUTLIER_MODE:=combined}"
     : "${EDGE_CORRECTION:=rewire}"
     : "${MATCH_DEGREE_ALGORITHM:=true_greedy}"
+else  # v3 (PSO clustered + v2-style residual + match_degree)
+    : "${SBM_OVERLAY:=false}"  # stage 2 of v3 ignores this; kept for params.txt
+    : "${SCOPE:=all}"
+    : "${GEN_OUTLIER_MODE:=combined}"
+    : "${EDGE_CORRECTION:=rewire}"
+    : "${MATCH_DEGREE_ALGORITHM:=true_greedy}"
+    : "${PSO_GAMMA:=3.0}"
+    : "${PSO_M_POLICY:=auto}"
+    : "${PSO_M_FLOOR:=1}"
+    : "${PSO_SEARCH_MAX_ITERS:=30}"
+    : "${PSO_SEARCH_DIFF_TOL:=0.01}"
+    : "${PSO_SEARCH_STEP_TOL:=0.0001}"
+    : "${PSO_SEARCH_T_MIN:=0.01}"
+    : "${PSO_SEARCH_T_MAX:=0.99}"
+    : "${PSO_INITIAL_T:=0.5}"
 fi
 
 export OMP_NUM_THREADS="${N_THREADS}"
@@ -172,17 +216,41 @@ run_stage "profile" \
     "${PROFILE_DROP_OO_FLAG[@]}"
 
 # ---- Stage 2: gen_clustered ----
-run_stage "gen_clustered (sbm_overlay=${SBM_OVERLAY})" \
-    python "${PKG_DIR}/gen_clustered.py" \
-    --node-id "${STG_PROFILE}/node_id.csv" \
-    --cluster-id "${STG_PROFILE}/cluster_id.csv" \
-    --assignment "${STG_PROFILE}/assignment.csv" \
-    --degree "${STG_PROFILE}/degree.csv" \
-    --mincut "${STG_PROFILE}/mincut.csv" \
-    --edge-counts "${STG_PROFILE}/edge_counts.csv" \
-    --output-folder "${STG_GEN_CLUSTERED}" \
-    --seed "${SEED}" \
-    "${SBM_OVERLAY_FLAG[@]}"
+if [[ "${VERSION}" == "v3" ]]; then
+    run_stage "gen_clustered_v3 (per-cluster PSO, T-search)" \
+        python "${PKG_DIR}/gen_clustered_v3.py" \
+        --node-id "${STG_PROFILE}/node_id.csv" \
+        --cluster-id "${STG_PROFILE}/cluster_id.csv" \
+        --assignment "${STG_PROFILE}/assignment.csv" \
+        --degree "${STG_PROFILE}/degree.csv" \
+        --mincut "${STG_PROFILE}/mincut.csv" \
+        --edge-counts "${STG_PROFILE}/edge_counts.csv" \
+        --orig-edgelist "${INPUT_EDGELIST}" \
+        --orig-clustering "${INPUT_CLUSTERING}" \
+        --output-folder "${STG_GEN_CLUSTERED}" \
+        --seed "${SEED}" \
+        --pso-gamma "${PSO_GAMMA}" \
+        --pso-m-policy "${PSO_M_POLICY}" \
+        --pso-m-floor "${PSO_M_FLOOR}" \
+        --pso-search-max-iters "${PSO_SEARCH_MAX_ITERS}" \
+        --pso-search-diff-tol "${PSO_SEARCH_DIFF_TOL}" \
+        --pso-search-step-tol "${PSO_SEARCH_STEP_TOL}" \
+        --pso-search-t-min "${PSO_SEARCH_T_MIN}" \
+        --pso-search-t-max "${PSO_SEARCH_T_MAX}" \
+        --pso-initial-t "${PSO_INITIAL_T}"
+else
+    run_stage "gen_clustered (sbm_overlay=${SBM_OVERLAY})" \
+        python "${PKG_DIR}/gen_clustered.py" \
+        --node-id "${STG_PROFILE}/node_id.csv" \
+        --cluster-id "${STG_PROFILE}/cluster_id.csv" \
+        --assignment "${STG_PROFILE}/assignment.csv" \
+        --degree "${STG_PROFILE}/degree.csv" \
+        --mincut "${STG_PROFILE}/mincut.csv" \
+        --edge-counts "${STG_PROFILE}/edge_counts.csv" \
+        --output-folder "${STG_GEN_CLUSTERED}" \
+        --seed "${SEED}" \
+        "${SBM_OVERLAY_FLAG[@]}"
+fi
 
 # ---- Stage 3a: gen_outlier ----
 # Under scope=all we subtract stage-2 output from the residual budget.
@@ -249,6 +317,18 @@ cp "${STG_PROFILE}/com.csv"           "${OUTPUT_DIR}/com.csv"
         "scope=${SCOPE}" \
         "seed=${SEED}" \
         "version=${VERSION}"
+    if [[ "${VERSION}" == "v3" ]]; then
+        printf '%s\n' \
+            "pso_gamma=${PSO_GAMMA}" \
+            "pso_initial_t=${PSO_INITIAL_T}" \
+            "pso_m_floor=${PSO_M_FLOOR}" \
+            "pso_m_policy=${PSO_M_POLICY}" \
+            "pso_search_diff_tol=${PSO_SEARCH_DIFF_TOL}" \
+            "pso_search_max_iters=${PSO_SEARCH_MAX_ITERS}" \
+            "pso_search_step_tol=${PSO_SEARCH_STEP_TOL}" \
+            "pso_search_t_max=${PSO_SEARCH_T_MAX}" \
+            "pso_search_t_min=${PSO_SEARCH_T_MIN}"
+    fi
 } > "${OUTPUT_DIR}/params.txt"
 
 echo "=== Done. Final network: ${OUTPUT_DIR}/edge.csv ==="
