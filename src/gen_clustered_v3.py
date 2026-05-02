@@ -40,16 +40,26 @@ from params_common import _parse_bool, read_params, resolve_param
 from pipeline_common import standard_setup, timed
 
 
-DEFAULT_PSO_GAMMA = 3.0
+# gamma=2 → beta=1 → PSO radial coord r_i = 2*log(arrival_rank), no
+# popularity fading. Combined with the descending-empirical-degree sort
+# we already do on cluster_nodes_sorted, this means the PSO radii encode
+# the empirical degree *ordering* directly: highest-degree node sits at
+# the centre, kth-highest-degree node at radius 2*log(k). Override only
+# for ablation.
+DEFAULT_PSO_GAMMA = 2.0
 DEFAULT_PSO_M_POLICY = "auto"
 DEFAULT_PSO_M_FLOOR = 1
+DEFAULT_SEARCH_STRATEGY = "bayesian"
 DEFAULT_SEARCH_MAX_ITERS = 30
+DEFAULT_SEARCH_INITIAL_POINTS = 5
+DEFAULT_SEARCH_SAMPLES_PER_T = 1
 DEFAULT_SEARCH_DIFF_TOL = 0.01
 DEFAULT_SEARCH_STEP_TOL = 1e-4
 DEFAULT_SEARCH_T_MIN = 0.01
 DEFAULT_SEARCH_T_MAX = 0.99
 DEFAULT_INITIAL_T = 0.5
 PSO_SEARCH_LOG_NAME = "pso_search_log.json"
+SEARCH_STRATEGIES = ("bayesian", "secant")
 
 
 def _next_T(min_T, max_T, f_min_T, f_max_T):
@@ -162,41 +172,41 @@ def _resolve_m(k, n, m_policy, m_floor, empirical_mean_deg):
     return min(base, n - 1)
 
 
-def _search_T_for_cluster(
-    cluster_nodes_iid, k, gamma, target_ccoeff, base_seed,
-    max_iters, diff_tol, step_tol, t_min, t_max, initial_T,
-    m_policy, m_floor, empirical_mean_deg,
-):
-    """Bisection / secant over T for a single cluster.
+def _eval_T(n, m, T, gamma, base_seed, samples_per_T):
+    """Run PSO ``samples_per_T`` times at temperature ``T`` and return
+    ``(mean_ccoeff, last_edges_local, sample_ccoeffs)``.
 
-    Returns ``(best_T, best_ccoeff, best_edges_local, iter_records, m)``
-    where ``best_edges_local`` is the PSO edgelist on local 0..n-1 ids.
-
-    ``m`` is resolved by ``_resolve_m`` from ``k`` (mincut), the
-    empirical mean intra-cluster degree, the policy and floor flags;
-    ``m >= k`` is always enforced so the cluster stays k-edge-connected.
-
-    Short-circuits when the cluster is small enough that PSO produces a
-    deterministic complete graph (``n <= m + 1``).
+    Per-iter seed = ``(base_seed * 1_000_003 + sample_idx) & 0xFFFFFFFF``;
+    the function key is the (T, sample_idx) tuple in spirit, so the same
+    request reproduces the same draws. ``last_edges_local`` is the
+    realisation whose ccoeff is closest to the mean (so the chosen edge
+    set is representative of the averaged signal).
     """
-    n = len(cluster_nodes_iid)
-    if n <= 1 or k <= 0:
-        return None, 0.0, [], [], 0
-    m = _resolve_m(k, n, m_policy, m_floor, empirical_mean_deg)
-    if m < 1:
-        m = 1
-    # Deterministic complete-graph regime: T does not affect output.
-    if n <= m + 1:
-        edges_local = pso_cluster_edges(n, m, initial_T, gamma, base_seed)
+    cs = []
+    edges_list = []
+    for s in range(samples_per_T):
+        seed_iter = (base_seed * 1_000_003 + s) & 0xFFFFFFFF
+        edges_local = pso_cluster_edges(n, m, T, gamma, seed_iter)
         cc = induced_global_ccoeff(n, edges_local)
-        return (
-            initial_T, cc, edges_local,
-            [{"T": initial_T, "ccoeff": cc, "note": "complete_graph"}],
-            m,
-        )
+        cs.append(cc)
+        edges_list.append(edges_local)
+    mean_cc = float(np.mean(cs))
+    if samples_per_T == 1:
+        return mean_cc, edges_list[0], cs
+    diffs = [abs(c - mean_cc) for c in cs]
+    rep_idx = int(np.argmin(diffs))
+    return mean_cc, edges_list[rep_idx], cs
 
-    # Pin endpoints to widen the bracket if the empirical target sits at
-    # one extreme; then iterate.
+
+def _search_T_secant(
+    n, m, gamma, target_ccoeff, base_seed,
+    max_iters, diff_tol, step_tol, t_min, t_max,
+    samples_per_T,
+):
+    """Bisection + secant over T. Cheap, correct when the noise is small
+    relative to the gap between adjacent T probes; brittle when the
+    realisation-to-realisation noise of ccoeff dominates the trend.
+    """
     iter_records = []
     f_min, f_max = None, None
     best_T = None
@@ -208,13 +218,13 @@ def _search_T_for_cluster(
     cur_min, cur_max = t_min, t_max
     for it in range(max_iters):
         T = _next_T(cur_min, cur_max, f_min, f_max)
-        # Re-seed per iter so different T gets a different draw but same
-        # T re-runs deterministically.
-        seed_iter = (base_seed * 1_000_003 + it) & 0xFFFFFFFF
-        edges_local = pso_cluster_edges(n, m, T, gamma, seed_iter)
-        cc = induced_global_ccoeff(n, edges_local)
+        iter_seed = (base_seed * 7_777_771 + it) & 0xFFFFFFFF
+        cc, edges_local, samples = _eval_T(n, m, T, gamma, iter_seed, samples_per_T)
         diff = abs(cc - target_ccoeff)
-        iter_records.append({"T": T, "ccoeff": cc, "diff": diff})
+        iter_records.append({
+            "T": T, "ccoeff": cc, "diff": diff,
+            "samples": samples if samples_per_T > 1 else None,
+        })
 
         if best_cc is None or diff < best_diff:
             best_T, best_cc, best_diff = T, cc, diff
@@ -234,6 +244,121 @@ def _search_T_for_cluster(
             f_min = f_T
         prev_cc = cc
 
+    return best_T, best_cc, best_edges, iter_records
+
+
+def _search_T_bayesian(
+    n, m, gamma, target_ccoeff, base_seed,
+    max_iters, initial_points, diff_tol,
+    t_min, t_max, samples_per_T,
+):
+    """Gaussian-process Bayesian optimisation of T against the noisy
+    objective ``|ccoeff(T) - target|``.
+
+    Uses ``skopt.Optimizer`` with a Matern kernel + EI acquisition,
+    pinning the random_state from the cluster seed so re-runs are
+    deterministic. Falls back to the secant strategy if scikit-optimize
+    is not installed at import time.
+
+    Each call evaluates one (or ``samples_per_T``) PSO realisation per
+    T probe and reports the empirical mean ccoeff to the GP. The search
+    stops early on diff_tol or after ``max_iters`` total evaluations.
+    """
+    from skopt import Optimizer
+    from skopt.space import Real
+
+    space = [Real(t_min, t_max, name="T")]
+    opt = Optimizer(
+        dimensions=space,
+        base_estimator="GP",
+        acq_func="EI",
+        n_initial_points=min(initial_points, max_iters),
+        initial_point_generator="lhs",
+        random_state=int(base_seed) % (2**32 - 1),
+    )
+
+    iter_records = []
+    best_T = None
+    best_cc = None
+    best_diff = None
+    best_edges = None
+    for it in range(max_iters):
+        suggestion = opt.ask()
+        T = float(suggestion[0])
+        iter_seed = (base_seed * 7_777_771 + it) & 0xFFFFFFFF
+        cc, edges_local, samples = _eval_T(n, m, T, gamma, iter_seed, samples_per_T)
+        diff = abs(cc - target_ccoeff)
+        iter_records.append({
+            "T": T, "ccoeff": cc, "diff": diff,
+            "samples": samples if samples_per_T > 1 else None,
+        })
+        opt.tell(suggestion, diff)
+        if best_cc is None or diff < best_diff:
+            best_T, best_cc, best_diff = T, cc, diff
+            best_edges = edges_local
+        if best_diff < diff_tol:
+            break
+    return best_T, best_cc, best_edges, iter_records
+
+
+def _search_T_for_cluster(
+    cluster_nodes_iid, k, gamma, target_ccoeff, base_seed,
+    max_iters, diff_tol, step_tol, t_min, t_max, initial_T,
+    m_policy, m_floor, empirical_mean_deg,
+    strategy, initial_points, samples_per_T,
+):
+    """Top-level dispatcher: resolves m, handles the complete-graph
+    short-circuit, then forwards to the chosen search strategy.
+
+    Returns ``(best_T, best_ccoeff, best_edges_local, iter_records, m)``
+    where ``best_edges_local`` is the PSO edgelist on local 0..n-1 ids.
+
+    ``m`` is resolved by ``_resolve_m`` from ``k`` (mincut), the
+    empirical mean intra-cluster degree, the policy and floor flags;
+    ``m >= k`` is always enforced so the cluster stays k-edge-connected.
+
+    Short-circuits when the cluster is small enough that PSO produces a
+    deterministic complete graph (``n <= m + 1``).
+    """
+    n = len(cluster_nodes_iid)
+    if n <= 1 or k <= 0:
+        return None, 0.0, [], [], 0
+    m = _resolve_m(k, n, m_policy, m_floor, empirical_mean_deg)
+    if m < 1:
+        m = 1
+    if n <= m + 1:
+        edges_local = pso_cluster_edges(n, m, initial_T, gamma, base_seed)
+        cc = induced_global_ccoeff(n, edges_local)
+        return (
+            initial_T, cc, edges_local,
+            [{"T": initial_T, "ccoeff": cc, "note": "complete_graph"}],
+            m,
+        )
+
+    if strategy == "bayesian":
+        try:
+            best_T, best_cc, best_edges, iter_records = _search_T_bayesian(
+                n, m, gamma, target_ccoeff, base_seed,
+                max_iters, initial_points, diff_tol,
+                t_min, t_max, samples_per_T,
+            )
+        except ImportError:
+            logging.warning(
+                "scikit-optimize missing; falling back to secant for cluster n=%d",
+                n,
+            )
+            best_T, best_cc, best_edges, iter_records = _search_T_secant(
+                n, m, gamma, target_ccoeff, base_seed,
+                max_iters, diff_tol, step_tol, t_min, t_max, samples_per_T,
+            )
+    elif strategy == "secant":
+        best_T, best_cc, best_edges, iter_records = _search_T_secant(
+            n, m, gamma, target_ccoeff, base_seed,
+            max_iters, diff_tol, step_tol, t_min, t_max, samples_per_T,
+        )
+    else:
+        raise ValueError(f"unknown search strategy: {strategy!r}")
+
     return best_T, best_cc, best_edges, iter_records, m
 
 
@@ -251,7 +376,10 @@ def run_v3_generation(
     gamma,
     m_policy,
     m_floor,
+    search_strategy,
     search_max_iters,
+    search_initial_points,
+    search_samples_per_T,
     search_diff_tol,
     search_step_tol,
     search_t_min,
@@ -264,6 +392,8 @@ def run_v3_generation(
     logging.info("Starting EC-SBM v3 (PSO per-cluster, T-search) ...")
     logging.info(
         f"seed={seed} gamma={gamma} m_policy={m_policy} m_floor={m_floor} "
+        f"strategy={search_strategy} initial_points={search_initial_points} "
+        f"samples_per_T={search_samples_per_T} "
         f"t_min={search_t_min} t_max={search_t_max} "
         f"max_iters={search_max_iters} diff_tol={search_diff_tol}"
     )
@@ -305,6 +435,7 @@ def run_v3_generation(
                 search_max_iters, search_diff_tol, search_step_tol,
                 search_t_min, search_t_max, initial_T,
                 m_policy, m_floor, empirical_mean_deg,
+                search_strategy, search_initial_points, search_samples_per_T,
             )
             best_cc_disp = f"{best_cc:.4f}" if best_cc is not None else "n/a"
             best_T_disp = f"{best_T:.4f}" if best_T is not None else "n/a"
@@ -385,8 +516,21 @@ def parse_args():
     parser.add_argument("--pso-m-floor", type=int, default=None,
                         help=f"Hard lower bound on per-cluster m. m = max(k, this, ...). "
                              f"Default {DEFAULT_PSO_M_FLOOR}.")
+    parser.add_argument("--pso-search-strategy", type=str, default=None,
+                        choices=list(SEARCH_STRATEGIES),
+                        help=f"T-search strategy. 'bayesian' uses skopt's GP "
+                             f"+ EI (handles ccoeff sampling noise); 'secant' "
+                             f"uses bisection + secant (cheap, brittle under "
+                             f"noise). Default {DEFAULT_SEARCH_STRATEGY}.")
     parser.add_argument("--pso-search-max-iters", type=int, default=None,
                         help=f"T-search iter cap. Default {DEFAULT_SEARCH_MAX_ITERS}.")
+    parser.add_argument("--pso-search-initial-points", type=int, default=None,
+                        help=f"BO-only: number of LHS warm-up evaluations "
+                             f"before the GP takes over. Default {DEFAULT_SEARCH_INITIAL_POINTS}.")
+    parser.add_argument("--pso-search-samples-per-T", type=int, default=None,
+                        help=f"How many PSO realisations to average per "
+                             f"T probe. Higher cuts ccoeff sampling noise at "
+                             f"linear cost. Default {DEFAULT_SEARCH_SAMPLES_PER_T}.")
     parser.add_argument("--pso-search-diff-tol", type=float, default=None,
                         help=f"|cc - target| early-stop. Default {DEFAULT_SEARCH_DIFF_TOL}.")
     parser.add_argument("--pso-search-step-tol", type=float, default=None,
@@ -415,6 +559,17 @@ def main():
     m_policy = resolve_param(args.pso_m_policy, file_params, "pso_m_policy",
                              default=DEFAULT_PSO_M_POLICY)
     m_floor = _i(args.pso_m_floor, "pso_m_floor", DEFAULT_PSO_M_FLOOR)
+    strategy = resolve_param(args.pso_search_strategy, file_params,
+                             "pso_search_strategy",
+                             default=DEFAULT_SEARCH_STRATEGY)
+    if strategy not in SEARCH_STRATEGIES:
+        raise SystemExit(f"unknown pso_search_strategy: {strategy!r}")
+    initial_points = _i(args.pso_search_initial_points,
+                        "pso_search_initial_points",
+                        DEFAULT_SEARCH_INITIAL_POINTS)
+    samples_per_T = _i(args.pso_search_samples_per_T,
+                       "pso_search_samples_per_T",
+                       DEFAULT_SEARCH_SAMPLES_PER_T)
     max_iters = _i(args.pso_search_max_iters, "pso_search_max_iters",
                    DEFAULT_SEARCH_MAX_ITERS)
     diff_tol = _f(args.pso_search_diff_tol, "pso_search_diff_tol",
@@ -439,7 +594,10 @@ def main():
         gamma,
         m_policy,
         m_floor,
+        strategy,
         max_iters,
+        initial_points,
+        samples_per_T,
         diff_tol,
         step_tol,
         t_min,

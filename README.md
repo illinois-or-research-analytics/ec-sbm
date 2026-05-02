@@ -64,10 +64,12 @@ Inputs:
 | `--gen-outlier-mode {combined\|singleton}` | stage 3a | `singleton` | `combined` | `combined` | How outlier nodes are assigned to blocks during the residual SBM. |
 | `--edge-correction {none\|drop\|rewire}` | stage 3a | `none` | `rewire` | `rewire` | Post-SBM correction. `rewire` does block-preserving 2-opt swaps. |
 | `--match-degree-algorithm {greedy\|true_greedy\|random_greedy\|rewire\|hybrid}` | stage 4a | `greedy` | `true_greedy` | `true_greedy` | How stage 4 tops up residual degrees. |
-| `--pso-gamma F` | stage 2 (v3) | n/a | n/a | `3.0` | PSO power-law exponent. |
+| `--pso-gamma F` | stage 2 (v3) | n/a | n/a | `2.0` | PSO power-law exponent. Default `2.0` makes radial coords `r_i = 2*log(arrival_rank)` where arrival rank comes from the descending empirical-degree sort, so the PSO geometry encodes the empirical degree ordering. |
 | `--pso-m-policy {auto\|floor}` | stage 2 (v3) | n/a | n/a | `auto` | `auto` lifts m to `round(empirical_mean_intra_deg/2)`; `floor` skips the lift. |
 | `--pso-m-floor N` | stage 2 (v3) | n/a | n/a | `1` | Hard lower bound on per-cluster m. |
-| `--pso-search-{max-iters,diff-tol,step-tol,t-min,t-max,initial-t}` | stage 2 (v3) | n/a | n/a | `30 / 0.01 / 1e-4 / 0.01 / 0.99 / 0.5` | T-search controls. |
+| `--pso-search-strategy {bayesian\|secant}` | stage 2 (v3) | n/a | n/a | `bayesian` | `bayesian` uses skopt's GP + EI, robust to PSO sampling noise; `secant` uses bisection + secant, cheaper but brittle when realisation noise dominates. |
+| `--pso-search-samples-per-T N` | stage 2 (v3) | n/a | n/a | `1` | Average this many PSO realisations per T probe to suppress noise (linear cost in eval time). |
+| `--pso-search-{max-iters,initial-points,diff-tol,step-tol,t-min,t-max,initial-t}` | stage 2 (v3) | n/a | n/a | `30 / 5 / 0.01 / 1e-4 / 0.01 / 0.99 / 0.5` | T-search controls. `initial-points` is BO-only (LHS warm-up before the GP takes over). |
 
 Any explicit flag overrides the `--version` preset, so for example
 `--version v2 --sbm-overlay --scope all` mixes v1's stage-2 overlay
@@ -107,8 +109,8 @@ sha256sum examples/output/ec-sbm-v1/edge.csv
 
 v2 on the same input yields `edge.csv` with sha256
 `f46e7d8b94c99fcc3cddbb7b6381c81e05c8b1f25d40134a7ed87b47910a1289`.
-v3 (per-cluster PSO + T-search, default knobs) yields sha256
-`7fc09e0d20ebfbc08179c9fc862ba233910fc6c64a1e058a5049f63802f87999`.
+v3 (per-cluster PSO + Bayesian T-search, default knobs) yields sha256
+`6d3b296d695457b5cae64b68c492d3a3d88cf86d7e79d96dc18772496f22f43e`.
 The `examples/output/ec-sbm-v{1,2,3}/` trees are committed as reference
 outputs.
 

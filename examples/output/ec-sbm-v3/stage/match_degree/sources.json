@@ -5,14 +5,14 @@
     ],
     "outlier_sbm": [
         2791,
-        7800
+        7773
     ],
     "outlier_rewire": [
-        7801,
-        9574
+        7774,
+        9593
     ],
     "match_degree_true_greedy": [
-        9575,
-        10449
+        9594,
+        10442
     ]
 }
