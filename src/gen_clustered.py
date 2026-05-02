@@ -540,7 +540,8 @@ def parse_args():
     parser.add_argument("--pso-search-max-iters", type=int, default=None,
                         help=f"pso only. Default {DEFAULT_SEARCH_MAX_ITERS}.")
     parser.add_argument("--pso-search-initial-points", type=int, default=None,
-                        help=f"pso only (BO). Default {DEFAULT_SEARCH_INITIAL_POINTS}.")
+                        help=f"pso only (bayesian/TPE n_startup_trials). "
+                             f"Default {DEFAULT_SEARCH_INITIAL_POINTS}.")
     parser.add_argument("--pso-search-samples-per-T", type=int, default=None,
                         help=f"pso only. Default {DEFAULT_SEARCH_SAMPLES_PER_T}.")
     parser.add_argument("--pso-search-diff-tol", type=float, default=None,
