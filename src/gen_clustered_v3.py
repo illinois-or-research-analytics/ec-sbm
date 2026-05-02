@@ -266,6 +266,10 @@ def _search_T_bayesian(
 
     Stops early when ``best_diff < diff_tol`` or successive diffs
     differ by less than ``step_tol``; otherwise runs to ``max_iters``.
+
+    Optuna is an opt-in dependency; the caller catches ``ImportError``
+    and falls back to secant. The default ``--pso-search-strategy
+    secant`` path never imports optuna.
     """
     import optuna
     optuna.logging.set_verbosity(optuna.logging.WARNING)

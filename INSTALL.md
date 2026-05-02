@@ -7,6 +7,7 @@ Python 3.11 with:
 - `graph-tool` (conda-forge)
 - `pandas`, `numpy`, `scipy` (conda)
 - `pymincut` (pip, from source)
+- `optuna` (optional; only required for `--pso-search-strategy bayesian` in v3; secant default does not need it)
 
 ## Conda recipe
 
