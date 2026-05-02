@@ -63,7 +63,7 @@ Inputs:
 | `--scope {outlier-incident\|all}` | stage 3a | `outlier-incident` | `all` | `all` | Which orig edges contribute to the residual SBM's `probs` and `out_degs`. |
 | `--gen-outlier-mode {combined\|singleton}` | stage 3a | `singleton` | `combined` | `combined` | How outlier nodes are assigned to blocks during the residual SBM. |
 | `--edge-correction {none\|drop\|rewire}` | stage 3a | `none` | `rewire` | `rewire` | Post-SBM correction. `rewire` does block-preserving 2-opt swaps. |
-| `--match-degree-algorithm {greedy\|true_greedy\|random_greedy\|rewire\|hybrid}` | stage 4a | `greedy` | `true_greedy` | `true_greedy` | How stage 4 tops up residual degrees. |
+| `--degree-matcher {greedy\|true_greedy\|random_greedy\|rewire\|hybrid}` | stage 4a | `greedy` | `true_greedy` | `true_greedy` | How stage 4 tops up residual degrees. |
 | `--pso-gamma F` | stage 2 (v3) | n/a | n/a | `2.0` | PSO power-law exponent. Default `2.0` makes radial coords `r_i = 2*log(arrival_rank)` where arrival rank comes from the descending empirical-degree sort, so the PSO geometry encodes the empirical degree ordering. |
 | `--pso-m-policy {auto\|floor}` | stage 2 (v3) | n/a | n/a | `auto` | `auto` lifts m to `round(empirical_mean_intra_deg/2)`; `floor` skips the lift. |
 | `--pso-m-floor N` | stage 2 (v3) | n/a | n/a | `1` | Hard lower bound on per-cluster m. |

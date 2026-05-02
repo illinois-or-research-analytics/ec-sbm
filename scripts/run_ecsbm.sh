@@ -31,7 +31,6 @@ SBM_OVERLAY=""          # filled by preset unless overridden
 # Stage 3a (gen_outlier).
 SCOPE=""                # filled by preset unless overridden
 GEN_OUTLIER_MODE=""     # filled by preset unless overridden
-EDGE_CORRECTION=""      # filled by preset unless overridden
 # Stage 4a (match_degree).
 MATCH_DEGREE_ALGORITHM=""  # filled by preset unless overridden
 # Stage 2 v3-only: PSO knobs.
@@ -59,8 +58,7 @@ Usage: run_ecsbm.sh --version {v1|v2|v3} \
                     [--sbm-overlay|--no-sbm-overlay]                        # stage 2 (v1/v2)
                     [--scope {outlier-incident|all}]                        # stage 3a
                     [--gen-outlier-mode {combined|singleton}]               # stage 3a
-                    [--edge-correction {none|drop|rewire}]                  # stage 3a
-                    [--match-degree-algorithm {greedy|true_greedy|random_greedy|rewire|hybrid}]  # stage 4a
+                    [--degree-matcher {greedy|true_greedy|random_greedy|rewire|hybrid|cluster_preserving_*}]  # stage 4a
                     [--pso-gamma F]                                          # stage 2 (v3)
                     [--pso-m-floor N]                                        # stage 2 (v3)
                     [--pso-search-strategy {secant|bayesian}]                # stage 2 (v3)
@@ -75,9 +73,9 @@ Usage: run_ecsbm.sh --version {v1|v2|v3} \
 
 --version sets a preset flag bundle:
   v1: --sbm-overlay --scope outlier-incident --gen-outlier-mode singleton
-      --edge-correction none --match-degree-algorithm greedy
+      --degree-matcher greedy
   v2: --no-sbm-overlay --scope all --gen-outlier-mode combined
-      --edge-correction rewire --match-degree-algorithm true_greedy
+      --degree-matcher cluster_preserving_true_greedy
   v3: per-cluster PSO core (uniform angular, T tuned to per-cluster ccoeff)
       then v2's residual SBM + match_degree. Stage 2 of v3 ignores
       --sbm-overlay; stages 3a/4a take v2's preset.
@@ -104,8 +102,7 @@ while [[ "$#" -gt 0 ]]; do
         --no-sbm-overlay) SBM_OVERLAY="false" ;;
         --scope) SCOPE="$2"; shift ;;
         --gen-outlier-mode) GEN_OUTLIER_MODE="$2"; shift ;;
-        --edge-correction) EDGE_CORRECTION="$2"; shift ;;
-        --match-degree-algorithm) MATCH_DEGREE_ALGORITHM="$2"; shift ;;
+        --degree-matcher) MATCH_DEGREE_ALGORITHM="$2"; shift ;;
         --pso-gamma) PSO_GAMMA="$2"; shift ;;
         --pso-m-floor) PSO_M_FLOOR="$2"; shift ;;
         --pso-search-strategy) PSO_SEARCH_STRATEGY="$2"; shift ;;
@@ -144,22 +141,19 @@ if [[ "${VERSION}" == "v1" ]]; then
     : "${SBM_OVERLAY:=true}"
     : "${SCOPE:=outlier-incident}"
     : "${GEN_OUTLIER_MODE:=singleton}"
-    : "${EDGE_CORRECTION:=none}"
     : "${MATCH_DEGREE_ALGORITHM:=greedy}"
 elif [[ "${VERSION}" == "v2" ]]; then
     METHOD="res-deg-weighted"
     : "${SBM_OVERLAY:=false}"
     : "${SCOPE:=all}"
     : "${GEN_OUTLIER_MODE:=combined}"
-    : "${EDGE_CORRECTION:=rewire}"
-    : "${MATCH_DEGREE_ALGORITHM:=true_greedy}"
+    : "${MATCH_DEGREE_ALGORITHM:=cluster_preserving_true_greedy}"
 else  # v3 (PSO clustered + v2-style residual + match_degree)
     METHOD="pso"
     : "${SBM_OVERLAY:=false}"  # stage 2 of v3 ignores this; kept for params.txt
     : "${SCOPE:=all}"
     : "${GEN_OUTLIER_MODE:=combined}"
-    : "${EDGE_CORRECTION:=rewire}"
-    : "${MATCH_DEGREE_ALGORITHM:=true_greedy}"
+    : "${MATCH_DEGREE_ALGORITHM:=cluster_preserving_true_greedy}"
     : "${PSO_GAMMA:=2.0}"
     : "${PSO_M_FLOOR:=1}"
     : "${PSO_SEARCH_STRATEGY:=secant}"
@@ -277,14 +271,13 @@ GEN_OUTLIER_EXIST_FLAG=()
 if [[ "${SCOPE}" == "all" ]]; then
     GEN_OUTLIER_EXIST_FLAG=(--exist-edgelist "${STG_GEN_CLUSTERED}/edge.csv")
 fi
-run_stage "gen_outlier (scope=${SCOPE}, outlier_mode=${GEN_OUTLIER_MODE}, edge_correction=${EDGE_CORRECTION})" \
+run_stage "gen_outlier (scope=${SCOPE}, outlier_mode=${GEN_OUTLIER_MODE})" \
     python "${PKG_DIR}/gen_outlier.py" \
     --orig-edgelist "${INPUT_EDGELIST}" \
     --orig-clustering "${INPUT_CLUSTERING}" \
     "${GEN_OUTLIER_EXIST_FLAG[@]}" \
     --scope "${SCOPE}" \
     --outlier-mode "${GEN_OUTLIER_MODE}" \
-    --edge-correction "${EDGE_CORRECTION}" \
     --output-folder "${STG_GEN_OUTLIER_EDGES}" \
     --seed "$((SEED + 1))"
 
@@ -303,7 +296,7 @@ run_stage "match_degree (${MATCH_DEGREE_ALGORITHM})" \
     python "${PKG_DIR}/match_degree.py" \
     --input-edgelist "${STG_GEN_OUTLIER}/edge.csv" \
     --ref-edgelist "${INPUT_EDGELIST}" \
-    --match-degree-algorithm "${MATCH_DEGREE_ALGORITHM}" \
+    --degree-matcher "${MATCH_DEGREE_ALGORITHM}" \
     --output-folder "${STG_MATCH_DEGREE_EDGES}" \
     --seed "$((SEED + 2))"
 
@@ -326,9 +319,8 @@ cp "${STG_PROFILE}/com.csv"           "${OUTPUT_DIR}/com.csv"
 {
     printf '%s\n' \
         "drop_outlier_outlier_edges=${DROP_OO_BOOL}" \
-        "edge_correction=${EDGE_CORRECTION}" \
         "gen_outlier_mode=${GEN_OUTLIER_MODE}" \
-        "match_degree_algorithm=${MATCH_DEGREE_ALGORITHM}" \
+        "degree_matcher=${MATCH_DEGREE_ALGORITHM}" \
         "n_threads=${N_THREADS}" \
         "outlier_mode=${OUTLIER_MODE}" \
         "sbm_overlay=${SBM_OVERLAY}" \

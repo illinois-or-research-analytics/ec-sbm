@@ -5,17 +5,16 @@ space between them.
 
 Presets:
 
-- "v1" (outlier-only SBM): ``--scope outlier-incident --outlier-mode singleton
-  --edge-correction none`` (no ``--exist-edgelist``). Only edges incident
-  to outliers contribute to ``probs`` and ``out_degs``; every outlier is
-  its own block; no block-preserving rewire; the orig edgelist is
-  consumed as-is (no dedup; v1's historical shape).
+- "v1" (outlier-only SBM): ``--scope outlier-incident --outlier-mode singleton``
+  (no ``--exist-edgelist``). Only edges incident to outliers contribute
+  to ``probs`` and ``out_degs``; every outlier is its own block; the
+  orig edgelist is consumed as-is.
 - "v2" (residual SBM over all blocks): ``--scope all --outlier-mode combined
-  --edge-correction rewire --exist-edgelist <stage-2 output>``. All orig
-  edges contribute; outliers share one combined block; stage 2's edges
-  are subtracted from the per-node residual; block-diagonals rebalanced
-  so graph-tool's parity constraint is satisfied; invalid SBM edges go
-  through a block-preserving 2-opt rewire.
+  --exist-edgelist <stage-2 output>``. All orig edges contribute; outliers
+  share one combined block; stage 2's edges are subtracted from the
+  per-node residual; block-diagonals rebalanced so graph-tool's parity
+  constraint is satisfied; self-loops + duplicates are dropped here
+  (block-preserving repair happens in the matcher).
 
 Knobs:
 
@@ -26,10 +25,6 @@ Knobs:
 - ``--outlier-mode {combined,singleton}``: block structure for outlier
   nodes. Combined: all outliers share one block. Singleton: each
   outlier gets its own block.
-- ``--edge-correction {none,drop,rewire}``: post-SBM correction for
-  self-loops and duplicates. None: only remove_parallel + remove_self.
-  Drop: same as none (kept as a named alternative for clarity). Rewire:
-  block-preserving 2-opt swap, fall back to drop for unresolved.
 - ``--exist-edgelist <p>`` (optional): edges already placed by a prior
   stage. Their contribution is subtracted from ``out_degs`` (clamped at
   0) after the orig accumulation. Only applied when ``--scope all``.
@@ -44,28 +39,22 @@ import argparse
 import json
 import logging
 import random
-from collections import defaultdict, deque
 
 import graph_tool.all as gt
 import numpy as np
 import pandas as pd
 from scipy.sparse import dok_matrix
 
-from graph_utils import (
-    cluster_preserving_2opt_rewire,
-    normalize_edge,
-)
+from graph_utils import normalize_edge
 from params_common import read_params, resolve_param
 from pipeline_common import standard_setup, timed, write_edge_tuples_csv
 
 
 SCOPES = ("outlier-incident", "all")
 OUTLIER_MODES = ("combined", "singleton")
-EDGE_CORRECTIONS = ("none", "drop", "rewire")
 
 DEFAULT_SCOPE = "all"
 DEFAULT_OUTLIER_MODE = "combined"
-DEFAULT_EDGE_CORRECTION = "rewire"
 
 
 # ---------------------------------------------------------------------------
@@ -264,44 +253,12 @@ def prepare_sbm_inputs(
 # SBM synthesis + corrections
 # ---------------------------------------------------------------------------
 
-def rewire_invalid_edges(g, b, max_retries=10):
-    """2-opt block-preserving rewiring of self-loops and multi-edges.
+def synthesize_residual_subnetwork(b, probs, out_degs):
+    """Sample the residual SBM, drop self-loops + parallel edges, and
+    return ``{"sbm": [...]}`` (a single band of ``(u_iid, v_iid)``).
 
-    Groups edges by their (min_block, max_block) pair; swaps within a
-    pair so each endpoint stays in its original block. Anything still
-    invalid after ``max_retries`` passes is dropped.
-
-    Returns ``(sbm_only_sorted, rewired_sorted)`` so callers can
-    distinguish SBM-sampled edges that survived untouched from edges
-    introduced by the 2-opt swap.
-
-    Thin wrapper over :func:`graph_utils.cluster_preserving_2opt_rewire`;
-    handles graph-tool ``Graph`` ingest then delegates the swap loop.
-    """
-    edges = g.get_edges()
-    valid_pool = defaultdict(list)
-    valid_set = set()
-    invalid_edges = deque()
-
-    for u, v in edges:
-        e = normalize_edge(u, v)
-        if u == v or e in valid_set:
-            invalid_edges.append((u, v))
-        else:
-            bp = (int(min(b[u], b[v])), int(max(b[u], b[v])))
-            valid_set.add(e)
-            valid_pool[bp].append(e)
-
-    return cluster_preserving_2opt_rewire(invalid_edges, valid_pool, b, max_retries)
-
-
-def synthesize_residual_subnetwork(b, probs, out_degs, edge_correction):
-    """Sample the residual SBM, apply the chosen edge correction, and
-    return ``{"sbm": [...], "rewire": [...]}`` lists of ``(u_iid, v_iid)``.
-
-    The "rewire" key is present (possibly empty) only when
-    ``edge_correction == "rewire"``; otherwise the entire output sits in
-    "sbm".
+    Block-preserving repair of the dropped edges happens downstream in
+    the matcher (``cluster_preserving_*`` family in src/match_degree.py).
     """
     if out_degs.sum() > 0:
         g = gt.generate_sbm(
@@ -314,19 +271,6 @@ def synthesize_residual_subnetwork(b, probs, out_degs, edge_correction):
         )
     else:
         g = gt.Graph(directed=False)
-
-    if edge_correction == "rewire":
-        sbm_only, rewired = rewire_invalid_edges(g, b, max_retries=10)
-        g.clear_edges()
-        g.add_edge_list(sbm_only + rewired)
-        gt.remove_parallel_edges(g)
-        gt.remove_self_loops(g)
-        final_edges = {normalize_edge(int(u), int(v)) for u, v in g.iter_edges()}
-        sbm_only_set = set(sbm_only)
-        return {
-            "sbm": sorted(final_edges & sbm_only_set),
-            "rewire": sorted(final_edges - sbm_only_set),
-        }
 
     gt.remove_parallel_edges(g)
     gt.remove_self_loops(g)
@@ -342,7 +286,6 @@ def run_outlier_generation(
     orig_clustering_fp,
     exist_edgelist_fp,
     outlier_mode,
-    edge_correction,
     scope,
     output_folder,
     seed,
@@ -355,8 +298,8 @@ def run_outlier_generation(
 
     logging.info(
         "Starting EC-SBM outlier generation "
-        "(scope=%s, outlier_mode=%s, edge_correction=%s)...",
-        scope, outlier_mode, edge_correction,
+        "(scope=%s, outlier_mode=%s)...",
+        scope, outlier_mode,
     )
 
     with timed("Setup"):
@@ -369,15 +312,13 @@ def run_outlier_generation(
         )
 
     with timed("SBM synthesis"):
-        bands = synthesize_residual_subnetwork(b, probs, out_degs, edge_correction)
+        bands = synthesize_residual_subnetwork(b, probs, out_degs)
 
     with timed("Export"):
         rows = []
         sources = {}
         cursor = 1
         ordered = [("outlier_sbm", bands.get("sbm", []))]
-        if "rewire" in bands:
-            ordered.append(("outlier_rewire", bands["rewire"]))
         for band_name, edge_list in ordered:
             if not edge_list:
                 continue
@@ -411,9 +352,6 @@ def parse_args():
     parser.add_argument(
         "--scope", choices=SCOPES, default=None,
     )
-    parser.add_argument(
-        "--edge-correction", choices=EDGE_CORRECTIONS, default=None,
-    )
     parser.add_argument("--params-file", type=str, default=None)
     parser.add_argument("--output-folder", type=str, required=True)
     parser.add_argument("--seed", type=int, default=1)
@@ -431,10 +369,6 @@ def main():
         args.scope, file_params, "scope",
         default=DEFAULT_SCOPE,
     )
-    edge_correction = resolve_param(
-        args.edge_correction, file_params, "edge_correction",
-        default=DEFAULT_EDGE_CORRECTION,
-    )
 
     if outlier_mode not in OUTLIER_MODES:
         raise SystemExit(
@@ -444,17 +378,12 @@ def main():
         raise SystemExit(
             f"unknown scope: {scope!r}; expected one of {SCOPES}"
         )
-    if edge_correction not in EDGE_CORRECTIONS:
-        raise SystemExit(
-            f"unknown edge_correction: {edge_correction!r}; expected one of {EDGE_CORRECTIONS}"
-        )
 
     run_outlier_generation(
         args.orig_edgelist,
         args.orig_clustering,
         args.exist_edgelist,
         outlier_mode,
-        edge_correction,
         scope,
         args.output_folder,
         args.seed,
