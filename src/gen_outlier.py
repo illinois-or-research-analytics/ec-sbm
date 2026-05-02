@@ -51,7 +51,10 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import dok_matrix
 
-from graph_utils import normalize_edge, run_rewire_attempts
+from graph_utils import (
+    cluster_preserving_2opt_rewire,
+    normalize_edge,
+)
 from params_common import read_params, resolve_param
 from pipeline_common import standard_setup, timed, write_edge_tuples_csv
 
@@ -271,84 +274,25 @@ def rewire_invalid_edges(g, b, max_retries=10):
     Returns ``(sbm_only_sorted, rewired_sorted)`` so callers can
     distinguish SBM-sampled edges that survived untouched from edges
     introduced by the 2-opt swap.
+
+    Thin wrapper over :func:`graph_utils.cluster_preserving_2opt_rewire`;
+    handles graph-tool ``Graph`` ingest then delegates the swap loop.
     """
     edges = g.get_edges()
     valid_pool = defaultdict(list)
     valid_set = set()
     invalid_edges = deque()
 
-    def get_bp(u, v):
-        return (int(min(b[u], b[v])), int(max(b[u], b[v])))
-
     for u, v in edges:
         e = normalize_edge(u, v)
         if u == v or e in valid_set:
             invalid_edges.append((u, v))
         else:
-            bp = get_bp(u, v)
+            bp = (int(min(b[u], b[v])), int(max(b[u], b[v])))
             valid_set.add(e)
             valid_pool[bp].append(e)
 
-    initial_valid_set = frozenset(valid_set)
-
-    logging.info(f"Initial bad edges before rewiring: {len(invalid_edges)}")
-
-    def process_one_edge(raw_edge, invalid_edges):
-        u, v = raw_edge
-        bp = get_bp(u, v)
-        pool = valid_pool[bp]
-
-        if not pool:
-            invalid_edges.append((u, v))
-            return False
-
-        idx = random.randrange(len(pool))
-        x, y = pool[idx]
-        A, B = bp
-
-        if A != B:
-            u_A = u if b[u] == A else v
-            u_B = v if b[u] == A else u
-            x_A = x if b[x] == A else y
-            x_B = y if b[x] == A else x
-            new_e1, new_e2 = normalize_edge(u_A, x_B), normalize_edge(x_A, u_B)
-        else:
-            if random.random() < 0.5:
-                new_e1, new_e2 = normalize_edge(u, x), normalize_edge(v, y)
-            else:
-                new_e1, new_e2 = normalize_edge(u, y), normalize_edge(v, x)
-
-        if (
-            new_e1[0] != new_e1[1]
-            and new_e2[0] != new_e2[1]
-            and new_e1 not in valid_set
-            and new_e2 not in valid_set
-            and new_e1 != new_e2
-        ):
-            valid_set.remove(normalize_edge(x, y))
-            pool[idx] = pool[-1]
-            pool.pop()
-            valid_set.add(new_e1)
-            valid_set.add(new_e2)
-            pool.append(new_e1)
-            pool.append(new_e2)
-        else:
-            invalid_edges.append((u, v))
-
-        return False
-
-    run_rewire_attempts(invalid_edges, process_one_edge, max_retries)
-    if invalid_edges:
-        logging.warning(
-            f"Finished {max_retries} retries. {len(invalid_edges)} bad edges "
-            "remain unresolved and will be dropped."
-        )
-    # Sort so the downstream g.add_edge_list call sees a deterministic
-    # order (set iteration is hash-slot order; leaks into the post-rewire
-    # graph's iter_edges sequence and the edge_outlier.csv row order).
-    sbm_only = sorted(valid_set & initial_valid_set)
-    rewired = sorted(valid_set - initial_valid_set)
-    return sbm_only, rewired
+    return cluster_preserving_2opt_rewire(invalid_edges, valid_pool, b, max_retries)
 
 
 def synthesize_residual_subnetwork(b, probs, out_degs, edge_correction):
