@@ -107,7 +107,9 @@ sha256sum examples/output/ec-sbm-v1/edge.csv
 
 v2 on the same input yields `edge.csv` with sha256
 `f46e7d8b94c99fcc3cddbb7b6381c81e05c8b1f25d40134a7ed87b47910a1289`.
-The `examples/output/ec-sbm-v{1,2}/` trees are committed as reference
+v3 (per-cluster PSO + T-search, default knobs) yields sha256
+`7fc09e0d20ebfbc08179c9fc862ba233910fc6c64a1e058a5049f63802f87999`.
+The `examples/output/ec-sbm-v{1,2,3}/` trees are committed as reference
 outputs.
 
 ## Stages
