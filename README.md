@@ -11,6 +11,10 @@ nodes (unclustered or singleton) are synthesized in a dedicated stage.
   all blocks (clustered + outliers under a chosen outlier-block policy)
   with block-preserving 2-opt rewiring, and a pluggable degree-matching
   stage (default hybrid).
+- **v3**: per-cluster PSO core (uniform angular distribution, `m >= k`)
+  with a 1-D bisection-secant search on the temperature `T` to drive
+  each cluster's clustering coefficient toward its empirical target;
+  v2-style residual SBM and degree-matching for the remainder.
 
 The v1 variant is published in [Vu-Le et al. 2025](https://doi.org/10.1007/s41109-025-00701-2). If you use it in your research, please cite the paper:
 
@@ -47,19 +51,23 @@ Inputs:
 
 ### Flags
 
-| Flag | Scope | v1 preset | v2 preset | Description |
-| --- | --- | --- | --- | --- |
-| `--version {v1\|v2}` | required | - | - | Selects the preset flag bundle. |
-| `--seed N` | all | `1` | `1` | RNG seed. Under a fixed seed the pipeline is byte-reproducible. |
-| `--n-threads N` | all | `1` | `1` | Sets `OMP_NUM_THREADS`. |
-| `--timeout DUR` | all | `3d` | `3d` | Per-stage `timeout(1)` budget. |
-| `--outlier-mode {excluded\|singleton\|combined}` | stage 1 | `excluded` | `excluded` | How the profile stage handles outliers. |
-| `--drop-outlier-outlier-edges` / `--keep-outlier-outlier-edges` | stage 1 | keep | keep | Drop or retain edges between two outlier nodes at profile time. |
-| `--sbm-overlay` / `--no-sbm-overlay` | stage 2 | on | off | Whether stage 2 runs `gt.generate_sbm` on the mutated residual and overlays the k-edge-connected core (v1) or emits the core only (v2). |
-| `--scope {outlier-incident\|all}` | stage 3a | `outlier-incident` | `all` | Which orig edges contribute to the residual SBM's `probs` and `out_degs`: outlier-incident only (v1) or every edge, diag-adjusted (v2). |
-| `--gen-outlier-mode {combined\|singleton}` | stage 3a | `singleton` | `combined` | How outlier nodes are assigned to blocks during the residual SBM. |
-| `--edge-correction {none\|drop\|rewire}` | stage 3a | `none` | `rewire` | Post-SBM correction. `rewire` does block-preserving 2-opt swaps; `drop` / `none` rely on `remove_parallel_edges + remove_self_loops`. |
-| `--match-degree-algorithm {greedy\|true_greedy\|random_greedy\|rewire\|hybrid}` | stage 4a | `greedy` | `hybrid` | How stage 4 tops up residual degrees. |
+| Flag | Scope | v1 preset | v2 preset | v3 preset | Description |
+| --- | --- | --- | --- | --- | --- |
+| `--version {v1\|v2\|v3}` | required | - | - | - | Selects the preset flag bundle. |
+| `--seed N` | all | `1` | `1` | `1` | RNG seed. Under a fixed seed the pipeline is byte-reproducible. |
+| `--n-threads N` | all | `1` | `1` | `1` | Sets `OMP_NUM_THREADS`. |
+| `--timeout DUR` | all | `3d` | `3d` | `3d` | Per-stage `timeout(1)` budget. |
+| `--outlier-mode {excluded\|singleton\|combined}` | stage 1 | `excluded` | `excluded` | `excluded` | How the profile stage handles outliers. |
+| `--drop-outlier-outlier-edges` / `--keep-outlier-outlier-edges` | stage 1 | keep | keep | keep | Drop or retain edges between two outlier nodes at profile time. |
+| `--sbm-overlay` / `--no-sbm-overlay` | stage 2 (v1/v2) | on | off | n/a | Whether stage 2 runs `gt.generate_sbm` on the mutated residual and overlays the k-edge-connected core (v1) or emits the core only (v2). v3's stage 2 is the PSO core; this flag is recorded but ignored. |
+| `--scope {outlier-incident\|all}` | stage 3a | `outlier-incident` | `all` | `all` | Which orig edges contribute to the residual SBM's `probs` and `out_degs`. |
+| `--gen-outlier-mode {combined\|singleton}` | stage 3a | `singleton` | `combined` | `combined` | How outlier nodes are assigned to blocks during the residual SBM. |
+| `--edge-correction {none\|drop\|rewire}` | stage 3a | `none` | `rewire` | `rewire` | Post-SBM correction. `rewire` does block-preserving 2-opt swaps. |
+| `--match-degree-algorithm {greedy\|true_greedy\|random_greedy\|rewire\|hybrid}` | stage 4a | `greedy` | `true_greedy` | `true_greedy` | How stage 4 tops up residual degrees. |
+| `--pso-gamma F` | stage 2 (v3) | n/a | n/a | `3.0` | PSO power-law exponent. |
+| `--pso-m-policy {auto\|floor}` | stage 2 (v3) | n/a | n/a | `auto` | `auto` lifts m to `round(empirical_mean_intra_deg/2)`; `floor` skips the lift. |
+| `--pso-m-floor N` | stage 2 (v3) | n/a | n/a | `1` | Hard lower bound on per-cluster m. |
+| `--pso-search-{max-iters,diff-tol,step-tol,t-min,t-max,initial-t}` | stage 2 (v3) | n/a | n/a | `30 / 0.01 / 1e-4 / 0.01 / 0.99 / 0.5` | T-search controls. |
 
 Any explicit flag overrides the `--version` preset, so for example
 `--version v2 --sbm-overlay --scope all` mixes v1's stage-2 overlay
@@ -114,7 +122,11 @@ directly by setting `PYTHONPATH` to include `src/`.
    calls the constructive k-edge-connected core in `src/gen_kec_core.py`
    (K_{k+1} clique on the top-(k+1) nodes + attach-by-degree for the
    rest); the `--sbm-overlay` flag controls whether a residual SBM pass
-   is layered on top.
+   is layered on top. **v3** swaps this stage for `src/gen_clustered_v3.py`,
+   which calls the Python PSO port in `src/gen_pso_core.py` once per
+   cluster and runs a 1-D bisection-secant search on `T` to match the
+   empirical per-cluster clustering coefficient (search trace persisted
+   to `pso_search_log.json`).
 3. **gen_outlier**: SBM-samples the edges that stage 2 did not place.
    `src/gen_outlier.py`. The `--scope`, `--gen-outlier-mode`, and
    `--edge-correction` flags shape how the residual SBM's `probs` and
