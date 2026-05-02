@@ -68,8 +68,8 @@ Inputs:
 | `--pso-m-policy {auto\|floor}` | stage 2 (v3) | n/a | n/a | `auto` | `auto` lifts m to `round(empirical_mean_intra_deg/2)`; `floor` skips the lift. |
 | `--pso-m-floor N` | stage 2 (v3) | n/a | n/a | `1` | Hard lower bound on per-cluster m. |
 | `--pso-search-strategy {bayesian\|secant}` | stage 2 (v3) | n/a | n/a | `secant` | `secant` is bisection + secant, fast and accurate on the trend-with-noise objective (sweep at `tools/npso_bo_sweep/`). `bayesian` uses Optuna TPE; opt-in for ablation or non-monotone regimes. |
-| `--pso-search-samples-per-T N` | stage 2 (v3) | n/a | n/a | `1` | Average this many PSO realisations per T probe to suppress noise (linear cost in eval time). |
-| `--pso-search-{max-iters,initial-points,diff-tol,step-tol,t-min,t-max,initial-t}` | stage 2 (v3) | n/a | n/a | `30 / 5 / 0.01 / 1e-4 / 0.01 / 0.99 / 0.5` | T-search controls. `initial-points` is BO-only (LHS warm-up before the GP takes over). |
+| `--pso-search-samples-per-T N` | stage 2 (v3) | n/a | n/a | `3` | Average this many PSO realisations per T probe to suppress noise (linear cost in eval time). |
+| `--pso-search-{max-iters,initial-points,diff-tol,step-tol,t-min,t-max,initial-t}` | stage 2 (v3) | n/a | n/a | `30 / 3 / 0.01 / 1e-4 / 0.01 / 0.99 / 0.5` | T-search controls. `initial-points` is BO-only (TPE warm-up before the surrogate takes over). |
 
 Any explicit flag overrides the `--version` preset, so for example
 `--version v2 --sbm-overlay --scope all` mixes v1's stage-2 overlay
@@ -110,7 +110,7 @@ sha256sum examples/output/ec-sbm-v1/edge.csv
 v2 on the same input yields `edge.csv` with sha256
 `f46e7d8b94c99fcc3cddbb7b6381c81e05c8b1f25d40134a7ed87b47910a1289`.
 v3 (per-cluster PSO + secant T-search, default knobs) yields sha256
-`a3343e8371d885c97f2bfaed2712cee5dedc33f8dd14ecc89bfa89c0cc6c1ce6`.
+`d8fd654cfb326afec27a8469ba5a9344b02e5b7cadf8f3130f21da6320e3aa2e`.
 The `examples/output/ec-sbm-v{1,2,3}/` trees are committed as reference
 outputs.
 

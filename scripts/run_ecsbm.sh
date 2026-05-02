@@ -161,7 +161,7 @@ else  # v3 (PSO clustered + v2-style residual + match_degree)
     : "${PSO_SEARCH_STRATEGY:=secant}"
     : "${PSO_SEARCH_MAX_ITERS:=30}"
     : "${PSO_SEARCH_INITIAL_POINTS:=5}"
-    : "${PSO_SEARCH_SAMPLES_PER_T:=1}"
+    : "${PSO_SEARCH_SAMPLES_PER_T:=3}"
     : "${PSO_SEARCH_DIFF_TOL:=0.01}"
     : "${PSO_SEARCH_STEP_TOL:=0.0001}"
     : "${PSO_SEARCH_T_MIN:=0.01}"
