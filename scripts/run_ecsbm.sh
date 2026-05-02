@@ -2,11 +2,11 @@
 # Standalone EC-SBM driver. Linear, no caching, no short-circuit.
 #
 # The algorithm lives in a single configurable module pair
-# (gen_clustered.py + gen_outlier.py). This script wraps the common v1
-# and v2 flag bundles behind --version, and also lets advanced users
+# (gen_clustered.py + gen_outlier.py). This script wraps the v1, v2,
+# and v3 flag bundles behind --version, and also lets advanced users
 # override any individual knob.
 #
-# Network-generation's pipeline wrapper (src/ec-sbm/v{1,2}/pipeline.sh) is
+# Network-generation's pipeline wrapper (src/ec-sbm/pipeline.sh) is
 # the cached / stage-aware version used in that repo. This script is the
 # minimal version for clone-and-run use.
 set -euo pipefail
@@ -62,7 +62,11 @@ Usage: run_ecsbm.sh --version {v1|v2|v3} \
                     [--edge-correction {none|drop|rewire}]                  # stage 3a
                     [--match-degree-algorithm {greedy|true_greedy|random_greedy|rewire|hybrid}]  # stage 4a
                     [--pso-gamma F]                                          # stage 2 (v3)
+                    [--pso-m-floor N]                                        # stage 2 (v3)
+                    [--pso-search-strategy {secant|bayesian}]                # stage 2 (v3)
                     [--pso-search-max-iters N]                               # stage 2 (v3)
+                    [--pso-search-initial-points N]                          # stage 2 (v3, bayesian only)
+                    [--pso-search-samples-per-T N]                           # stage 2 (v3)
                     [--pso-search-diff-tol F]                                # stage 2 (v3)
                     [--pso-search-step-tol F]                                # stage 2 (v3)
                     [--pso-search-t-min F]                                   # stage 2 (v3)
