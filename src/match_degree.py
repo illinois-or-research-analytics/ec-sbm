@@ -2,13 +2,53 @@
 
 Given an input edgelist (current pipeline output) and a reference
 edgelist (defining the target per-node degree), add edges to minimize
-the residual degree deficit. Five algorithms:
+the residual degree deficit. Algorithms can be **stacked** with
+``--degree-matcher A,B,C``: each step is applied to the residual stubs
+left over by the previous step. A single algorithm name (no comma) is
+the 1-step stack and matches the prior CLI.
+
+Available algorithms:
 
   - greedy        : heap, static candidate set, `set.pop()` partners (silent gridlock)
   - true_greedy   : heap, dynamic re-push; logs gridlock
   - random_greedy : weighted-random u, weighted-random v
-  - rewire        : configuration-model pairing + 2-opt rewire
-  - hybrid        : rewire → true_greedy fallback on stuck stubs (default)
+  - rewire        : configuration-model pairing + 2-opt rewire (returns
+                    only the edges it could place; residual stubs flow
+                    through to the next stack step)
+
+Each algorithm has a ``cluster_preserving_*`` twin that gates partner
+selection by per-(min_block, max_block) edge budget. CP and non-CP
+algorithms can be mixed in the same stack: every CP step decrements
+the shared budget; non-CP steps ignore it. Putting a non-CP step
+*after* a CP step is the way to recover degree mass that the budget
+gate refused.
+
+Common stacks:
+  ``rewire,true_greedy``                                       — stochastic bulk drain, deterministic tail
+  ``cluster_preserving_rewire,cluster_preserving_true_greedy`` — same shape, every step gated by the bp budget
+  ``cluster_preserving_true_greedy,true_greedy``               — CP first, plain TG cleans up budget-stuck stubs
+
+When to use what (from the 33-network EC-SBM v2 bench in
+externals/ec-sbm/examples/bench_stack/):
+
+  - Default to a single ``cluster_preserving_true_greedy`` whenever
+    the reference clustering matters. The stack closes the ~0.5%
+    n_edges gap that CP-TG leaves, but at a 5x conductance EMD
+    regression and 2x mixing-parameter EMD regression (paired
+    Wilcoxon p < 1e-4 on n=26 nets in 10K-100K, p < 0.05 on n=7 nets
+    in 100K-200K). The cleanup edges land outside the per-(block,
+    block) budgets, which is what the budget gate was preventing.
+  - Reach for ``cluster_preserving_true_greedy,true_greedy`` only
+    when (a) downstream code requires exact n_edges, or (b) the
+    clustering is heavily refined (piecewise CM and similar) where
+    tiny per-block budgets exhaust before the matcher can bridge
+    a cluster, leaving it disconnected. See externals/ec-sbm/examples/bench/
+    for the douban / piecewise disconnection case.
+  - The three-step ``cluster_preserving_rewire, ..., true_greedy``
+    stack is faster (CP-rewire batches its stub draw via
+    gt.generate_sbm) but does not improve cluster-shape fidelity
+    over the two-step stack — it actively regresses it on most
+    metrics.
 
 Two target-degree modes:
 
@@ -60,8 +100,12 @@ def parse_args():
                              "Top-up edges stay in the input's ID space.")
     parser.add_argument(
         "--degree-matcher", dest="degree_matcher", type=str,
-        choices=list(ALGO_TABLE),
         default="true_greedy",
+        help=(
+            "One algorithm name, or a comma-separated stack like "
+            "'rewire,true_greedy'. Each step runs on the stubs the "
+            "previous step left behind. See module docstring."
+        ),
     )
     parser.add_argument(
         "--input-clustering", type=str, default=None,
@@ -418,45 +462,11 @@ def match_missing_degrees_rewire(out_degs, exist_neighbor, max_retries=10):
     return valid_edges, list(invalid_edges)
 
 
-def match_missing_degrees_hybrid_bands(out_degs, exist_neighbor):
-    """Hybrid (rewire → true_greedy fallback) returning the two bands separately.
-
-    Returns ``{"hybrid_rewire": set, "hybrid_true_greedy": set}``.
-    """
-    logging.info("Starting Hybrid (Rewire -> True Greedy) matching algorithm...")
-
-    valid_edges, invalid_edges = match_missing_degrees_rewire(
-        out_degs, exist_neighbor, max_retries=10
-    )
-
-    if not invalid_edges:
-        return {"hybrid_rewire": valid_edges, "hybrid_true_greedy": set()}
-
-    logging.info(
-        f"Hybrid transition: Passing {len(invalid_edges)} gridlocked edges "
-        f"({len(invalid_edges) * 2} stubs) to True Greedy deterministic fallback."
-    )
-
-    remaining_out_degs = {n: 0 for n in sorted(out_degs.keys())}
-    for u, v in invalid_edges:
-        remaining_out_degs[u] += 1
-        remaining_out_degs[v] += 1
-
-    remaining_out_degs = {n: d for n, d in remaining_out_degs.items() if d > 0}
-
-    for u, v in valid_edges:
-        exist_neighbor[u].add(v)
-        exist_neighbor[v].add(u)
-
-    greedy_edges = match_missing_degrees_true_greedy(remaining_out_degs, exist_neighbor)
-
-    return {"hybrid_rewire": valid_edges, "hybrid_true_greedy": greedy_edges}
-
-
-def match_missing_degrees_hybrid(out_degs, exist_neighbor):
-    """Backward-compat wrapper: returns flat union of the two hybrid bands."""
-    bands = match_missing_degrees_hybrid_bands(out_degs, exist_neighbor)
-    return bands["hybrid_rewire"] | bands["hybrid_true_greedy"]
+# Two-step compositions are expressed as stacks at the CLI:
+# ``--degree-matcher rewire,true_greedy`` and
+# ``--degree-matcher cluster_preserving_rewire,cluster_preserving_true_greedy``.
+# The stacking driver in main() composes any sequence of matchers and
+# emits one band per step.
 
 
 # ---------------------------------------------------------------------------
@@ -876,48 +886,6 @@ def match_missing_degrees_cluster_preserving_rewire(out_degs, exist_neighbor,
     return valid_edges, leftover
 
 
-def match_missing_degrees_cluster_preserving_hybrid_bands(out_degs, exist_neighbor,
-                                                           b, bp_budget):
-    """Cluster-preserving hybrid: rewire then true-greedy fallback.
-
-    Returns ``{"hybrid_rewire": set, "hybrid_true_greedy": set}``.
-    """
-    logging.info("Starting Cluster-Preserving Hybrid (Rewire -> True Greedy) algorithm...")
-
-    valid_edges, leftover_edges = match_missing_degrees_cluster_preserving_rewire(
-        out_degs, exist_neighbor, b, bp_budget, max_retries=10,
-    )
-
-    if not leftover_edges:
-        return {"hybrid_rewire": valid_edges, "hybrid_true_greedy": set()}
-
-    logging.info(
-        f"Hybrid transition: {len(leftover_edges)} edges remained invalid; "
-        f"falling back to cluster_preserving_true_greedy."
-    )
-
-    remaining_out_degs = defaultdict(int)
-    for u, v in leftover_edges:
-        remaining_out_degs[u] += 1
-        remaining_out_degs[v] += 1
-    remaining_out_degs = {n: d for n, d in remaining_out_degs.items() if d > 0}
-
-    greedy_edges = match_missing_degrees_cluster_preserving_true_greedy(
-        remaining_out_degs, exist_neighbor, b, bp_budget,
-    )
-
-    return {"hybrid_rewire": valid_edges, "hybrid_true_greedy": greedy_edges}
-
-
-def match_missing_degrees_cluster_preserving_hybrid(out_degs, exist_neighbor,
-                                                    b, bp_budget):
-    """Backward-compat wrapper: flat union of the two hybrid bands."""
-    bands = match_missing_degrees_cluster_preserving_hybrid_bands(
-        out_degs, exist_neighbor, b, bp_budget,
-    )
-    return bands["hybrid_rewire"] | bands["hybrid_true_greedy"]
-
-
 def export_degree_matched_edgelist(degree_edges, node_iid2id, output_dir,
                                    bands=None):
     """Write ``degree_matching_edge.csv`` with rows in band-block order
@@ -925,7 +893,7 @@ def export_degree_matched_edgelist(degree_edges, node_iid2id, output_dir,
 
     ``bands`` is an ordered list of ``(band_name, edges_iterable)`` pairs;
     if ``None``, fall back to a single anonymous band carrying every edge
-    in ``degree_edges`` (the legacy single-set call shape).
+    in ``degree_edges``.
     """
     if bands is None:
         bands = [("match_degree", degree_edges)]
@@ -949,86 +917,129 @@ def export_degree_matched_edgelist(degree_edges, node_iid2id, output_dir,
         json.dump(sources, f, indent=4)
 
 
-# Algorithm registry consumed by main(). Each entry: (kind, fn, labels, is_cp).
-#   kind="single"  → fn(...) returns edges set; bands = [(label, edges)].
-#   kind="rewire"  → fn(..., max_retries=10) returns (edges, leftover);
-#                    bands = [(label, edges)].
-#   kind="hybrid"  → fn(...) returns {"hybrid_rewire": ..., "hybrid_true_greedy": ...};
-#                    labels is a (rewire_label, tg_label) pair.
-# is_cp=True signals the matcher takes (b, bp_budget) after the standard args.
+# Algorithm registry consumed by main(). Each entry: (kind, fn, label, is_cp).
+#   kind="single"  → fn(out_degs, exist_neighbor[, b, bp_budget]) → set of edges.
+#   kind="rewire"  → fn(out_degs, exist_neighbor[, b, bp_budget],
+#                       max_retries=10) → (set of placed edges, leftover).
+#                    The leftover is discarded by the stack driver — its
+#                    stubs flow through naturally because they were never
+#                    decremented from out_degs.
+# is_cp=True ⇒ matcher takes (b, bp_budget) after the standard args.
 ALGO_TABLE = {
-    "greedy": (
-        "single", match_missing_degrees_greedy,
-        "match_degree_greedy", False,
-    ),
-    "true_greedy": (
-        "single", match_missing_degrees_true_greedy,
-        "match_degree_true_greedy", False,
-    ),
-    "random_greedy": (
-        "single", match_missing_degrees_random_greedy,
-        "match_degree_random_greedy", False,
-    ),
-    "rewire": (
-        "rewire", match_missing_degrees_rewire,
-        "match_degree_rewire", False,
-    ),
-    "hybrid": (
-        "hybrid", match_missing_degrees_hybrid_bands,
-        ("match_degree_hybrid_rewire", "match_degree_hybrid_true_greedy"),
-        False,
-    ),
-    "cluster_preserving_greedy": (
-        "single", match_missing_degrees_cluster_preserving_greedy,
-        "match_degree_cluster_preserving_greedy", True,
-    ),
-    "cluster_preserving_true_greedy": (
-        "single", match_missing_degrees_cluster_preserving_true_greedy,
-        "match_degree_cluster_preserving_true_greedy", True,
-    ),
-    "cluster_preserving_random_greedy": (
-        "single", match_missing_degrees_cluster_preserving_random_greedy,
-        "match_degree_cluster_preserving_random_greedy", True,
-    ),
-    "cluster_preserving_rewire": (
-        "rewire", match_missing_degrees_cluster_preserving_rewire,
-        "match_degree_cluster_preserving_rewire", True,
-    ),
-    "cluster_preserving_hybrid": (
-        "hybrid", match_missing_degrees_cluster_preserving_hybrid_bands,
-        ("match_degree_cluster_preserving_hybrid_rewire",
-         "match_degree_cluster_preserving_hybrid_true_greedy"),
-        True,
-    ),
+    "greedy":          ("single", match_missing_degrees_greedy,
+                        "match_degree_greedy", False),
+    "true_greedy":     ("single", match_missing_degrees_true_greedy,
+                        "match_degree_true_greedy", False),
+    "random_greedy":   ("single", match_missing_degrees_random_greedy,
+                        "match_degree_random_greedy", False),
+    "rewire":          ("rewire", match_missing_degrees_rewire,
+                        "match_degree_rewire", False),
+    "cluster_preserving_greedy":      ("single", match_missing_degrees_cluster_preserving_greedy,
+                                       "match_degree_cluster_preserving_greedy", True),
+    "cluster_preserving_true_greedy": ("single", match_missing_degrees_cluster_preserving_true_greedy,
+                                       "match_degree_cluster_preserving_true_greedy", True),
+    "cluster_preserving_random_greedy": ("single", match_missing_degrees_cluster_preserving_random_greedy,
+                                         "match_degree_cluster_preserving_random_greedy", True),
+    "cluster_preserving_rewire":      ("rewire", match_missing_degrees_cluster_preserving_rewire,
+                                       "match_degree_cluster_preserving_rewire", True),
 }
+
+
+def parse_matcher_stack(spec):
+    """Parse a comma-separated --degree-matcher value into a list of algo names."""
+    algos = [s.strip() for s in spec.split(",") if s.strip()]
+    if not algos:
+        raise SystemExit("--degree-matcher must name at least one algorithm.")
+    unknown = [a for a in algos if a not in ALGO_TABLE]
+    if unknown:
+        raise SystemExit(
+            f"--degree-matcher: unknown algorithm(s) {unknown}. "
+            f"Known: {sorted(ALGO_TABLE)}."
+        )
+    return algos
+
+
+def apply_matcher_step(algo, out_degs, exist_neighbor, b, bp_budget, step_seed):
+    """Run one matcher in the stack. Returns (label, edges).
+
+    Mutates out_degs (decrements by placed-edge endpoints, drops zeros)
+    and exist_neighbor (adds placed edges, idempotent). For CP steps,
+    bp_budget is mutated by the matcher itself.
+    """
+    kind, fn, label, is_cp = ALGO_TABLE[algo]
+
+    # Per-step seed: every step gets independent state to avoid RNG
+    # correlation across the stack.
+    random.seed(step_seed)
+    np.random.seed(step_seed)
+    if algo == "cluster_preserving_rewire":
+        import graph_tool.all as gt
+        gt.seed_rng(step_seed)
+
+    args = (out_degs, exist_neighbor)
+    if is_cp:
+        args = args + (b, bp_budget)
+
+    if kind == "single":
+        edges = fn(*args)
+    elif kind == "rewire":
+        edges, _leftover = fn(*args, max_retries=10)
+    else:
+        raise AssertionError(f"unknown matcher kind {kind!r} for {algo!r}")
+
+    # Update state for the next step. Idempotent on exist_neighbor since
+    # several matchers already add their placed edges; doing it here
+    # makes the contract uniform.
+    for u, v in edges:
+        exist_neighbor.setdefault(u, set()).add(v)
+        exist_neighbor.setdefault(v, set()).add(u)
+        if u in out_degs:
+            out_degs[u] -= 1
+            if out_degs[u] <= 0:
+                del out_degs[u]
+        if v in out_degs:
+            out_degs[v] -= 1
+            if out_degs[v] <= 0:
+                del out_degs[v]
+
+    return label, edges
 
 
 def main():
     args = parse_args()
     out_dir = standard_setup(args.output_folder)
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
+    stack = parse_matcher_stack(args.degree_matcher)
+    any_cp = any(ALGO_TABLE[a][3] for a in stack)
 
-    algo = args.degree_matcher
-    kind, algo_fn, labels, is_cp = ALGO_TABLE[algo]
-
-    # Cluster-preserving rewire/hybrid call into gt.generate_sbm; seed
-    # graph-tool's RNG too so the SBM sample is reproducible.
-    if algo in ("cluster_preserving_rewire", "cluster_preserving_hybrid"):
-        import graph_tool.all as gt
-        gt.seed_rng(args.seed)
-
-    if is_cp and args.input_clustering is None:
+    if any_cp and args.input_clustering is None:
         raise SystemExit(
-            f"--degree-matcher {algo} requires --input-clustering."
+            f"--degree-matcher {args.degree_matcher} contains a "
+            f"cluster_preserving_* step which requires --input-clustering."
         )
-    if is_cp and args.ref_clustering is None and not args.remap:
+    if any_cp and args.ref_clustering is None and not args.remap:
         args.ref_clustering = args.input_clustering
 
+    # Warn if a CP step is followed by a non-CP step: bp_budget will not
+    # be enforced from that point on, which is intentional in some
+    # configurations (CP first to anchor cluster structure, plain TG
+    # cleanup to recover degree mass) but worth flagging.
+    saw_cp = False
+    for algo in stack:
+        is_cp = ALGO_TABLE[algo][3]
+        if is_cp:
+            saw_cp = True
+        elif saw_cp:
+            logging.warning(
+                f"--degree-matcher stack: non-CP step '{algo}' follows "
+                f"a cluster_preserving_* step; bp_budget will not gate "
+                f"its placements."
+            )
+            break
+
     logging.info(
-        f"--- Starting Degree Matching ({algo.upper()}"
-        f"{' + remap' if args.remap else ''} mode) ---"
+        f"--- Starting Degree Matching (stack={','.join(stack)}"
+        f"{' + remap' if args.remap else ''}) ---"
     )
 
     if args.remap:
@@ -1047,7 +1058,7 @@ def main():
             args.input_edgelist, node_id2iid, out_degs
         )
 
-    if is_cp:
+    if any_cp:
         if args.remap:
             with timed("Built per-bp budget (remap mode)"):
                 b, bp_budget = build_bp_budget_remap(
@@ -1060,30 +1071,37 @@ def main():
                     args.input_edgelist, args.ref_edgelist,
                     args.input_clustering, args.outlier_mode, node_id2iid,
                 )
+    else:
+        b = bp_budget = None
 
-    with timed("Degree matching"):
-        extra = (b, bp_budget) if is_cp else ()
-        if kind == "single":
-            degree_edges = algo_fn(updated_out_degs, exist_neighbor, *extra)
-            bands = [(labels, degree_edges)]
-        elif kind == "rewire":
-            degree_edges, _ = algo_fn(
-                updated_out_degs, exist_neighbor, *extra, max_retries=10,
+    # Master RNG seeded off args.seed; pull one independent seed per step.
+    master_rng = random.Random(args.seed)
+
+    bands = []
+    all_edges = set()
+    with timed("Degree matching (stacked)"):
+        for algo in stack:
+            step_seed = master_rng.randrange(2**32)
+            label, edges = apply_matcher_step(
+                algo, updated_out_degs, exist_neighbor,
+                b, bp_budget, step_seed,
             )
-            bands = [(labels, degree_edges)]
-        else:  # kind == "hybrid"
-            band_dict = algo_fn(updated_out_degs, exist_neighbor, *extra)
-            degree_edges = band_dict["hybrid_rewire"] | band_dict["hybrid_true_greedy"]
-            bands = [
-                (labels[0], band_dict["hybrid_rewire"]),
-                (labels[1], band_dict["hybrid_true_greedy"]),
-            ]
+            logging.info(f"Stack step '{algo}': placed {len(edges)} edges")
+            # Disambiguate if a label repeats (same algo stacked twice).
+            existing = {bn for bn, _ in bands}
+            label_to_use = label
+            i = 1
+            while label_to_use in existing:
+                i += 1
+                label_to_use = f"{label}_{i}"
+            bands.append((label_to_use, edges))
+            all_edges |= edges
 
-        logging.info(f"Added {len(degree_edges)} edges")
+        logging.info(f"Added {len(all_edges)} edges total across {len(stack)} step(s)")
 
     with timed("Exported edgelist"):
         export_degree_matched_edgelist(
-            degree_edges, node_iid2id, out_dir, bands=bands,
+            all_edges, node_iid2id, out_dir, bands=bands,
         )
 
 
