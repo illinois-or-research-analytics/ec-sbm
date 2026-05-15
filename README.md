@@ -104,13 +104,13 @@ bash scripts/run_ecsbm.sh \
     --seed 1
 
 sha256sum examples/output/ec-sbm-v1/edge.csv
-# e2b5a6914b12f39c9356bbeba17a61ef82b0ce97258caf1dfef45b42d64a3d5b
+# 42128ea4b826a7c64f59b1905ae124374741fe0feb68fa3e9c0604b2c15bc302
 ```
 
 v2 on the same input yields `edge.csv` with sha256
-`f46e7d8b94c99fcc3cddbb7b6381c81e05c8b1f25d40134a7ed87b47910a1289`.
+`c63606b9f55871d26ee564f12b86a32c480517c8dbbc55048e6bde89dcb559fc`.
 v3 (per-cluster PSO + secant T-search, default knobs) yields sha256
-`2545f3978460d529449fd201e123d33bc11c505ac753f5a2b72e194295aa4b93`.
+`4efb2e467206fdad40459d9975b0fa7fdf81444bce927df9c649842c2273ddae`.
 The `examples/output/ec-sbm-v{1,2,3}/` trees are committed as reference
 outputs.
 

@@ -9,14 +9,14 @@
     ],
     "clustered_sbm_overlay": [
         2203,
-        7291
+        7268
     ],
     "outlier_sbm": [
-        7292,
-        8298
+        7269,
+        8275
     ],
     "match_degree_greedy": [
-        8299,
-        10425
+        8276,
+        10424
     ]
 }

@@ -37,5 +37,5 @@ bash scripts/run_ecsbm.sh \
     --output-dir       /tmp/ecsbm-sanity \
     --seed 1
 sha256sum /tmp/ecsbm-sanity/edge.csv
-# e2b5a6914b12f39c9356bbeba17a61ef82b0ce97258caf1dfef45b42d64a3d5b
+# 42128ea4b826a7c64f59b1905ae124374741fe0feb68fa3e9c0604b2c15bc302
 ```
